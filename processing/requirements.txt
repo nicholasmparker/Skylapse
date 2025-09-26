@@ -1,0 +1,44 @@
+# Skylapse Processing Service Dependencies
+
+# Core async framework
+asyncio-mqtt>=0.11.1
+
+# Web framework for API server
+aiohttp>=3.8.0
+aiofiles>=23.1.0
+
+# Configuration management
+PyYAML>=6.0
+
+# Image processing
+Pillow>=10.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# Video processing (Phase 2 - commented for Sprint 1)
+# imageio>=2.31.0
+# imageio-ffmpeg>=0.4.8
+# moviepy>=1.0.3
+
+# System integration
+psutil>=5.9.0
+
+# Logging and monitoring
+structlog>=22.3.0
+
+# HTTP client for health checks
+requests>=2.31.0
+
+# Development and testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Future enhancements (Phase 2)
+# scikit-image>=0.21.0    # Advanced image processing
+# rawpy>=0.18.0          # RAW image support
+# colour-science>=0.4.0   # Color space processing
+# tensorflow>=2.13.0     # ML-based processing (optional)

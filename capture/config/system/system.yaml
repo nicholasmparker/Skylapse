@@ -1,0 +1,95 @@
+# Skylapse System Configuration
+# Main system settings for the capture service
+
+storage:
+  # Local image buffer settings
+  capture_buffer_path: "/opt/skylapse/buffer"
+  buffer_retention_hours: 48
+  max_buffer_size_gb: 100
+  cleanup_interval_hours: 6
+
+  # Transfer queue settings
+  transfer_retry_attempts: 3
+  transfer_timeout_seconds: 30
+  transfer_batch_size: 10
+
+network:
+  # Processing service connection
+  processing_service_host: "localhost"
+  processing_service_port: 8081
+
+  # File transfer settings
+  use_rsync: false  # Use local transfer for single-machine setup
+  rsync_user: "skylapse"
+  transfer_retry_attempts: 3
+  transfer_timeout_seconds: 300
+
+  # API server settings
+  api_port: 8080
+  api_cors_enabled: true
+  api_auth_enabled: false  # Basic auth for Phase 2
+
+capture:
+  # Service settings
+  service_port: 8080
+  max_concurrent_captures: 1
+  health_check_interval_seconds: 30
+  check_interval_seconds: 10
+
+  # Performance settings
+  focus_timeout_ms: 2000
+  capture_timeout_ms: 5000
+
+  # Schedule settings
+  schedule_rules_file: "schedule_rules.yaml"
+
+monitoring:
+  # Logging configuration
+  log_level: "INFO"
+  log_file: "/opt/skylapse/logs/capture.log"
+  log_rotation_size_mb: 100
+  log_retention_days: 30
+
+  # Metrics and monitoring
+  metrics_enabled: true
+  metrics_port: 8090
+  performance_tracking: true
+
+  # Health checks
+  watchdog_enabled: true
+  watchdog_timeout_seconds: 30
+
+environmental:
+  # Weather API (Phase 2)
+  weather_api_enabled: false
+  weather_api_key: ""
+  weather_update_interval_minutes: 15
+
+  # Hardware sensors (Phase 2)
+  hardware_sensors_enabled: false
+  sensor_update_interval_seconds: 60
+
+  # Astronomical calculations
+  latitude: 45.0      # Mountain location latitude
+  longitude: -110.0   # Mountain location longitude
+  timezone: "America/Denver"
+
+security:
+  # File permissions
+  file_permissions: "0644"
+  directory_permissions: "0755"
+
+  # Service security
+  run_as_user: "skylapse"
+  run_as_group: "video"
+
+  # API security (Phase 2)
+  api_key_enabled: false
+  api_key: ""
+  rate_limiting_enabled: false
+
+development:
+  # Development settings
+  mock_camera_enabled: false
+  debug_logging: false
+  development_mode: false

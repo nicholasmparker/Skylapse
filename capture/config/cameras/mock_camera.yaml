@@ -1,0 +1,49 @@
+# Mock Camera Configuration
+# For testing and development without hardware
+
+sensor:
+  model: "Mock Camera v1.0"
+  bayer_pattern: "RGGB"
+  base_iso: 100
+  max_iso: 800
+  iso_invariance_point: 800
+  max_exposure_us: 10000000
+  resolution_mp: 16.0
+  max_resolution: [4656, 3496]
+  sensor_size_mm: [7.4, 5.6]
+
+optical:
+  focal_length_mm: 4.28
+  aperture: "f/2.0"
+  hyperfocal_distance_mm: 1830
+  focus_range_mm: [100.0, .inf]
+
+processing:
+  demosaic_algorithm: "DCB"
+  spatial_nr_strength: 0.2
+
+capture:
+  default_quality: 95
+  default_format: "JPEG"
+  enable_raw_capture: false
+  capture_timeout_ms: 5000
+
+performance:
+  capture_buffer_size: 4
+  max_capture_latency_ms: 10  # Much faster for mock
+  focus_timeout_ms: 500       # Faster mock focus
+
+# Mock-specific settings
+mock:
+  capture_delay_ms: 10        # Simulate capture delay
+  simulate_failures: false    # Enable failure simulation
+  failure_rate: 0.0          # Failure rate (0.0 to 1.0)
+  output_dir: "/tmp/skylapse_mock"
+
+capabilities:
+  - AUTOFOCUS
+  - MANUAL_FOCUS
+  - HDR_BRACKETING
+  - FOCUS_STACKING
+  - RAW_CAPTURE
+  - LIVE_PREVIEW

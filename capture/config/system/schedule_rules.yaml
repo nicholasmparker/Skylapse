@@ -1,0 +1,83 @@
+# Capture Schedule Rules Configuration
+# Defines when and how frequently to capture images
+
+# Golden Hour Rules - Most active capturing
+golden_hour_intensive:
+  active: true
+  interval_seconds: 30  # Every 30 seconds during golden hour
+  conditions:
+    golden_hour: true
+  description: "High-frequency capture during golden hour"
+
+# Blue Hour Rules - Moderate frequency
+blue_hour_intensive:
+  active: true
+  interval_seconds: 60  # Every minute during blue hour
+  conditions:
+    blue_hour: true
+  description: "Moderate frequency capture during blue hour"
+
+# Daylight Rules - Standard frequency
+daylight_normal:
+  active: true
+  interval_seconds: 300  # Every 5 minutes
+  start_hour: 8
+  end_hour: 17
+  min_light_level: 1000  # Bright daylight conditions
+  description: "Standard daylight captures"
+
+# Overcast Rules - Adjusted for flat lighting
+overcast_adjusted:
+  active: true
+  interval_seconds: 240  # Every 4 minutes
+  conditions:
+    cloud_cover_pct: ">70"
+  description: "Adjusted timing for overcast conditions"
+
+# Storm Rules - Frequent for dramatic clouds
+storm_frequent:
+  active: true
+  interval_seconds: 120  # Every 2 minutes
+  conditions:
+    precipitation_prob_pct: ">60"
+  description: "Frequent captures during stormy weather"
+
+# Low Light Rules - Reduced frequency
+low_light_reduced:
+  active: true
+  interval_seconds: 600  # Every 10 minutes
+  max_light_level: 100   # Low light conditions
+  description: "Reduced frequency in low light"
+
+# Night Rules - Minimal frequency
+night_minimal:
+  active: false  # Disabled by default
+  interval_seconds: 1800  # Every 30 minutes
+  start_hour: 22
+  end_hour: 5
+  max_light_level: 10
+  description: "Minimal night captures (disabled by default)"
+
+# Default Fallback - Always active
+default_fallback:
+  active: true
+  interval_seconds: 300  # Every 5 minutes
+  description: "Default capture interval when no other rules match"
+
+# Weekend Rules - Example of time-based rules
+weekend_extended:
+  active: false  # Disabled by default
+  interval_seconds: 180  # Every 3 minutes
+  conditions:
+    day_of_week: ["saturday", "sunday"]
+  start_hour: 6
+  end_hour: 20
+  description: "Extended weekend coverage (disabled by default)"
+
+# Maintenance Window - Pause captures
+maintenance_pause:
+  active: false
+  interval_seconds: 0  # No captures
+  start_hour: 2
+  end_hour: 3
+  description: "Maintenance window - no captures"
