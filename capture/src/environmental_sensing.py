@@ -3,8 +3,8 @@
 import logging
 import math
 import time
-from datetime import datetime
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional, Tuple
 
 from .camera_types import EnvironmentalConditions
 
@@ -19,12 +19,25 @@ class EnvironmentalSensor:
     Phase 2 will add real weather API integration and hardware sensor support.
     """
 
-    def __init__(self):
-        """Initialize environmental sensor system."""
+    def __init__(self, latitude: float = 40.7589, longitude: float = -111.8883, timezone_offset: float = -7.0):
+        """Initialize environmental sensor system.
+        
+        Args:
+            latitude: Location latitude in degrees (default: Park City, UT)
+            longitude: Location longitude in degrees (default: Park City, UT) 
+            timezone_offset: Timezone offset from UTC in hours (default: -7 for MST)
+        """
         self._is_initialized = False
         self._last_update_time: Optional[float] = None
         self._cached_conditions: Optional[EnvironmentalConditions] = None
         self._update_interval_seconds = 300  # Update every 5 minutes
+        
+        # Location configuration for accurate astronomical calculations
+        self._latitude = latitude
+        self._longitude = longitude
+        self._timezone_offset = timezone_offset
+        
+        logger.info(f"Environmental sensor configured for location: {latitude:.4f}°N, {longitude:.4f}°W")
 
     async def initialize(self) -> None:
         """Initialize environmental sensing system."""
@@ -96,47 +109,163 @@ class EnvironmentalSensor:
         logger.debug("Updated environmental conditions")
 
     async def _update_astronomical_data(self) -> Dict[str, Any]:
-        """Calculate current astronomical data."""
+        """Calculate accurate astronomical data for mountain photography."""
         now = datetime.now()
-
-        # For this implementation, we'll use simplified calculations
-        # A production system would use libraries like pyephem or astral
-
-        # Basic sun position calculation (simplified)
-        day_of_year = now.timetuple().tm_yday
-        hour_angle = (now.hour + now.minute / 60.0 - 12) * 15  # Degrees from solar noon
-
-        # Simplified solar elevation calculation
-        # This is very approximate - real implementation would account for location
-        declination = 23.45 * math.sin(math.radians(360 * (284 + day_of_year) / 365))
-        latitude = 45.0  # Approximate mountain latitude
-
-        sun_elevation = math.degrees(
-            math.asin(
-                math.sin(math.radians(latitude)) * math.sin(math.radians(declination))
-                + math.cos(math.radians(latitude))
-                * math.cos(math.radians(declination))
-                * math.cos(math.radians(hour_angle))
-            )
-        )
-
-        # Approximate azimuth (simplified)
-        sun_azimuth = hour_angle + 180  # Very simplified
-        if sun_azimuth > 360:
-            sun_azimuth -= 360
-        elif sun_azimuth < 0:
-            sun_azimuth += 360
-
-        # Determine lighting conditions
-        is_golden_hour = -6 <= sun_elevation <= 6
-        is_blue_hour = -12 <= sun_elevation <= -6
-
+        
+        # Calculate sun position using configured location
+        sun_elevation, sun_azimuth = self._calculate_sun_position(now)
+        
+        # Calculate sunrise/sunset times for today
+        sunrise_time, sunset_time = self._calculate_sunrise_sunset(now.date())
+        
+        # Determine lighting conditions with mountain photography specifics
+        is_golden_hour = self._is_golden_hour(sun_elevation, sunrise_time, sunset_time, now)
+        is_blue_hour = self._is_blue_hour(sun_elevation)
+        
+        # Calculate next golden hour window for scheduling
+        next_golden_start, next_golden_end = self._calculate_next_golden_hour(now)
+        
         return {
             "sun_elevation_deg": sun_elevation,
             "sun_azimuth_deg": sun_azimuth,
             "is_golden_hour": is_golden_hour,
             "is_blue_hour": is_blue_hour,
+            "sunrise_time": sunrise_time.isoformat() if sunrise_time else None,
+            "sunset_time": sunset_time.isoformat() if sunset_time else None,
+            "next_golden_start": next_golden_start.isoformat() if next_golden_start else None,
+            "next_golden_end": next_golden_end.isoformat() if next_golden_end else None,
         }
+    
+    def _calculate_sun_position(self, dt: datetime) -> Tuple[float, float]:
+        """Calculate accurate sun elevation and azimuth using astronomical algorithms."""
+        # Use configured location instead of hardcoded values
+        day_of_year = dt.timetuple().tm_yday
+        
+        # Solar declination (more accurate)
+        declination = 23.45 * math.sin(math.radians(360 * (284 + day_of_year) / 365))
+        
+        # Local solar time accounting for longitude
+        decimal_hour = dt.hour + dt.minute / 60.0 + dt.second / 3600.0
+        local_solar_time = decimal_hour - (self._longitude / 15.0) + self._timezone_offset
+        hour_angle = (local_solar_time - 12) * 15  # Degrees from solar noon
+        
+        # Calculate elevation using configured latitude
+        lat_rad = math.radians(self._latitude)
+        dec_rad = math.radians(declination)
+        hour_rad = math.radians(hour_angle)
+        
+        sin_elevation = (math.sin(lat_rad) * math.sin(dec_rad) + 
+                        math.cos(lat_rad) * math.cos(dec_rad) * math.cos(hour_rad))
+        elevation = math.degrees(math.asin(max(-1, min(1, sin_elevation))))
+        
+        # Calculate azimuth
+        cos_azimuth = ((math.sin(dec_rad) - math.sin(lat_rad) * math.sin(math.radians(elevation))) /
+                      (math.cos(lat_rad) * math.cos(math.radians(elevation))))
+        cos_azimuth = max(-1, min(1, cos_azimuth))
+        
+        azimuth = math.degrees(math.acos(cos_azimuth))
+        if math.sin(hour_rad) > 0:
+            azimuth = 360 - azimuth
+            
+        return elevation, azimuth
+    
+    def _calculate_sunrise_sunset(self, date) -> Tuple[Optional[datetime], Optional[datetime]]:
+        """Calculate sunrise and sunset times for given date using configured location."""
+        day_of_year = date.timetuple().tm_yday
+        
+        # Solar declination
+        declination = 23.45 * math.sin(math.radians(360 * (284 + day_of_year) / 365))
+        
+        # Hour angle for sunrise/sunset (sun at horizon)
+        lat_rad = math.radians(self._latitude)
+        dec_rad = math.radians(declination)
+        
+        try:
+            cos_hour_angle = -math.tan(lat_rad) * math.tan(dec_rad)
+            if abs(cos_hour_angle) > 1:
+                # Polar day or polar night
+                return None, None
+                
+            hour_angle = math.degrees(math.acos(cos_hour_angle))
+            
+            # Calculate times in local solar time
+            solar_noon = 12 - (self._longitude / 15.0)
+            sunrise_lst = solar_noon - (hour_angle / 15.0)
+            sunset_lst = solar_noon + (hour_angle / 15.0)
+            
+            # Convert to local time
+            sunrise_local = sunrise_lst + self._timezone_offset
+            sunset_local = sunset_lst + self._timezone_offset
+            
+            # Create datetime objects
+            sunrise_dt = None
+            sunset_dt = None
+            
+            if 0 <= sunrise_local <= 24:
+                sunrise_dt = datetime.combine(date, datetime.min.time()) + \
+                           datetime.timedelta(hours=sunrise_local)
+                           
+            if 0 <= sunset_local <= 24:
+                sunset_dt = datetime.combine(date, datetime.min.time()) + \
+                          datetime.timedelta(hours=sunset_local)
+                          
+            return sunrise_dt, sunset_dt
+            
+        except (ValueError, OverflowError):
+            return None, None
+    
+    def _is_golden_hour(self, sun_elevation: float, sunrise_time: Optional[datetime], 
+                       sunset_time: Optional[datetime], current_time: datetime) -> bool:
+        """Determine if current time is during golden hour for mountain photography."""
+        # Golden hour: sun elevation between -6° and 6° (civil twilight to low sun)
+        elevation_golden = -6 <= sun_elevation <= 6
+        
+        # Enhanced golden hour detection within 1 hour of sunrise/sunset
+        if sunrise_time and sunset_time:
+            sunrise_window = abs((current_time - sunrise_time).total_seconds()) <= 3600
+            sunset_window = abs((current_time - sunset_time).total_seconds()) <= 3600
+            time_based_golden = sunrise_window or sunset_window
+            
+            return elevation_golden and time_based_golden
+        
+        return elevation_golden
+    
+    def _is_blue_hour(self, sun_elevation: float) -> bool:
+        """Determine if current time is during blue hour."""
+        return -12 <= sun_elevation <= -6
+    
+    def _calculate_next_golden_hour(self, current_time: datetime) -> Tuple[Optional[datetime], Optional[datetime]]:
+        """Calculate the next golden hour window for adaptive scheduling."""
+        today = current_time.date()
+        tomorrow = today + datetime.timedelta(days=1)
+        
+        # Get today's sunrise/sunset
+        today_sunrise, today_sunset = self._calculate_sunrise_sunset(today)
+        
+        # Check morning golden hour (30 min before to 30 min after sunrise)
+        if today_sunrise:
+            morning_start = today_sunrise - datetime.timedelta(minutes=30)
+            morning_end = today_sunrise + datetime.timedelta(minutes=30)
+            
+            if current_time < morning_end:
+                return morning_start, morning_end
+        
+        # Check evening golden hour (30 min before to 30 min after sunset)
+        if today_sunset:
+            evening_start = today_sunset - datetime.timedelta(minutes=30)
+            evening_end = today_sunset + datetime.timedelta(minutes=30)
+            
+            if current_time < evening_start:
+                return evening_start, evening_end
+        
+        # Return tomorrow's morning golden hour
+        tomorrow_sunrise, _ = self._calculate_sunrise_sunset(tomorrow)
+        if tomorrow_sunrise:
+            morning_start = tomorrow_sunrise - datetime.timedelta(minutes=30)
+            morning_end = tomorrow_sunrise + datetime.timedelta(minutes=30)
+            return morning_start, morning_end
+            
+        return None, None
 
     async def _get_weather_data_stub(self) -> Dict[str, Any]:
         """
