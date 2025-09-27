@@ -1,6 +1,6 @@
 """Hardware integration tests for Raspberry Pi camera systems."""
 
-import asyncio
+import asyncio  # noqa: F401
 import subprocess
 import tempfile
 from pathlib import Path
@@ -8,8 +8,8 @@ from typing import Optional
 
 import pytest
 import pytest_asyncio
-from src.camera_controller import CameraController
-from src.camera_types import CameraCapability, CaptureSettings
+from src.camera_controller import CameraController  # noqa: F401
+from src.camera_types import CameraCapability, CaptureSettings  # noqa: F401
 
 
 # Hardware detection utilities

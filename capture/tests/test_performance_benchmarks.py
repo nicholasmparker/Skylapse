@@ -1,6 +1,6 @@
 """Performance benchmark tests for capture system."""
 
-import asyncio
+import asyncio  # noqa: F401
 import statistics
 import tempfile
 import time
@@ -9,11 +9,11 @@ from pathlib import Path
 
 import pytest
 import pytest_asyncio
-from src.camera_controller import CameraController
-from src.camera_types import CameraCapability, CaptureSettings
-from src.cameras.mock_camera import MockCamera
-from src.scheduler import CaptureScheduler
-from src.storage_manager import StorageManager
+from src.camera_controller import CameraController  # noqa: F401
+from src.camera_types import CameraCapability, CaptureSettings  # noqa: F401
+from src.cameras.mock_camera import MockCamera  # noqa: F401
+from src.scheduler import CaptureScheduler  # noqa: F401
+from src.storage_manager import StorageManager  # noqa: F401
 
 
 @pytest.mark.performance

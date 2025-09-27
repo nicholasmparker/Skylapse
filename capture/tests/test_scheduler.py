@@ -1,14 +1,14 @@
 """Tests for capture scheduling functionality."""
 
-import asyncio
+import asyncio  # noqa: F401
 import time
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch  # noqa: F401
 
 import pytest
 import pytest_asyncio
-from src.camera_types import CaptureResult, CaptureSettings, EnvironmentalConditions
-from src.scheduler import CaptureScheduler, ScheduleRule
+from src.camera_types import CaptureResult, CaptureSettings, EnvironmentalConditions  # noqa: F401
+from src.scheduler import CaptureScheduler, ScheduleRule  # noqa: F401
 
 
 class TestScheduleRule:

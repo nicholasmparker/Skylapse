@@ -1,12 +1,12 @@
 """Tests for environmental sensing functionality."""
 
-import asyncio
-import math
+import asyncio  # noqa: F401
+import math  # noqa: F401
 
 import pytest
 import pytest_asyncio
-from src.camera_types import EnvironmentalConditions
-from src.environmental_sensing import EnvironmentalSensor
+from src.camera_types import EnvironmentalConditions  # noqa: F401
+from src.environmental_sensing import EnvironmentalSensor  # noqa: F401
 
 
 class TestEnvironmentalSensor:
