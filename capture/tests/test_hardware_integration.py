@@ -254,7 +254,7 @@ class TestHardwareCameraIntegration:
             # Different quality settings should produce different file sizes
             file_size_kb = image_path.stat().st_size // 1024
             print(
-                f"Settings {i+1} - Quality: {settings.quality}, ISO: {settings.iso}, Size: {file_size_kb}KB"
+                f"Settings {i+1} - Quality: {settings.quality}, ISO: {settings.iso}, Size: {file_...
             )
 
     @pytest.mark.asyncio

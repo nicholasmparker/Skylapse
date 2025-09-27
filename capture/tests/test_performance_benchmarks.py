@@ -119,7 +119,7 @@ class TestPerformanceBenchmarks:
                 actual_ms = stats.get(f"{percentile}_ms", float("inf"))
                 assert (
                     actual_ms <= target_ms
-                ), f"{operation_name} {percentile} time {actual_ms:.2f}ms exceeds target {target_ms}ms"
+                ), f"{operation_name} {percentile} time {actual_ms:.2f}ms exceeds target {target_...
 
         return BenchmarkTimer()
 
