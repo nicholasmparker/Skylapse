@@ -148,7 +148,7 @@ class TestSystemConfigManager:
         """Test configuration reloading."""
         manager = SystemConfigManager(temp_system_config)
 
-        original_value = manager.get("storage.max_buffer_size_gb")
+        original_value = manager.get("storage.max_buffer_size_gb")  # noqa: F841
 
         # Modify file externally
         with open(temp_system_config, "r") as f:

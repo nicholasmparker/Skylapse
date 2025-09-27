@@ -224,10 +224,10 @@ class TestHardwareCameraIntegration:
         avg_time = statistics.mean(capture_times)
         max_time = max(capture_times)
 
-        print(f"Hardware Performance Results:")
+        print("Hardware Performance Results:")
         print(f"  Average capture time: {avg_time:.1f}ms")
         print(f"  Maximum capture time: {max_time:.1f}ms")
-        print(f"  Target: <100ms for hardware")
+        print("  Target: <100ms for hardware")
 
         # Hardware should meet relaxed performance targets
         assert avg_time < 200.0, f"Hardware avg capture time {avg_time:.1f}ms exceeds 200ms limit"
@@ -254,7 +254,8 @@ class TestHardwareCameraIntegration:
             # Different quality settings should produce different file sizes
             file_size_kb = image_path.stat().st_size // 1024
             print(
-                f"Settings {i+1} - Quality: {settings.quality}, ISO: {settings.iso}, Size: {file_size_kb}KB"
+                f"Settings {i+1} - Quality: {settings.quality}, "
+                f"ISO: {settings.iso}, Size: {file_size_kb}KB"
             )
 
     @pytest.mark.asyncio
@@ -387,12 +388,10 @@ class TestSystemIntegrationOnHardware:
             assert "images" in str(stored_path)
 
             # Check metadata
-            from datetime import datetime
-
             date_path = stored_path.parent.name
             assert len(date_path) == 2  # Should be DD format
 
-            print(f"Complete workflow successful:")
+            print("Complete workflow successful:")
             print(f"  Captured: {result.file_paths[0]}")
             print(f"  Stored: {stored_paths[0]}")
             print(f"  Capture time: {result.capture_time_ms:.1f}ms")
@@ -431,7 +430,7 @@ class TestSystemIntegrationOnHardware:
         successful_captures = len(captured_files)
         success_rate = successful_captures / capture_count
 
-        print(f"Stress test results:")
+        print("Stress test results:")
         print(f"  Attempted: {capture_count}")
         print(f"  Successful: {successful_captures}")
         print(f"  Success rate: {success_rate:.1%}")
@@ -451,7 +450,7 @@ class TestHardwareEnvironmentValidation:
         """Test that system meets hardware requirements."""
         system_info = get_system_info()
 
-        print(f"System Information:")
+        print("System Information:")
         for key, value in system_info.items():
             print(f"  {key}: {value}")
 

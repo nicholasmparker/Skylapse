@@ -1,8 +1,8 @@
 # QA Reality Check - Development Claims vs Test Results
 
-**Date**: September 26, 2025  
-**QA Engineer**: Jordan Martinez  
-**Sprint**: Sprint 1 - Foundation & First Capture  
+**Date**: September 26, 2025
+**QA Engineer**: Jordan Martinez
+**Sprint**: Sprint 1 - Foundation & First Capture
 **Previous Report**: sprint-0-qa-2.md
 
 ---
@@ -125,11 +125,11 @@ class CaptureScheduler:
     def set_rule_active(self, rule_name: str, active: bool) -> None
     def _matches_rule_conditions(self, rule: ScheduleRule, conditions: EnvironmentalConditions) -> bool
     def _get_matching_rules(self, conditions: EnvironmentalConditions) -> List[ScheduleRule]
-    
+
     # BROKEN IMPLEMENTATIONS (need fixes):
     def get_schedule_rules(self) -> List[str]  # Wrong return format
     def record_capture_attempt(self, ...)  # Timing calculation errors
-    
+
     # MISSING FEATURES:
     async def __aenter__(self) / __aexit__(self)  # Context manager
 ```
@@ -141,20 +141,20 @@ class StorageManager:
     def store_capture_result(self, result: CaptureResult) -> Path
         # Must organize as: base_path/YYYY/MM/DD/filename
         # Must include 'capture_time_ms' in metadata
-    
+
     def get_storage_usage(self) -> Dict[str, Any]
         # Must include 'usage_percentage' field
         # Must match expected data structure
-    
+
     def get_files_by_date_range(self, start: date, end: date) -> List[Path]
         # Date filtering logic is broken
-    
+
     def mark_for_transfer(self, file_path: Path) -> None
         # Queue item format: {"file_path": str, "timestamp": datetime, ...}
-    
+
     def get_statistics(self) -> Dict[str, Any]
         # Must include 'total_files' at top level
-    
+
     # MISSING METHODS:
     def _get_directory_size_gb(self, path: Path) -> float
 ```

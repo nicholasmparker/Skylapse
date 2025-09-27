@@ -5,7 +5,6 @@ import json
 import logging
 import traceback
 from datetime import datetime
-from typing import Any, Dict, Optional
 
 try:
     from aiohttp import web

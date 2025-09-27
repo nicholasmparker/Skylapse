@@ -1,13 +1,12 @@
 """Main camera controller for the capture service."""
 
-import asyncio
 import logging
 import time
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 # Import camera implementations
-from . import cameras  # This triggers camera registration
+from src import cameras  # This triggers camera registration  # noqa: F401
+
 from .camera_interface import CameraFactory, CameraInterface
 from .camera_types import (
     CameraCapability,

@@ -39,13 +39,13 @@ test_endpoint() {
     local endpoint="$1"
     local description="$2"
     local expected_status="${3:-200}"
-    
+
     print_status "Testing $description"
-    
+
     local response=$(curl -s --connect-timeout 10 -w '%{http_code}' "$API_BASE$endpoint" 2>/dev/null)
     local http_code="${response: -3}"
     local body="${response%???}"
-    
+
     if [[ "$http_code" == "$expected_status" ]]; then
         print_success "$description - HTTP $http_code"
         if [[ -n "$body" && "$body" != "null" ]]; then
@@ -65,10 +65,10 @@ test_endpoint() {
 # Function to test service status
 test_service_status() {
     print_status "Testing systemd service status"
-    
+
     if ssh "$SSH_HOST" "sudo systemctl is-active --quiet skylapse-capture"; then
         print_success "Service is running"
-        
+
         # Get service details
         local status=$(ssh "$SSH_HOST" "sudo systemctl status skylapse-capture --no-pager -l" 2>/dev/null)
         echo "  Service details:"
@@ -83,7 +83,7 @@ test_service_status() {
 # Function to test camera detection
 test_camera_detection() {
     print_status "Testing camera detection"
-    
+
     # Check if camera devices exist
     local camera_devices=$(ssh "$SSH_HOST" "ls /dev/video* 2>/dev/null || echo 'none'")
     if [[ "$camera_devices" != "none" ]]; then
@@ -91,7 +91,7 @@ test_camera_detection() {
     else
         print_warning "No camera devices found in /dev/video*"
     fi
-    
+
     # Check libcamera detection
     local libcamera_list=$(ssh "$SSH_HOST" "libcamera-hello --list-cameras 2>/dev/null || echo 'error'")
     if [[ "$libcamera_list" != "error" ]]; then
@@ -106,7 +106,7 @@ test_camera_detection() {
 # Function to test storage setup
 test_storage_setup() {
     print_status "Testing storage directory structure"
-    
+
     local dirs_check=$(ssh "$SSH_HOST" "ls -la /opt/skylapse/capture/buffer/ 2>/dev/null || echo 'missing'")
     if [[ "$dirs_check" != "missing" ]]; then
         print_success "Storage directories exist"

@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 from src.camera_controller import CameraController
-from src.camera_types import CameraCapability, CaptureSettings
-from src.cameras.mock_camera import MockCamera
+from src.camera_types import CameraCapability, CaptureSettings  # noqa: F401
+from src.cameras.mock_camera import MockCamera  # noqa: F401
 from src.scheduler import CaptureScheduler
 from src.storage_manager import StorageManager
 
@@ -117,9 +117,10 @@ class TestPerformanceBenchmarks:
             ):
                 stats = self.get_stats(operation_name)
                 actual_ms = stats.get(f"{percentile}_ms", float("inf"))
-                assert (
-                    actual_ms <= target_ms
-                ), f"{operation_name} {percentile} time {actual_ms:.2f}ms exceeds target {target_ms}ms"
+                assert actual_ms <= target_ms, (
+                    f"{operation_name} {percentile} time {actual_ms:.2f}ms "
+                    f"exceeds target {target_ms}ms"
+                )
 
         return BenchmarkTimer()
 
@@ -158,7 +159,7 @@ class TestPerformanceBenchmarks:
             "single_capture", 100.0, "p95"
         )  # 95th percentile
 
-        print(f"Capture Latency Benchmark Results:")
+        print("Capture Latency Benchmark Results:")
         print(f"  Average: {stats['avg_ms']:.2f}ms (target: <50ms)")
         print(f"  95th percentile: {stats['p95_ms']:.2f}ms (target: <100ms)")
         print(f"  Min: {stats['min_ms']:.2f}ms, Max: {stats['max_ms']:.2f}ms")
@@ -183,10 +184,10 @@ class TestPerformanceBenchmarks:
         benchmarking_timer.assert_performance_target("autofocus", 2000.0, "avg")  # <2s requirement
 
         stats = benchmarking_timer.get_stats("autofocus")
-        print(f"Focus Acquisition Benchmark Results:")
+        print("Focus Acquisition Benchmark Results:")
         print(f"  Average: {stats['avg_ms']:.0f}ms (target: <2000ms)")
         print(f"  95th percentile: {stats['p95_ms']:.0f}ms")
-        print(f"  Success rate: 100% (all attempts successful)")
+        print("  Success rate: 100% (all attempts successful)")
 
     @pytest.mark.asyncio
     async def test_hdr_sequence_performance(
@@ -210,7 +211,7 @@ class TestPerformanceBenchmarks:
         benchmarking_timer.assert_performance_target("hdr_sequence", 500.0, "avg")
 
         stats = benchmarking_timer.get_stats("hdr_sequence")
-        print(f"HDR Sequence Benchmark Results:")
+        print("HDR Sequence Benchmark Results:")
         print(f"  Average: {stats['avg_ms']:.2f}ms (target: <500ms for 3 shots)")
         print(f"  Per shot: {stats['avg_ms']/3:.2f}ms average")
 
@@ -250,7 +251,7 @@ class TestPerformanceBenchmarks:
         expected_captures = duration_seconds / capture_interval
         capture_rate = capture_count / duration_seconds
 
-        print(f"Continuous Capture Benchmark Results:")
+        print("Continuous Capture Benchmark Results:")
         print(f"  Duration: {duration_seconds}s")
         print(f"  Captures: {capture_count} (expected: ~{expected_captures:.0f})")
         print(f"  Capture rate: {capture_rate:.2f} fps")
@@ -277,7 +278,7 @@ class TestPerformanceBenchmarks:
                     test_file.write_bytes(test_data)
 
                     # Measure storage operation time
-                    from src.camera_types import CaptureResult, CaptureSettings
+                    from src.camera_types import CaptureResult
 
                     capture_result = CaptureResult(
                         file_paths=[str(test_file)],
@@ -305,7 +306,7 @@ class TestPerformanceBenchmarks:
                     avg_write_time < 100.0
                 ), f"Average write time {avg_write_time:.2f}ms exceeds 100ms target"
 
-                print(f"Storage Write Performance:")
+                print("Storage Write Performance:")
                 print(f"  Average write time: {avg_write_time:.2f}ms")
                 print(f"  Max write time: {max_write_time:.2f}ms")
                 print(f"  File sizes tested: {[s//1024 for s in file_sizes]}KB")
@@ -352,7 +353,7 @@ class TestPerformanceBenchmarks:
                 avg_decision_time < 10.0
             ), f"Average decision time {avg_decision_time:.2f}ms exceeds 10ms target"
 
-            print(f"Scheduler Decision Performance:")
+            print("Scheduler Decision Performance:")
             print(f"  Average decision time: {avg_decision_time:.2f}ms")
             print(f"  Max decision time: {max_decision_time:.2f}ms")
             print(f"  Decisions tested: {len(decision_times)}")
@@ -393,11 +394,11 @@ class TestPerformanceBenchmarks:
         final_memory = process.memory_info().rss / 1024 / 1024
         total_growth = final_memory - baseline_memory
 
-        print(f"Memory Usage Stability:")
+        print("Memory Usage Stability:")
         print(f"  Baseline: {baseline_memory:.1f}MB")
         print(f"  Final: {final_memory:.1f}MB")
         print(f"  Growth: {total_growth:.1f}MB (target: <50MB)")
-        print(f"  Captures: 100")
+        print("  Captures: 100")
 
     @pytest.mark.asyncio
     async def test_system_integration_performance(self):
@@ -461,10 +462,10 @@ class TestPerformanceBenchmarks:
                     avg_workflow_time < 200.0
                 ), f"Average workflow time {avg_workflow_time:.2f}ms exceeds 200ms target"
 
-                print(f"Integrated System Performance:")
+                print("Integrated System Performance:")
                 print(f"  Average workflow time: {avg_workflow_time:.2f}ms")
                 print(f"  Max workflow time: {max_workflow_time:.2f}ms")
-                print(f"  Target: <200ms per complete capture workflow")
+                print("  Target: <200ms per complete capture workflow")
 
             finally:
                 await controller.shutdown()
@@ -532,7 +533,7 @@ class TestPerformanceRegression:
                     "iterations": iterations,
                 }
 
-                print(f"Performance Baseline Metrics:")
+                print("Performance Baseline Metrics:")
                 print(f"  Version: {baseline_metrics['version']}")
                 print(f"  Average capture time: {avg_time:.2f}ms")
                 print(f"  95th percentile: {p95_time:.2f}ms")

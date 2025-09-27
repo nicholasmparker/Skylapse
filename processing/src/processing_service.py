@@ -1,12 +1,9 @@
 """Main processing service for the Skylapse timelapse system."""
 
 import asyncio
-import json
 import logging
 import signal
 import time
-from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .api_server import ProcessingAPIServer

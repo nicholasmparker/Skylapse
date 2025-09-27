@@ -1,8 +1,5 @@
 """Tests for environmental sensing functionality."""
 
-import asyncio
-import math
-
 import pytest
 import pytest_asyncio
 from src.camera_types import EnvironmentalConditions

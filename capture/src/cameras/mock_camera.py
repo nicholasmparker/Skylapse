@@ -3,14 +3,12 @@
 import asyncio
 import logging
 import time
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..camera_interface import CameraInterface
 from ..camera_types import (
     CameraCapability,
-    CameraInitializationError,
     CameraSpecs,
     CaptureError,
     CaptureResult,

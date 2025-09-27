@@ -1,16 +1,16 @@
 # QA Bug Report - JSON Serialization Error
 
-**Date**: September 26, 2025  
-**QA Engineer**: Jordan Martinez  
-**System**: Skylapse Professional Mountain Timelapse System  
+**Date**: September 26, 2025
+**QA Engineer**: Jordan Martinez
+**System**: Skylapse Professional Mountain Timelapse System
 **Version**: 1.0.0-sprint1
 
 ---
 
 ## **Bug Summary**
-**Title**: API endpoints return JSON serialization error for CaptureSettings objects  
-**Severity**: **HIGH** - Blocks core API functionality for camera operations  
-**Status**: Active  
+**Title**: API endpoints return JSON serialization error for CaptureSettings objects
+**Severity**: **HIGH** - Blocks core API functionality for camera operations
+**Status**: Active
 **Priority**: P1 - Critical for Sprint 1 completion
 
 ---
@@ -27,7 +27,7 @@
 
 ## **Affected Endpoints**
 1. `GET /status` - System status endpoint
-2. `GET /camera/status` - Camera status endpoint  
+2. `GET /camera/status` - Camera status endpoint
 3. `POST /capture/manual` - Manual capture trigger
 4. Potentially other endpoints returning CaptureSettings objects
 

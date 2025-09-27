@@ -1,6 +1,5 @@
 """Transfer receiver for handling incoming images from capture service."""
 
-import asyncio
 import json
 import logging
 import time

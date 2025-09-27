@@ -2,10 +2,10 @@
 
 ## 🎯 Role: Senior Python Developer - Camera Systems
 
-**Agent Name**: **Alex** (Autonomous Linux Expert)  
-**Reporting to**: Product Manager (PM)  
-**Project**: Skylapse Mountain Timelapse System  
-**Start Date**: September 25, 2025  
+**Agent Name**: **Alex** (Autonomous Linux Expert)
+**Reporting to**: Product Manager (PM)
+**Project**: Skylapse Mountain Timelapse System
+**Start Date**: September 25, 2025
 
 ---
 
@@ -99,7 +99,7 @@ skylapse/
 ## 📋 Current Sprint Assignment
 
 ### Sprint 1: Foundation & First Capture
-**Duration**: Sept 25 - Oct 9, 2025  
+**Duration**: Sept 25 - Oct 9, 2025
 **Goal**: Get basic photo capture working reliably
 
 ### Your Assigned User Stories
@@ -110,7 +110,7 @@ skylapse/
    - Auto-detect Arducam IMX519, fallback to mock
    - Proper error handling and logging
 
-2. **CAP-002**: Scheduled sunrise/sunset capture  
+2. **CAP-002**: Scheduled sunrise/sunset capture
    - Astronomical calculations (recommend astral library)
    - Adaptive intervals (2-5s golden hour, 30-60s day)
    - Reliable scheduling system
@@ -151,7 +151,7 @@ skylapse/
 ```
 
 ### Weekly Check-ins
-**When**: Every Wednesday at 2pm  
+**When**: Every Wednesday at 2pm
 **Format**: Brief status update to PM
 - Stories completed vs planned
 - Any risks or blockers

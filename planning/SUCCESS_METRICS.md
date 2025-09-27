@@ -49,7 +49,7 @@
 # System performance monitoring
 ./scripts/measure-performance.sh --duration=24h
 
-# Image quality analysis  
+# Image quality analysis
 ./scripts/analyze-image-quality.sh --batch=latest-100
 
 # Storage and uptime tracking

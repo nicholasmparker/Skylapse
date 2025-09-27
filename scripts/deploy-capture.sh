@@ -261,7 +261,7 @@ if [[ "$DRY_RUN" != "true" ]]; then
     # Check service status and show logs if failed
     if ssh $SSH_OPTS "$TARGET_HOST" "sudo systemctl is-active --quiet $SERVICE_NAME"; then
         print_success "Capture service is running"
-        
+
         # Check service health
         print_status "Checking service health"
         sleep 5  # Give service time to initialize

@@ -1,9 +1,9 @@
 """Tests for capture scheduling functionality."""
 
-import asyncio
+import asyncio  # noqa: F401
 import time
-from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from datetime import datetime, timedelta  # noqa: F401
+from unittest.mock import MagicMock, patch  # noqa: F401
 
 import pytest
 import pytest_asyncio
@@ -328,7 +328,7 @@ class TestCaptureScheduler:
 
             # Should not trigger dawn_only rule at noon
             # Implementation depends on how scheduler handles time filtering
-            should_capture = await scheduler.should_capture_now(conditions)
+            should_capture = await scheduler.should_capture_now(conditions)  # noqa: F841
 
             # The result depends on other rules, but dawn_only shouldn't match
             # We can check this by examining the matching rules
@@ -403,7 +403,7 @@ class TestSchedulerIntegration:
         )
 
         # Should still capture but less frequently
-        should_capture = await full_scheduler.should_capture_now(midday_conditions)
+        should_capture = await full_scheduler.should_capture_now(midday_conditions)  # noqa: F841
 
         # Get the next capture time
         next_time = await full_scheduler.get_next_capture_time(midday_conditions)

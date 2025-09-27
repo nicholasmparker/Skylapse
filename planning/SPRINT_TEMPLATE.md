@@ -1,7 +1,7 @@
 # Sprint Template
 
 ## Sprint X: [Sprint Name]
-**Duration**: [Start Date] - [End Date]  
+**Duration**: [Start Date] - [End Date]
 **Goal**: [Primary objective for this sprint]
 
 ### 🎯 Sprint Objectives
@@ -52,14 +52,14 @@
 ### 📝 Daily Progress Log
 
 #### Day 1 - [Date]
-- **Completed**: 
-- **Blocked**: 
-- **Next**: 
+- **Completed**:
+- **Blocked**:
+- **Next**:
 
 #### Day 2 - [Date]
-- **Completed**: 
-- **Blocked**: 
-- **Next**: 
+- **Completed**:
+- **Blocked**:
+- **Next**:
 
 [Continue for each day...]
 

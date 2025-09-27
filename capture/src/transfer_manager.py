@@ -1,13 +1,11 @@
 """File transfer management for sending images to processing service."""
 
-import asyncio
 import json
 import logging
 import shutil
 import time
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 

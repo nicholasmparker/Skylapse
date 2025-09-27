@@ -1,6 +1,5 @@
 """Environmental sensing system for adaptive capture control."""
 
-import asyncio
 import logging
 import math
 import time

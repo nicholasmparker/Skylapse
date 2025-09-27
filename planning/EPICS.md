@@ -8,12 +8,12 @@
 
 #### User Stories:
 - [ ] **CAP-001**: As a user, I want the system to detect and initialize my camera automatically
-- [ ] **CAP-002**: As a user, I want photos taken at sunrise/sunset automatically  
+- [ ] **CAP-002**: As a user, I want photos taken at sunrise/sunset automatically
 - [ ] **CAP-003**: As a user, I want the system to adapt exposure based on lighting conditions
 - [ ] **CAP-004**: As a user, I want photos stored locally with proper organization
 - [ ] **CAP-005**: As a user, I want the system to clean up old photos automatically
 
-### 🔄 Epic 2: Image Processing Pipeline  
+### 🔄 Epic 2: Image Processing Pipeline
 **Goal**: Transform raw captures into beautiful timelapses
 **Success**: Can generate high-quality timelapse videos from captured images
 

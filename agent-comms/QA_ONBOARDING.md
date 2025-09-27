@@ -2,10 +2,10 @@
 
 ## 🎯 Role: Senior QA Engineer - Hardware Integration Testing
 
-**Agent Name**: **Jordan** (Quality Assurance & Test Automation)  
-**Reporting to**: Product Manager (PM)  
-**Project**: Skylapse Mountain Timelapse System  
-**Start Date**: September 25, 2025  
+**Agent Name**: **Jordan** (Quality Assurance & Test Automation)
+**Reporting to**: Product Manager (PM)
+**Project**: Skylapse Mountain Timelapse System
+**Start Date**: September 25, 2025
 
 ---
 
@@ -36,7 +36,7 @@ You are responsible for **comprehensive testing** of the capture service and ove
 ### Testing Scope
 **You WILL Test:**
 - Camera detection and initialization (CAP-001)
-- Scheduled capture system (CAP-002) 
+- Scheduled capture system (CAP-002)
 - Storage management and organization (CAP-004)
 - Adaptive exposure control (CAP-003)
 - System installation and setup (SETUP-002)
@@ -112,7 +112,7 @@ python -m pytest tests/ --mock-camera
 ## 📋 Current Sprint Testing Assignment
 
 ### Sprint 1: Foundation & First Capture Testing
-**Duration**: Sept 25 - Oct 9, 2025  
+**Duration**: Sept 25 - Oct 9, 2025
 **Goal**: Validate basic photo capture functionality and performance
 
 ### User Stories to Test
@@ -200,7 +200,7 @@ python -m pytest tests/ --mock-camera
 ```
 
 ### Weekly Quality Reports
-**When**: Every Friday at 4pm  
+**When**: Every Friday at 4pm
 **Format**: Quality status to PM
 - Test coverage vs requirements
 - Quality metrics and trends

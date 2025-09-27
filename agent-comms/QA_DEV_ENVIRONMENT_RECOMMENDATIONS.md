@@ -1,7 +1,7 @@
 # QA Recommendations: Development Environment Setup
 
-**Date**: September 26, 2025  
-**QA Engineer**: Jordan Martinez  
+**Date**: September 26, 2025
+**QA Engineer**: Jordan Martinez
 **Topic**: Camera Development Environment Best Practices
 
 ---
@@ -54,13 +54,13 @@ monitoring:
 # In CameraFactory.auto_detect_camera()
 async def auto_detect_camera(cls, config_dir: Optional[str] = None) -> CameraInterface:
     """Auto-detect camera with development environment awareness."""
-    
+
     # 1. Check if development mode is enabled
     system_config = SystemConfigManager().get_config()
     if system_config.get('development', {}).get('mock_camera_enabled', False):
         logger.info("Development mode: Using mock camera")
         return cls.create_camera('mock_camera', mock_config)
-    
+
     # 2. Try to detect real hardware (Pi camera, USB cameras)
     for camera_type in ['arducam_imx519', 'pi_camera', 'usb_camera']:
         try:
@@ -70,7 +70,7 @@ async def auto_detect_camera(cls, config_dir: Optional[str] = None) -> CameraInt
             return camera
         except CameraInitializationError:
             continue
-    
+
     # 3. Fallback to mock camera if no hardware found
     logger.warning("No hardware cameras detected, falling back to mock camera")
     return cls.create_camera('mock_camera', mock_config)
@@ -137,7 +137,7 @@ def _generate_realistic_image(self, settings: CaptureSettings) -> bytes:
 async def optimize_settings_for_conditions(self, conditions: EnvironmentalConditions) -> CaptureSettings:
     """Simulate realistic camera optimization."""
     settings = CaptureSettings()
-    
+
     # Simulate realistic ISO/exposure adjustments
     if conditions.ambient_light_lux < 100:  # Low light
         settings.iso = 800
@@ -145,7 +145,7 @@ async def optimize_settings_for_conditions(self, conditions: EnvironmentalCondit
     elif conditions.is_golden_hour:
         settings.iso = 200
         settings.exposure_time_us = 250000   # 1/4 second
-    
+
     return settings
 ```
 

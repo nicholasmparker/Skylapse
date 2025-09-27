@@ -1,6 +1,5 @@
 """Job queue management for processing tasks."""
 
-import asyncio
 import json
 import logging
 import time
@@ -184,7 +183,8 @@ class JobQueue:
             self._stats["failed_jobs"] += 1
 
             logger.error(
-                f"Job {job_id} failed permanently after {job['retry_count']} retries: {error_message}"
+                f"Job {job_id} failed permanently after {job['retry_count']} retries: "
+                f"{error_message}"
             )
 
         # Save updated job

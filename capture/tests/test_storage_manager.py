@@ -1,12 +1,12 @@
 """Tests for storage management functionality."""
 
-import asyncio
+import asyncio  # noqa: F401
 import json
-import shutil
+import shutil  # noqa: F401
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch  # noqa: F401
 
 import pytest
 import pytest_asyncio
@@ -219,7 +219,7 @@ class TestStorageManager:
         stored_file = Path(stored_paths[0])
 
         # Run cleanup
-        cleaned_count = await storage_manager.cleanup_old_files()
+        cleaned_count = await storage_manager.cleanup_old_files()  # noqa: F841
 
         # Recent file should still exist
         assert stored_file.exists()
@@ -624,8 +624,6 @@ class TestStorageManagerIntegration:
             capture_files.extend(stored_paths)
 
             # Small delay to ensure unique timestamps
-            import asyncio
-
             await asyncio.sleep(0.001)
 
         # Mark files for transfer (simulate processing pipeline pickup)

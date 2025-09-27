@@ -1,12 +1,11 @@
 """Timelapse assembly and video generation module."""
 
-import asyncio
 import json
 import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +183,7 @@ class TimelapseAssembler:
             return 0.0
 
         timestamps = [img.get("timestamp", 0) for img in sorted_images]
-        real_duration = max(timestamps) - min(timestamps)
+        real_duration = max(timestamps) - min(timestamps)  # noqa: F841
 
         # Calculate video duration at target framerate
         target_framerate = 24.0  # fps

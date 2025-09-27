@@ -1,6 +1,5 @@
 """Camera interface abstraction for multi-camera support."""
 
-import asyncio
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
