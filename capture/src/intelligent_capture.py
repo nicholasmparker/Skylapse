@@ -170,36 +170,10 @@ class BackgroundLightMonitor:
             await asyncio.sleep(self.sampling_interval)
 
     async def _quick_light_sample(self) -> LightConditions:
-        """Quick light sampling from actual Pi camera sensor."""
-        try:
-            # Use rpicam-still for quick exposure reading without saving image
-            import subprocess
-            
-            result = subprocess.run([
-                'rpicam-still', 
-                '-t', '100',      # 100ms timeout for quick reading
-                '--info',         # Get exposure info
-                '-n',             # No preview window
-                '-o', '/dev/null' # Don't save image
-            ], capture_output=True, text=True, timeout=2.0)
-            
-            if result.returncode == 0:
-                # Parse exposure info from stderr output
-                exposure_info = self._parse_exposure_info(result.stderr)
-                return exposure_info
-            else:
-                logger.warning(f"rpicam-still failed: {result.stderr}")
-                return self._fallback_light_reading()
-                
-        except subprocess.TimeoutExpired:
-            logger.warning("Light sensor reading timed out")
-            return self._fallback_light_reading()
-        except FileNotFoundError:
-            logger.warning("rpicam-still not found, using fallback")
-            return self._fallback_light_reading()
-        except Exception as e:
-            logger.warning(f"Light sensor reading failed: {e}")
-            return self._fallback_light_reading()
+        """Quick light sampling - using time-based estimation for reliability."""
+        # For now, use reliable time-based estimation
+        # TODO: Implement full rpicam-still parsing in future iteration
+        return self._fallback_light_reading()
     
     def _parse_exposure_info(self, stderr_output: str) -> LightConditions:
         """Parse exposure information from rpicam-still stderr output."""
