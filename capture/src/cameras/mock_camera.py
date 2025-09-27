@@ -3,14 +3,14 @@
 import asyncio
 import logging
 import time
-import uuid
+
+# import uuid  # Unused
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..camera_interface import CameraInterface
-from ..camera_types import (
+from ..camera_types import (  # CameraInitializationError,  # Unused
     CameraCapability,
-    CameraInitializationError,
     CameraSpecs,
     CaptureError,
     CaptureResult,

@@ -1,11 +1,12 @@
 """Capture scheduling system for timelapse operations."""
 
-import asyncio
+# import asyncio  # Unused
 import logging
-import math
+
+# import math  # Unused
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from .camera_types import CaptureResult, CaptureSettings, EnvironmentalConditions
