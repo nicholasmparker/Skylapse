@@ -31,6 +31,7 @@ plugins = []
 
 [tool.pytest.ini_options]
 addopts = "-q"
+testpaths = ["capture/tests"]
 pythonpath = [
   "capture/src",
 ]

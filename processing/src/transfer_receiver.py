@@ -247,13 +247,79 @@ class TransferReceiver:
 
     # Future methods for Phase 2 implementation
 
-    async def _setup_rsync_monitoring(self, rsync_config: Dict[str, Any]) -> None:
-        """Setup rsync transfer monitoring (Phase 2)."""
-        # TODO: Implement rsync monitoring
-        # - Monitor rsync target directory
-        # - Validate transfer completeness
-        # - Handle interrupted transfers
-        pass
+    async def setup_rsync_monitoring(self, rsync_config: Dict[str, Any]) -> None:
+        """Setup rsync transfer monitoring."""
+        logger.info("Setting up rsync transfer monitoring")
+        
+        # Configure rsync target directory
+        rsync_target = rsync_config.get("target_dir", str(self.incoming_dir))
+        self.incoming_dir = Path(rsync_target)
+        self.incoming_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Set up file system monitoring for incoming transfers
+        self._rsync_config = rsync_config
+        self._monitoring_enabled = True
+        
+        logger.info(f"rsync monitoring configured for: {self.incoming_dir}")
+    
+    async def monitor_incoming_transfers(self) -> List[Dict[str, Any]]:
+        """Monitor for new incoming rsync transfers."""
+        if not self._is_initialized:
+            return []
+            
+        new_transfers = []
+        
+        # Check for new transfer manifest files
+        for manifest_file in self.incoming_dir.glob("transfer_*.json"):
+            try:
+                # Check if this is a new transfer (not already processed)
+                processing_manifest = self.processing_dir / manifest_file.name
+                if processing_manifest.exists():
+                    continue  # Already being processed
+                    
+                # Validate transfer completeness
+                if await self._validate_transfer_completeness(manifest_file):
+                    transfer_data = await self._process_transfer_manifest(manifest_file)
+                    if transfer_data:
+                        new_transfers.append(transfer_data)
+                else:
+                    logger.debug(f"Transfer not yet complete: {manifest_file}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to process incoming transfer {manifest_file}: {e}")
+                self._transfer_stats["transfer_errors"] += 1
+                
+        return new_transfers
+    
+    async def _validate_transfer_completeness(self, manifest_file: Path) -> bool:
+        """Validate that an rsync transfer is complete."""
+        try:
+            with open(manifest_file, 'r') as f:
+                manifest = json.load(f)
+                
+            # Check that all expected files exist
+            for image_file in manifest.get("image_files", []):
+                image_path = self.incoming_dir / image_file
+                if not image_path.exists():
+                    return False
+                    
+                # Check file size is reasonable (not zero or partial)
+                if image_path.stat().st_size < 1024:  # Less than 1KB is suspicious
+                    return False
+                    
+            # Additional validation: check manifest timestamp vs file timestamps
+            manifest_time = manifest_file.stat().st_mtime
+            for image_file in manifest.get("image_files", []):
+                image_path = self.incoming_dir / image_file
+                # If image is newer than manifest, transfer might still be in progress
+                if image_path.stat().st_mtime > manifest_time + 5:  # 5 second tolerance
+                    return False
+                    
+            return True
+            
+        except Exception as e:
+            logger.warning(f"Transfer validation failed for {manifest_file}: {e}")
+            return False
 
     async def _setup_ssh_key_auth(self, ssh_config: Dict[str, Any]) -> None:
         """Setup SSH key authentication for secure transfers (Phase 2)."""

@@ -20,28 +20,28 @@
 3. **Multi-Camera Support**: Extend factory pattern for additional cameras
 
 ---
-
 ## 📋 **Sprint Backlog**
 
 ### **Epic 1: Performance Optimization** 🚀
 **Priority**: Critical - Foundation for all future features
 
-#### **PERF-001**: Capture Latency Optimization [Size: L]
-- **Current**: 7.3s capture time with IMX519
-- **Target**: <50ms capture latency
+#### **PERF-001**: Intelligent Capture Optimization [Size: L]
+- **Current**: 7.3s capture time with IMX519 (all components recalculated)
+- **Target**: Smart adaptive capture timing based on conditions
 - **Approach**:
-  - Optimize rpicam-still parameters
-  - Implement capture caching/pre-warming
-  - Parallel processing optimization
+  - Cached focus management (mountains = infinity focus)
+  - Background light monitoring and adaptive exposure
+  - Smart trigger system for recalculation only when needed
 - **Acceptance Criteria**:
-  - [ ] Capture latency <50ms for standard resolution
-  - [ ] Maintain 16MP quality option
+  - [ ] Stable conditions: 300-400ms (70% of captures)
+  - [ ] Light adaptation: 600-800ms (25% of captures)
+  - [ ] Major changes: 1000-1200ms (4% of captures)
+  - [ ] Periodic refocus: 2000-2500ms (1% of captures)
   - [ ] No degradation in image quality
 
 #### **PERF-002**: Memory and CPU Optimization [Size: M]
 - **Focus**: Reduce resource usage on Pi
 - **Approach**: Profile and optimize critical paths
-- **Acceptance Criteria**:
   - [ ] <512MB memory usage during capture
   - [ ] <50% CPU utilization baseline
   - [ ] Stable performance over 24h operation
@@ -127,7 +127,9 @@ Pi Capture → Transfer Queue → Processing Service → Output
 ### **Performance Targets**
 | Metric | Current | Target | Measurement |
 |--------|---------|--------|-------------|
-| **Capture Latency** | 7300ms | <50ms | Time from trigger to file |
+| **Stable Capture** | 7300ms | 300-400ms | Cached focus + settings |
+| **Light Adaptation** | 7300ms | 600-800ms | Exposure recalculation |
+| **Major Changes** | 7300ms | 1000-1200ms | Full metering cycle |
 | **Memory Usage** | Unknown | <512MB | Peak RAM during capture |
 | **CPU Usage** | Unknown | <50% | Average CPU during operation |
 | **Success Rate** | 100% | 99.9% | Successful captures/attempts |

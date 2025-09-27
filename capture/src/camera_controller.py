@@ -2,6 +2,7 @@
 
 import logging
 import time
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 # Import camera implementations
@@ -17,6 +18,7 @@ from .camera_types import (
     EnvironmentalConditions,
 )
 from .config_manager import CameraConfigManager, SystemConfigManager
+from .intelligent_capture import IntelligentCaptureManager
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,9 @@ class CameraController:
             "average_capture_time_ms": 0.0,
             "last_capture_time": None,
         }
+
+        # Initialize intelligent capture system
+        self.intelligent_capture = IntelligentCaptureManager(self)
 
     @property
     def is_initialized(self) -> bool:
@@ -80,10 +85,50 @@ class CameraController:
             logger.error(f"Failed to initialize camera: {e}")
             raise CameraInitializationError(f"Camera initialization failed: {e}")
 
+    async def capture_manual(self, settings: Optional[CaptureSettings] = None) -> CaptureResult:
+        """Manual capture with intelligent optimization."""
+        if not self.is_initialized:
+            raise CameraError("Camera not initialized")
+
+        # Use default settings if none provided
+        if settings is None:
+            settings = CaptureSettings()
+
+        # Use intelligent capture system for optimization
+        return await self.intelligent_capture.capture_optimized(settings)
+
+    async def get_intelligent_capture_status(self) -> Dict[str, Any]:
+        """Get intelligent capture system status and metrics."""
+        return {
+            "performance_metrics": self.intelligent_capture.get_performance_metrics(),
+            "cache_status": self.intelligent_capture.get_cache_status(),
+            "system_initialized": self.intelligent_capture._initialized,
+        }
+
+    async def run_performance_baseline(self, iterations: int = 10) -> Dict[str, Any]:
+        """Run performance baseline measurement for QA validation."""
+        from .performance_baseline import PerformanceBaseline
+
+        baseline = PerformanceBaseline(self)
+        try:
+            metrics = await baseline.measure_current_performance(iterations)
+            validation = await baseline.validate_optimization_claims()
+
+            return {
+                "baseline_measurement": metrics.to_dict(),
+                "optimization_validation": validation,
+                "timestamp": metrics.timestamp.isoformat(),
+            }
+        except Exception as e:
+            return {"error": str(e), "timestamp": datetime.now().isoformat()}
+
     async def shutdown(self) -> None:
         """Shutdown camera controller."""
         logger.info("Shutting down camera controller")
         self._is_running = False
+
+        # Shutdown intelligent capture system
+        await self.intelligent_capture.shutdown()
 
         if self._camera:
             await self._camera.shutdown()

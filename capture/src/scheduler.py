@@ -37,33 +37,51 @@ class CaptureScheduler:
         self._failure_count = 0
         self._consecutive_failures = 0
 
-        # Default schedule rules for Sprint 1
+        # Enhanced adaptive schedule rules for Sprint 2
         self._default_rules = [
             ScheduleRule(
                 name="golden_hour_intensive",
                 active=True,
-                interval_seconds=30,  # Every 30 seconds during golden hour
+                interval_seconds=2,  # Every 2 seconds during golden hour (SCHED-002)
                 conditions={"golden_hour": True},
+            ),
+            ScheduleRule(
+                name="golden_hour_moderate",
+                active=True,
+                interval_seconds=5,  # Every 5 seconds near golden hour
+                conditions={"near_golden_hour": True},
             ),
             ScheduleRule(
                 name="blue_hour_intensive",
                 active=True,
-                interval_seconds=60,  # Every minute during blue hour
+                interval_seconds=10,  # Every 10 seconds during blue hour
                 conditions={"blue_hour": True},
             ),
             ScheduleRule(
-                name="daylight_standard",
+                name="sunrise_sunset_burst",
                 active=True,
-                interval_seconds=300,  # Every 5 minutes during day
-                start_hour=8,
-                end_hour=17,
-                min_light_level=1000,  # Bright daylight
+                interval_seconds=1,  # Every second during sunrise/sunset
+                conditions={"sunrise_sunset_window": True},
+            ),
+            ScheduleRule(
+                name="daylight_stable",
+                active=True,
+                interval_seconds=300,  # Every 5 minutes during stable daylight
+                start_hour=10,
+                end_hour=15,
+                min_light_level=5000,  # Bright stable daylight
+            ),
+            ScheduleRule(
+                name="changing_light",
+                active=True,
+                interval_seconds=30,  # Every 30 seconds when light is changing
+                conditions={"light_changing": True},
             ),
             ScheduleRule(
                 name="low_light_reduced",
                 active=True,
                 interval_seconds=600,  # Every 10 minutes in low light
-                max_light_level=100,  # Low light conditions
+                max_light_level=100,
             ),
             ScheduleRule(
                 name="default_fallback",
@@ -154,7 +172,7 @@ class CaptureScheduler:
                 ):
                     continue
 
-            # Check special conditions
+            # Check special conditions with enhanced adaptive logic
             if rule.conditions:
                 if conditions is None:
                     # Can't match condition-specific rules without conditions
@@ -162,24 +180,38 @@ class CaptureScheduler:
 
                 match = True
                 for condition, required_value in rule.conditions.items():
-                    if (
-                        condition == "golden_hour"
-                        and getattr(conditions, "is_golden_hour", False) != required_value
-                    ):
-                        match = False
-                        break
-                    elif (
-                        condition == "blue_hour"
-                        and getattr(conditions, "is_blue_hour", False) != required_value
-                    ):
-                        match = False
-                        break
+                    if condition == "golden_hour":
+                        if getattr(conditions, "is_golden_hour", False) != required_value:
+                            match = False
+                            break
+                    elif condition == "blue_hour":
+                        if getattr(conditions, "is_blue_hour", False) != required_value:
+                            match = False
+                            break
+                    elif condition == "near_golden_hour":
+                        # Check if we're within 30 minutes of golden hour
+                        near_golden = self._is_near_golden_hour(conditions)
+                        if near_golden != required_value:
+                            match = False
+                            break
+                    elif condition == "sunrise_sunset_window":
+                        # Check if we're within 15 minutes of sunrise/sunset
+                        sunrise_sunset_window = self._is_sunrise_sunset_window(conditions)
+                        if sunrise_sunset_window != required_value:
+                            match = False
+                            break
+                    elif condition == "light_changing":
+                        # Check if light conditions are rapidly changing
+                        light_changing = self._is_light_changing(conditions)
+                        if light_changing != required_value:
+                            match = False
+                            break
 
                 if not match:
                     continue
 
-            # Rule matches
-            return rule
+        # Rule matches
+        return rule
 
         return None
 
@@ -674,3 +706,56 @@ class CaptureScheduler:
         """Async context manager exit."""
         await self.shutdown()
         return False
+    
+    def _is_near_golden_hour(self, conditions: EnvironmentalConditions) -> bool:
+        """Check if we're within 30 minutes of golden hour (SCHED-002)."""
+        if not conditions:
+            return False
+            
+        # Check sun elevation - near golden hour if between 6° and 15° elevation
+        if conditions.sun_elevation_deg is not None:
+            return 6 <= conditions.sun_elevation_deg <= 15
+            
+        return False
+    
+    def _is_sunrise_sunset_window(self, conditions: EnvironmentalConditions) -> bool:
+        """Check if we're within 15 minutes of sunrise/sunset (SCHED-002)."""
+        if not conditions:
+            return False
+            
+        # Check sun elevation - sunrise/sunset window if between -2° and 2° elevation
+        if conditions.sun_elevation_deg is not None:
+            return -2 <= conditions.sun_elevation_deg <= 2
+            
+        return False
+    
+    def _is_light_changing(self, conditions: EnvironmentalConditions) -> bool:
+        """Check if light conditions are rapidly changing (SCHED-002)."""
+        if not conditions or len(self._capture_history) < 3:
+            return False
+            
+        # Look at recent light level changes in capture history
+        recent_captures = [
+            entry for entry in self._capture_history[-10:]
+            if entry.get("success") and "conditions" in entry
+        ]
+        
+        if len(recent_captures) < 3:
+            return False
+            
+        # Check if light levels have changed significantly
+        light_levels = [
+            entry["conditions"].get("ambient_light_lux", 0) 
+            for entry in recent_captures
+            if entry["conditions"].get("ambient_light_lux") is not None
+        ]
+        
+        if len(light_levels) < 3:
+            return False
+            
+        # Calculate variance in recent light levels
+        avg_light = sum(light_levels) / len(light_levels)
+        variance = sum((x - avg_light) ** 2 for x in light_levels) / len(light_levels)
+        
+        # Consider light "changing" if variance is high (>20% of average)
+        return variance > (avg_light * 0.2) ** 2
