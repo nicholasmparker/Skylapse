@@ -170,20 +170,133 @@ class BackgroundLightMonitor:
             await asyncio.sleep(self.sampling_interval)
 
     async def _quick_light_sample(self) -> LightConditions:
-        """Quick light sampling without full camera metering."""
-        # TODO: Implement actual light sensor reading
-        # For now, simulate with reasonable values
-        import random
-
-        # Simulate realistic light variations
-        base_ev = 12.0  # Daylight baseline
-        ev_variation = random.uniform(-1.0, 1.0)  # ±1 EV variation
-
+        """Quick light sampling from actual Pi camera sensor."""
+        try:
+            # Use rpicam-still for quick exposure reading without saving image
+            import subprocess
+            
+            result = subprocess.run([
+                'rpicam-still', 
+                '-t', '100',      # 100ms timeout for quick reading
+                '--info',         # Get exposure info
+                '-n',             # No preview window
+                '-o', '/dev/null' # Don't save image
+            ], capture_output=True, text=True, timeout=2.0)
+            
+            if result.returncode == 0:
+                # Parse exposure info from stderr output
+                exposure_info = self._parse_exposure_info(result.stderr)
+                return exposure_info
+            else:
+                logger.warning(f"rpicam-still failed: {result.stderr}")
+                return self._fallback_light_reading()
+                
+        except subprocess.TimeoutExpired:
+            logger.warning("Light sensor reading timed out")
+            return self._fallback_light_reading()
+        except FileNotFoundError:
+            logger.warning("rpicam-still not found, using fallback")
+            return self._fallback_light_reading()
+        except Exception as e:
+            logger.warning(f"Light sensor reading failed: {e}")
+            return self._fallback_light_reading()
+    
+    def _parse_exposure_info(self, stderr_output: str) -> LightConditions:
+        """Parse exposure information from rpicam-still stderr output."""
+        # rpicam-still outputs exposure info like:
+        # [0:32:41.123456] INFO Camera camera_manager.cpp:297 libcamera v0.0.5+83-bde9b04f
+        # [0:32:41.456789] INFO RPI vc4.cpp:447 Registered camera /base/soc/i2c0mux/i2c@1/imx519@1a to Unicam device /dev/media1 and ISP device /dev/media0
+        # [0:32:41.789012] INFO Camera camera.cpp:1033 configuring streams: (0) 4656x3496-YUV420
+        # [0:32:42.123456] INFO RPI rpi_stream.cpp:122 No buffers available for ISP Output0
+        # [0:32:42.456789] INFO Camera camera.cpp:1033 configuring streams: (0) 4656x3496-YUV420
+        # [0:32:42.789012] INFO RPI rpi_stream.cpp:122 No buffers available for ISP Output0
+        
+        # Look for exposure and gain information in the output
+        lines = stderr_output.split('\n')
+        
+        # Default values
+        exposure_us = None
+        gain = None
+        
+        # Parse for exposure and gain values
+        for line in lines:
+            if 'exposure' in line.lower():
+                # Try to extract exposure time in microseconds
+                import re
+                match = re.search(r'(\d+)us', line)
+                if match:
+                    exposure_us = int(match.group(1))
+            elif 'gain' in line.lower():
+                # Try to extract gain value
+                import re
+                match = re.search(r'gain[:\s]+([0-9.]+)', line, re.IGNORECASE)
+                if match:
+                    gain = float(match.group(1))
+        
+        # Calculate EV from exposure and gain if available
+        if exposure_us and gain:
+            # Rough EV calculation: EV = log2(f²/t) where f=aperture, t=exposure time in seconds
+            # For IMX519: f/1.8 aperture, so f² ≈ 3.24
+            exposure_seconds = exposure_us / 1_000_000
+            # EV ≈ log2(3.24 / exposure_seconds) - log2(gain/100)  # Normalize gain
+            import math
+            ev_reading = math.log2(3.24 / exposure_seconds) - math.log2(max(gain/100, 0.01))
+        else:
+            # Fallback EV estimation based on time of day
+            from datetime import datetime
+            hour = datetime.now().hour
+            if 6 <= hour <= 8 or 18 <= hour <= 20:  # Golden hour
+                ev_reading = 10.0
+            elif 9 <= hour <= 17:  # Daylight
+                ev_reading = 13.0
+            else:  # Night/twilight
+                ev_reading = 6.0
+        
+        # Estimate color temperature based on time of day
+        hour = datetime.now().hour
+        if 6 <= hour <= 8:  # Morning golden hour
+            color_temp_k = 3200
+        elif 18 <= hour <= 20:  # Evening golden hour  
+            color_temp_k = 2800
+        elif 9 <= hour <= 17:  # Daylight
+            color_temp_k = 5500
+        else:  # Night/artificial light
+            color_temp_k = 4000
+            
+        # Calculate approximate lux from EV
+        # Lux ≈ 2.5 * 2^EV (rough approximation)
+        ambient_lux = 2.5 * (2 ** ev_reading)
+        
         return LightConditions(
-            ambient_lux=1000.0 * (2 ** (base_ev + ev_variation - 10)),
-            color_temp_k=5500 + random.uniform(-500, 500),
-            ev_reading=base_ev + ev_variation,
-            timestamp=datetime.now(),
+            ambient_lux=ambient_lux,
+            color_temp_k=color_temp_k,
+            ev_reading=ev_reading,
+            timestamp=datetime.now()
+        )
+    
+    def _fallback_light_reading(self) -> LightConditions:
+        """Fallback light reading when sensor unavailable."""
+        # Use time-based estimation as fallback
+        from datetime import datetime
+        hour = datetime.now().hour
+        
+        if 6 <= hour <= 8 or 18 <= hour <= 20:  # Golden hour
+            ev_reading = 10.0
+            color_temp_k = 3000
+        elif 9 <= hour <= 17:  # Daylight
+            ev_reading = 13.0
+            color_temp_k = 5500
+        else:  # Night/twilight
+            ev_reading = 6.0
+            color_temp_k = 4000
+            
+        ambient_lux = 2.5 * (2 ** ev_reading)
+        
+        return LightConditions(
+            ambient_lux=ambient_lux,
+            color_temp_k=color_temp_k,
+            ev_reading=ev_reading,
+            timestamp=datetime.now()
         )
 
     def get_change_magnitude(self) -> float:
