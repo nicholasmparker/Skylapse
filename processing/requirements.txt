@@ -11,34 +11,31 @@ aiofiles>=23.1.0
 PyYAML>=6.0
 
 # Image processing
-Pillow>=10.0.0
-opencv-python>=4.8.0
-numpy>=1.24.0
+Pillow>=9.0.0
+numpy>=1.21.0
+opencv-python>=4.5.0
 
-# Video processing (Phase 2 - commented for Sprint 1)
-# imageio>=2.31.0
-# imageio-ffmpeg>=0.4.8
-# moviepy>=1.0.3
-
-# System integration
+# System monitoring
 psutil>=5.9.0
 
-# Logging and monitoring
+# Structured logging
 structlog>=22.3.0
 
-# HTTP client for health checks
-requests>=2.31.0
+# File system operations
+watchdog>=2.1.9
 
-# Development and testing
-pytest>=7.4.0
+# Data validation
+pydantic>=1.10.0
+
+# Development dependencies
+pytest>=7.0.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.0.0
-black>=23.0.0
-flake8>=6.0.0
-mypy>=1.5.0
+black>=22.0.0
+flake8>=5.0.0
+mypy>=1.0.0
 
 # Future enhancements (Phase 2)
 # scikit-image>=0.21.0    # Advanced image processing
 # rawpy>=0.18.0          # RAW image support
 # colour-science>=0.4.0   # Color space processing
-# tensorflow>=2.13.0     # ML-based processing (optional)
