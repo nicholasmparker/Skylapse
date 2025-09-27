@@ -1,6 +1,7 @@
 """Arducam IMX519 16MP camera implementation using rpicam-still."""
 
 import asyncio
+
 # import json  # Unused
 import logging
 import subprocess
