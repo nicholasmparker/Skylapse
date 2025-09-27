@@ -3,7 +3,7 @@
 import logging
 import math
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from .camera_types import EnvironmentalConditions
@@ -203,11 +203,11 @@ class EnvironmentalSensor:
             
             if 0 <= sunrise_local <= 24:
                 sunrise_dt = datetime.combine(date, datetime.min.time()) + \
-                           datetime.timedelta(hours=sunrise_local)
+                           timedelta(hours=sunrise_local)
                            
             if 0 <= sunset_local <= 24:
                 sunset_dt = datetime.combine(date, datetime.min.time()) + \
-                          datetime.timedelta(hours=sunset_local)
+                          timedelta(hours=sunset_local)
                           
             return sunrise_dt, sunset_dt
             
@@ -237,23 +237,23 @@ class EnvironmentalSensor:
     def _calculate_next_golden_hour(self, current_time: datetime) -> Tuple[Optional[datetime], Optional[datetime]]:
         """Calculate the next golden hour window for adaptive scheduling."""
         today = current_time.date()
-        tomorrow = today + datetime.timedelta(days=1)
+        tomorrow = today + timedelta(days=1)
         
         # Get today's sunrise/sunset
         today_sunrise, today_sunset = self._calculate_sunrise_sunset(today)
         
         # Check morning golden hour (30 min before to 30 min after sunrise)
         if today_sunrise:
-            morning_start = today_sunrise - datetime.timedelta(minutes=30)
-            morning_end = today_sunrise + datetime.timedelta(minutes=30)
+            morning_start = today_sunrise - timedelta(minutes=30)
+            morning_end = today_sunrise + timedelta(minutes=30)
             
             if current_time < morning_end:
                 return morning_start, morning_end
         
         # Check evening golden hour (30 min before to 30 min after sunset)
         if today_sunset:
-            evening_start = today_sunset - datetime.timedelta(minutes=30)
-            evening_end = today_sunset + datetime.timedelta(minutes=30)
+            evening_start = today_sunset - timedelta(minutes=30)
+            evening_end = today_sunset + timedelta(minutes=30)
             
             if current_time < evening_start:
                 return evening_start, evening_end
@@ -261,8 +261,8 @@ class EnvironmentalSensor:
         # Return tomorrow's morning golden hour
         tomorrow_sunrise, _ = self._calculate_sunrise_sunset(tomorrow)
         if tomorrow_sunrise:
-            morning_start = tomorrow_sunrise - datetime.timedelta(minutes=30)
-            morning_end = tomorrow_sunrise + datetime.timedelta(minutes=30)
+            morning_start = tomorrow_sunrise - timedelta(minutes=30)
+            morning_end = tomorrow_sunrise + timedelta(minutes=30)
             return morning_start, morning_end
             
         return None, None

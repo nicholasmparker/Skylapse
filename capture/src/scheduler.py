@@ -173,45 +173,45 @@ class CaptureScheduler:
                     continue
 
             # Check special conditions with enhanced adaptive logic
-        if rule.conditions:
-            if conditions is None:
-                # Can't match condition-specific rules without conditions
-                continue
+            if rule.conditions:
+                if conditions is None:
+                    # Can't match condition-specific rules without conditions
+                    continue
 
-            match = True
-            for condition, required_value in rule.conditions.items():
-                if condition == "golden_hour":
-                    if getattr(conditions, "is_golden_hour", False) != required_value:
-                        match = False
-                        break
-                elif condition == "blue_hour":
-                    if getattr(conditions, "is_blue_hour", False) != required_value:
-                        match = False
-                        break
-                elif condition == "near_golden_hour":
-                    # Check if we're within 30 minutes of golden hour
-                    near_golden = self._is_near_golden_hour(conditions)
-                    if near_golden != required_value:
-                        match = False
-                        break
-                elif condition == "sunrise_sunset_window":
-                    # Check if we're within 15 minutes of sunrise/sunset
-                    sunrise_sunset_window = self._is_sunrise_sunset_window(conditions)
-                    if sunrise_sunset_window != required_value:
-                        match = False
-                        break
-                elif condition == "light_changing":
-                    # Check if light conditions are rapidly changing
-                    light_changing = self._is_light_changing(conditions)
-                    if light_changing != required_value:
-                        match = False
-                        break
+                match = True
+                for condition, required_value in rule.conditions.items():
+                    if condition == "golden_hour":
+                        if getattr(conditions, "is_golden_hour", False) != required_value:
+                            match = False
+                            break
+                    elif condition == "blue_hour":
+                        if getattr(conditions, "is_blue_hour", False) != required_value:
+                            match = False
+                            break
+                    elif condition == "near_golden_hour":
+                        # Check if we're within 30 minutes of golden hour
+                        near_golden = self._is_near_golden_hour(conditions)
+                        if near_golden != required_value:
+                            match = False
+                            break
+                    elif condition == "sunrise_sunset_window":
+                        # Check if we're within 15 minutes of sunrise/sunset
+                        sunrise_sunset_window = self._is_sunrise_sunset_window(conditions)
+                        if sunrise_sunset_window != required_value:
+                            match = False
+                            break
+                    elif condition == "light_changing":
+                        # Check if light conditions are rapidly changing
+                        light_changing = self._is_light_changing(conditions)
+                        if light_changing != required_value:
+                            match = False
+                            break
 
-            if not match:
-                continue
+                if not match:
+                    continue
 
-            # Rule matches
-            return rule
+        # Rule matches
+        return rule
 
         return None
 
