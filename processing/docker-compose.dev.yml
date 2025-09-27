@@ -1,0 +1,40 @@
+# Skylapse Processing Service - Development Configuration
+
+version: '3.8'
+
+services:
+  processing:
+    build: .
+    image: skylapse/processing:1.0.0-sprint1
+    container_name: skylapse-processing
+    restart: unless-stopped
+
+    ports:
+      - "8081:8081"  # API server
+
+    volumes:
+      # Use /tmp for development (no sudo required)
+      - /tmp/skylapse/processing/data:/opt/skylapse/output
+      - /tmp/skylapse/transfers/incoming:/tmp/skylapse_transfers/incoming
+      - /tmp/skylapse/transfers/processing:/tmp/skylapse_transfers/processing
+      - /tmp/skylapse/transfers/completed:/tmp/skylapse_transfers/completed
+      - /tmp/skylapse/logs/processing:/var/log/skylapse
+
+    environment:
+      - SKYLAPSE_ENV=development
+      - PYTHONUNBUFFERED=1
+      - MAX_CONCURRENT_JOBS=2
+      - OMP_NUM_THREADS=2
+      - OPENCV_NUM_THREADS=2
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  default:
+    name: skylapse

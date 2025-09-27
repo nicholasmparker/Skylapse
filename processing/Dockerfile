@@ -28,7 +28,7 @@ RUN mkdir -p /tmp/skylapse_processing \
     /var/log/skylapse
 
 # Set environment variables
-ENV PYTHONPATH=/app/src
+ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV SKYLAPSE_ENV=production
 
@@ -40,4 +40,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 8081
 
 # Run the processing service
-CMD ["python", "-m", "processing_service"]
+CMD ["python", "-m", "src.processing_service"]
