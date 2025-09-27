@@ -1,11 +1,12 @@
 """Timelapse assembly and video generation module."""
 
-import asyncio
-import json
+# import asyncio  # Unused
+# import json  # Unused
 import logging
 import time
-from datetime import datetime
-from pathlib import Path
+
+# from datetime import datetime  # Unused
+# from pathlib import Path  # Unused
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)

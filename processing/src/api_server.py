@@ -1,11 +1,12 @@
 """REST API server for processing service control and monitoring."""
 
-import asyncio
-import json
+# import asyncio  # Unused
+# import json  # Unused
 import logging
 import traceback
-from datetime import datetime
-from typing import Any, Dict, Optional
+
+# from datetime import datetime  # Unused
+from typing import Dict
 
 try:
     from aiohttp import web

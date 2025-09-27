@@ -1,12 +1,13 @@
 """Job queue management for processing tasks."""
 
-import asyncio
-import json
+# import asyncio  # Unused
+# import json  # Unused
 import logging
 import time
 import uuid
 from enum import Enum
-from pathlib import Path
+
+# from pathlib import Path  # Unused
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
