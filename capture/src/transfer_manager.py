@@ -1,11 +1,13 @@
 """File transfer management for sending images to processing service."""
 
+import asyncio
 import json
 import logging
 import shutil
+import subprocess
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -261,15 +263,143 @@ class TransferManager:
             return {"success": False, "error": str(e), "bytes_transferred": 0}
 
     async def _transfer_via_rsync(self, manifest: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Transfer files via rsync (network transfer).
-
-        This is a stub for Sprint 1. Phase 2 will implement full rsync support.
-        """
-        # For Sprint 1, simulate rsync transfer by falling back to local transfer
-        # Phase 2 will implement actual rsync with SSH
-        logger.info("Rsync transfer not implemented in Sprint 1, using local transfer")
-        return await self._transfer_local(manifest)
+        """Transfer files via rsync (network transfer)."""
+        try:
+            transfer_id = manifest["transfer_id"]
+            image_paths = manifest["image_paths"]
+            
+            # Check if rsync is available
+            try:
+                result = subprocess.run(['rsync', '--version'], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode != 0:
+                    raise RuntimeError("rsync not available")
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                logger.warning("rsync not available, falling back to local transfer")
+                return await self._transfer_local(manifest)
+            
+            # Prepare rsync target
+            rsync_target = f"{self._rsync_user}@{self._processing_host}:{self._target_dir}/"
+            
+            # Create temporary directory for this transfer
+            temp_dir = self._queue_dir / f"temp_{transfer_id}"
+            temp_dir.mkdir(exist_ok=True)
+            
+            try:
+                # Copy files to temp directory with consistent naming
+                temp_files = []
+                total_bytes = 0
+                
+                for i, source_path in enumerate(image_paths):
+                    source_file = Path(source_path)
+                    if not source_file.exists():
+                        logger.warning(f"Source file not found: {source_path}")
+                        continue
+                    
+                    # Create consistent filename for transfer
+                    temp_filename = f"{transfer_id}_{i:03d}{source_file.suffix}"
+                    temp_file = temp_dir / temp_filename
+                    
+                    # Copy to temp directory
+                    shutil.copy2(source_file, temp_file)
+                    temp_files.append(str(temp_file))
+                    total_bytes += temp_file.stat().st_size
+                
+                if not temp_files:
+                    raise ValueError("No valid files to transfer")
+                
+                # Create transfer manifest in temp directory
+                transfer_manifest = {
+                    "transfer_id": transfer_id,
+                    "image_files": [Path(f).name for f in temp_files],
+                    "metadata": manifest["metadata"],
+                    "created_at": manifest["created_at"],
+                    "transferred_at": time.time(),
+                }
+                
+                manifest_file = temp_dir / f"transfer_{transfer_id}.json"
+                with open(manifest_file, 'w') as f:
+                    json.dump(transfer_manifest, f, indent=2)
+                
+                # Execute rsync command
+                rsync_result = await self._execute_rsync_transfer(temp_dir, rsync_target)
+                
+                if rsync_result["success"]:
+                    return {
+                        "success": True,
+                        "bytes_transferred": total_bytes,
+                        "files_transferred": len(temp_files),
+                        "transfer_method": "rsync",
+                        "target": rsync_target
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "error": rsync_result.get("error", "rsync transfer failed"),
+                        "bytes_transferred": 0
+                    }
+                    
+            finally:
+                # Clean up temp directory
+                try:
+                    shutil.rmtree(temp_dir)
+                except Exception as e:
+                    logger.warning(f"Failed to clean up temp directory {temp_dir}: {e}")
+                    
+        except Exception as e:
+            logger.error(f"rsync transfer failed: {e}")
+            return {"success": False, "error": str(e), "bytes_transferred": 0}
+    
+    async def _execute_rsync_transfer(self, source_dir: Path, target: str) -> Dict[str, Any]:
+        """Execute rsync command for directory transfer."""
+        try:
+            # Build rsync command with optimal settings
+            rsync_cmd = [
+                'rsync',
+                '-avz',  # archive, verbose, compress
+                '--progress',  # show progress
+                '--partial',  # keep partial files on interruption
+                '--timeout=300',  # 5 minute timeout
+                '--chmod=644',  # set file permissions
+                str(source_dir) + '/',  # source directory (trailing slash important)
+                target  # target
+            ]
+            
+            logger.info(f"Executing rsync: {' '.join(rsync_cmd)}")
+            
+            # Execute rsync with async subprocess
+            start_time = time.time()
+            process = await asyncio.create_subprocess_exec(
+                *rsync_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await process.communicate()
+            transfer_time = (time.time() - start_time) * 1000
+            
+            if process.returncode == 0:
+                logger.info(f"rsync completed successfully in {transfer_time:.1f}ms")
+                return {
+                    "success": True,
+                    "transfer_time_ms": transfer_time,
+                    "stdout": stdout.decode() if stdout else "",
+                    "stderr": stderr.decode() if stderr else ""
+                }
+            else:
+                error_msg = stderr.decode() if stderr else "Unknown rsync error"
+                logger.error(f"rsync failed with code {process.returncode}: {error_msg}")
+                return {
+                    "success": False,
+                    "error": f"rsync failed: {error_msg}",
+                    "return_code": process.returncode,
+                    "stdout": stdout.decode() if stdout else "",
+                    "stderr": error_msg
+                }
+                
+        except Exception as e:
+            logger.error(f"rsync execution failed: {e}")
+            return {"success": False, "error": str(e)}
 
     async def _load_pending_transfers(self) -> None:
         """Load pending transfers from disk on startup."""
