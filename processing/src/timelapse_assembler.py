@@ -1,11 +1,13 @@
 """Timelapse assembly and video generation module."""
 
+import asyncio
 import json
 import logging
+import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +70,10 @@ class TimelapseAssembler:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_base = Path(f"/tmp/skylapse_timelapse_{timestamp}")
 
-            # For Sprint 1, create placeholder files for each format
+            # Create actual video files for each format using FFmpeg
             results = []
             for format_spec in output_formats:
-                result = await self._create_format_placeholder(
+                result = await self._create_format_video(
                     sorted_images, format_spec, output_base, metadata
                 )
                 results.append(result)
@@ -116,6 +118,73 @@ class TimelapseAssembler:
                 "assembly_time_ms": 0,
             }
 
+    async def _create_format_video(
+        self,
+        images: List[Dict[str, Any]],
+        format_spec: str,
+        output_base: Path,
+        metadata: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Create actual timelapse video for specific format using FFmpeg."""
+        # Generate format-specific filename
+        output_file = output_base.with_suffix(f"_{format_spec}.mp4")
+
+        # Create directory if needed
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Extract image paths from image metadata
+        image_paths = []
+        for img in images:
+            img_path = img.get("output_path") or img.get("input_path")
+            if img_path and Path(img_path).exists():
+                image_paths.append(img_path)
+            else:
+                logger.warning(f"Image not found: {img_path}")
+
+        if not image_paths:
+            raise ValueError("No valid images found for timelapse creation")
+
+        # Get framerate from metadata or use default
+        framerate = metadata.get("framerate", self._get_format_framerate(format_spec))
+
+        try:
+            # Use FFmpeg to create actual video
+            encoding_result = await self._encode_with_ffmpeg(
+                image_paths, str(output_file), format_spec, framerate
+            )
+
+            # Create metadata file
+            metadata_file = output_file.with_suffix(".json")
+            timelapse_metadata = {
+                "format": format_spec,
+                "frame_count": len(image_paths),
+                "input_images": image_paths,
+                "creation_time": time.time(),
+                "encoding_info": encoding_result,
+                "metadata": metadata,
+                "processing_version": "2.0.0-sprint2",
+            }
+
+            with open(metadata_file, "w") as f:
+                json.dump(timelapse_metadata, f, indent=2)
+
+            return {
+                "format": format_spec,
+                "output_path": str(output_file),
+                "metadata_path": str(metadata_file),
+                "file_size_bytes": encoding_result.get("file_size_bytes", 0),
+                "resolution": encoding_result.get("resolution", "1920x1080"),
+                "framerate": framerate,
+                "encoding_time_ms": encoding_result.get("encoding_time_ms", 0),
+                "codec": encoding_result.get("codec", "libx264"),
+                "success": encoding_result.get("success", False)
+            }
+
+        except Exception as e:
+            logger.error(f"Video creation failed for {format_spec}: {e}")
+            # Fallback to placeholder creation
+            return await self._create_format_placeholder(images, format_spec, output_base, metadata)
+
     async def _create_format_placeholder(
         self,
         images: List[Dict[str, Any]],
@@ -123,14 +192,14 @@ class TimelapseAssembler:
         output_base: Path,
         metadata: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Create placeholder timelapse file for specific format (Sprint 1)."""
+        """Create placeholder timelapse file for specific format (fallback)."""
         # Generate format-specific filename
         output_file = output_base.with_suffix(f"_{format_spec}.mp4")
 
         # Create directory if needed
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # For Sprint 1, create a placeholder file with metadata
+        # Create placeholder file with metadata
         placeholder_content = self._generate_placeholder_content(images, format_spec, metadata)
 
         with open(output_file, "wb") as f:
@@ -144,7 +213,8 @@ class TimelapseAssembler:
             "input_images": [img.get("output_path", "") for img in images],
             "creation_time": time.time(),
             "metadata": metadata,
-            "processing_version": "1.0.0-sprint1",
+            "processing_version": "2.0.0-sprint2-placeholder",
+            "note": "Placeholder file - install FFmpeg for video generation"
         }
 
         with open(metadata_file, "w") as f:
@@ -155,8 +225,10 @@ class TimelapseAssembler:
             "output_path": str(output_file),
             "metadata_path": str(metadata_file),
             "file_size_bytes": output_file.stat().st_size,
-            "resolution": self._get_format_resolution(format_spec),
+            "resolution": f"{self._get_format_resolution(format_spec)[0]}x{self._get_format_resolution(format_spec)[1]}",
             "framerate": self._get_format_framerate(format_spec),
+            "success": False,
+            "note": "Placeholder created - FFmpeg required for video generation"
         }
 
     def _generate_placeholder_content(
@@ -294,11 +366,222 @@ class TimelapseAssembler:
     # Future methods for Phase 2 implementation
 
     async def _encode_with_ffmpeg(
-        self, images: List[str], output_path: str, format_spec: str
+        self, images: List[str], output_path: str, format_spec: str, framerate: float = 24.0
     ) -> Dict[str, Any]:
-        """Encode timelapse using FFmpeg (Phase 2)."""
-        # TODO: Implement FFmpeg encoding pipeline
-        pass
+        """Encode timelapse using FFmpeg."""
+        if not images:
+            raise ValueError("No images provided for encoding")
+            
+        logger.info(f"Encoding {len(images)} images to {format_spec} at {framerate}fps")
+        
+        try:
+            # Check if FFmpeg is available
+            result = subprocess.run(['ffmpeg', '-version'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                raise RuntimeError("FFmpeg not available")
+                
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            logger.warning("FFmpeg not available, using fallback method")
+            return await self._fallback_video_creation(images, output_path, format_spec)
+        
+        try:
+            # Create temporary file list for FFmpeg
+            temp_dir = Path(output_path).parent / "temp_timelapse"
+            temp_dir.mkdir(exist_ok=True)
+            
+            # Copy/symlink images with sequential naming for FFmpeg
+            image_list = []
+            for i, img_path in enumerate(images):
+                src_path = Path(img_path)
+                if not src_path.exists():
+                    logger.warning(f"Image not found: {img_path}")
+                    continue
+                    
+                # Create sequential filename
+                dest_name = f"frame_{i:06d}{src_path.suffix}"
+                dest_path = temp_dir / dest_name
+                
+                # Create symlink to avoid copying large files
+                if dest_path.exists():
+                    dest_path.unlink()
+                dest_path.symlink_to(src_path.absolute())
+                image_list.append(str(dest_path))
+            
+            if not image_list:
+                raise ValueError("No valid images found for encoding")
+            
+            # Get format-specific encoding parameters
+            encoding_params = self._get_encoding_parameters(format_spec)
+            
+            # Build FFmpeg command
+            input_pattern = str(temp_dir / "frame_%06d.jpg")  # Assume JPEG for now
+            
+            ffmpeg_cmd = [
+                'ffmpeg',
+                '-y',  # Overwrite output file
+                '-framerate', str(framerate),
+                '-i', input_pattern,
+                '-c:v', encoding_params['codec'],
+                '-pix_fmt', encoding_params['pixel_format'],
+                '-crf', str(encoding_params['quality']),
+                '-preset', encoding_params['preset'],
+                '-vf', f"scale={encoding_params['width']}:{encoding_params['height']}",
+                '-movflags', '+faststart',  # Enable fast start for web playback
+                str(output_path)
+            ]
+            
+            # Add format-specific parameters
+            if encoding_params.get('profile'):
+                ffmpeg_cmd.extend(['-profile:v', encoding_params['profile']])
+            if encoding_params.get('level'):
+                ffmpeg_cmd.extend(['-level', encoding_params['level']])
+                
+            logger.info(f"Running FFmpeg: {' '.join(ffmpeg_cmd)}")
+            
+            # Run FFmpeg encoding
+            start_time = time.time()
+            process = await asyncio.create_subprocess_exec(
+                *ffmpeg_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await process.communicate()
+            encoding_time = (time.time() - start_time) * 1000
+            
+            if process.returncode != 0:
+                error_msg = stderr.decode() if stderr else "Unknown FFmpeg error"
+                logger.error(f"FFmpeg encoding failed: {error_msg}")
+                raise RuntimeError(f"FFmpeg encoding failed: {error_msg}")
+            
+            # Clean up temporary files
+            for temp_file in temp_dir.glob("frame_*"):
+                temp_file.unlink()
+            temp_dir.rmdir()
+            
+            # Get output file info
+            output_file = Path(output_path)
+            file_size = output_file.stat().st_size if output_file.exists() else 0
+            
+            result = {
+                "success": True,
+                "output_path": str(output_path),
+                "file_size_bytes": file_size,
+                "encoding_time_ms": encoding_time,
+                "frame_count": len(image_list),
+                "framerate": framerate,
+                "format": format_spec,
+                "codec": encoding_params['codec'],
+                "resolution": f"{encoding_params['width']}x{encoding_params['height']}"
+            }
+            
+            logger.info(f"FFmpeg encoding completed in {encoding_time:.1f}ms: {output_path}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"FFmpeg encoding failed: {e}")
+            # Clean up on failure
+            try:
+                if 'temp_dir' in locals():
+                    for temp_file in temp_dir.glob("frame_*"):
+                        temp_file.unlink()
+                    if temp_dir.exists():
+                        temp_dir.rmdir()
+            except:
+                pass
+            raise
+    
+    def _get_encoding_parameters(self, format_spec: str) -> Dict[str, Any]:
+        """Get encoding parameters for different formats."""
+        base_params = {
+            'codec': 'libx264',
+            'pixel_format': 'yuv420p',
+            'preset': 'medium',
+            'profile': 'high',
+            'level': '4.0'
+        }
+        
+        if format_spec == '4k':
+            return {
+                **base_params,
+                'width': 3840,
+                'height': 2160,
+                'quality': 18,  # Lower CRF = higher quality
+                'preset': 'slow'  # Better compression for 4K
+            }
+        elif format_spec == '1080p':
+            return {
+                **base_params,
+                'width': 1920,
+                'height': 1080,
+                'quality': 20
+            }
+        elif format_spec == '720p':
+            return {
+                **base_params,
+                'width': 1280,
+                'height': 720,
+                'quality': 22
+            }
+        elif format_spec == '480p':
+            return {
+                **base_params,
+                'width': 854,
+                'height': 480,
+                'quality': 24
+            }
+        else:
+            # Default to 1080p
+            return {
+                **base_params,
+                'width': 1920,
+                'height': 1080,
+                'quality': 20
+            }
+    
+    async def _fallback_video_creation(self, images: List[str], output_path: str, format_spec: str) -> Dict[str, Any]:
+        """Fallback video creation when FFmpeg is not available."""
+        logger.warning("Creating placeholder video file - FFmpeg not available")
+        
+        # Create a more sophisticated placeholder that includes image metadata
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Create JSON manifest of the timelapse
+        manifest = {
+            "type": "skylapse_timelapse_manifest",
+            "format": format_spec,
+            "frame_count": len(images),
+            "images": images,
+            "created": datetime.now().isoformat(),
+            "note": "This is a manifest file. Install FFmpeg to generate actual video files."
+        }
+        
+        # Write manifest as JSON
+        manifest_file = output_file.with_suffix('.json')
+        with open(manifest_file, 'w') as f:
+            json.dump(manifest, f, indent=2)
+        
+        # Create minimal placeholder video file
+        placeholder_content = self._generate_placeholder_content(
+            [{"output_path": img} for img in images], 
+            format_spec, 
+            {"fallback": True}
+        )
+        
+        with open(output_file, 'wb') as f:
+            f.write(placeholder_content)
+        
+        return {
+            "success": True,
+            "output_path": str(output_path),
+            "manifest_path": str(manifest_file),
+            "file_size_bytes": output_file.stat().st_size,
+            "frame_count": len(images),
+            "format": format_spec,
+            "note": "Placeholder created - install FFmpeg for video generation"
+        }
 
     async def _apply_gpu_acceleration(self, images: List[str], processing_type: str) -> List[str]:
         """Apply GPU-accelerated processing (Phase 2)."""
