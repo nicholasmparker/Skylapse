@@ -1,9 +1,9 @@
 """Main camera controller for the capture service."""
 
-import asyncio
+# import asyncio  # Unused
 import logging
 import time
-from pathlib import Path
+# from pathlib import Path  # Unused
 from typing import Any, Dict, List, Optional
 
 # Import camera implementations

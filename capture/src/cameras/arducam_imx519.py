@@ -1,7 +1,7 @@
 """Arducam IMX519 16MP camera implementation using rpicam-still."""
 
 import asyncio
-import json
+# import json  # Unused
 import logging
 import subprocess
 import tempfile
@@ -416,7 +416,7 @@ class ArducamIMX519Camera(CameraInterface):
             try:
                 process.kill()
                 await process.wait()
-            except:
+            except Exception:
                 pass
             raise CaptureError(f"Capture command timed out after {timeout_seconds}s")
 
