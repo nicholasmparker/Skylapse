@@ -134,6 +134,9 @@ class CaptureAPIServer:
         # Metrics and statistics
         self.app.router.add_get("/metrics", self._get_metrics)
         self.app.router.add_get("/statistics", self._get_statistics)
+        
+        # Performance baseline (QA validation)
+        self.app.router.add_post("/capture/baseline", self._run_baseline)
 
     @web.middleware
     async def _error_middleware(self, request, handler):
@@ -242,6 +245,26 @@ class CaptureAPIServer:
         try:
             result = await self.controller._camera_controller.test_capture()
             return json_response(result)
+        except Exception as e:
+            return json_response({"error": str(e)}, status=500)
+
+    async def _run_baseline(self, request) -> web.Response:
+        """Run performance baseline measurement for QA validation."""
+        if not self.controller:
+            return json_response({"error": "Service not available"}, status=503)
+
+        try:
+            # Parse request body for iterations parameter
+            iterations = 10  # default
+            if request.content_type == "application/json":
+                data = await request.json()
+                iterations = data.get("iterations", 10)
+
+            result = await self.controller._camera_controller.run_performance_baseline(iterations)
+            return json_response(result)
+
+        except json.JSONDecodeError:
+            return json_response({"error": "Invalid JSON in request body"}, status=400)
         except Exception as e:
             return json_response({"error": str(e)}, status=500)
 
