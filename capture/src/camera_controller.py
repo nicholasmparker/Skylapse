@@ -2,6 +2,7 @@
 
 import logging
 import time
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 # Import camera implementations
@@ -103,6 +104,23 @@ class CameraController:
             "cache_status": self.intelligent_capture.get_cache_status(),
             "system_initialized": self.intelligent_capture._initialized,
         }
+
+    async def run_performance_baseline(self, iterations: int = 10) -> Dict[str, Any]:
+        """Run performance baseline measurement for QA validation."""
+        from .performance_baseline import PerformanceBaseline
+
+        baseline = PerformanceBaseline(self)
+        try:
+            metrics = await baseline.measure_current_performance(iterations)
+            validation = await baseline.validate_optimization_claims()
+
+            return {
+                "baseline_measurement": metrics.to_dict(),
+                "optimization_validation": validation,
+                "timestamp": metrics.timestamp.isoformat(),
+            }
+        except Exception as e:
+            return {"error": str(e), "timestamp": datetime.now().isoformat()}
 
     async def shutdown(self) -> None:
         """Shutdown camera controller."""
