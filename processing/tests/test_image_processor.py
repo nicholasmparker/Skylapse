@@ -1,11 +1,11 @@
 """Tests for image processor functionality."""
 
-import pytest
 import asyncio
-import tempfile
 import json
+import tempfile
 from pathlib import Path
 
+import pytest
 from src.image_processor import ImageProcessor
 
 

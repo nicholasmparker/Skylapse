@@ -2,13 +2,13 @@
 
 import asyncio
 import logging
-import time
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
-from dataclasses import dataclass
 import math
+import time
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
-from .camera_types import CaptureSettings, CaptureResult, EnvironmentalConditions
+from .camera_types import CaptureResult, CaptureSettings, EnvironmentalConditions
 
 logger = logging.getLogger(__name__)
 

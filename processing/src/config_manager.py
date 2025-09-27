@@ -1,9 +1,10 @@
 """Configuration management for the processing service."""
 
-import yaml
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+import yaml
 
 logger = logging.getLogger(__name__)
 

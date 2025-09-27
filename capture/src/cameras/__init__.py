@@ -1,7 +1,7 @@
 """Camera implementations module."""
 
-from .mock_camera import MockCamera
 from .arducam_imx519 import ArducamIMX519Camera
+from .mock_camera import MockCamera
 
 
 # Register all camera implementations with the factory

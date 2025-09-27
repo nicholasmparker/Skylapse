@@ -1,15 +1,15 @@
 """Hardware integration tests for Raspberry Pi camera systems."""
 
-import pytest
-import pytest_asyncio
 import asyncio
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Optional
 
+import pytest
+import pytest_asyncio
 from src.camera_controller import CameraController
-from src.camera_types import CaptureSettings, CameraCapability
+from src.camera_types import CameraCapability, CaptureSettings
 
 
 # Hardware detection utilities
@@ -471,8 +471,8 @@ class TestHardwareEnvironmentValidation:
     @pytest.mark.skipif(not hardware_available, reason=hardware_skip_reason)
     def test_camera_permissions(self):
         """Test that camera permissions are properly configured."""
-        import os
         import grp
+        import os
 
         try:
             # Check if user is in video group

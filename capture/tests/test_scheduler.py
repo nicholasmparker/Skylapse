@@ -1,14 +1,14 @@
 """Tests for capture scheduling functionality."""
 
-import pytest
-import pytest_asyncio
 import asyncio
 import time
 from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
+import pytest_asyncio
+from src.camera_types import CaptureResult, CaptureSettings, EnvironmentalConditions
 from src.scheduler import CaptureScheduler, ScheduleRule
-from src.camera_types import CaptureSettings, CaptureResult, EnvironmentalConditions
 
 
 class TestScheduleRule:

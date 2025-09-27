@@ -1,14 +1,14 @@
 """Camera interface abstraction for multi-camera support."""
 
-from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
 import asyncio
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
 
 from .camera_types import (
     CameraCapability,
-    CaptureSettings,
-    CaptureResult,
     CameraSpecs,
+    CaptureResult,
+    CaptureSettings,
     EnvironmentalConditions,
 )
 
@@ -140,6 +140,7 @@ class CameraFactory:
         Returns the first successfully initialized camera.
         """
         import os
+
         from .config_manager import CameraConfigManager
 
         config_manager = CameraConfigManager(config_dir)

@@ -1,10 +1,11 @@
 """Pytest configuration and shared fixtures for processing service tests."""
 
-import pytest
 import asyncio
-import tempfile
 import json
+import tempfile
 from pathlib import Path
+
+import pytest
 
 # Configure pytest for async testing
 pytest_plugins = ("pytest_asyncio",)

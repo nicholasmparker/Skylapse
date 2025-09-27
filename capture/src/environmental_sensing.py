@@ -2,10 +2,10 @@
 
 import asyncio
 import logging
-import time
 import math
-from typing import Dict, Any, Optional
+import time
 from datetime import datetime
+from typing import Any, Dict, Optional
 
 from .camera_types import EnvironmentalConditions
 

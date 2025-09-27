@@ -1,10 +1,10 @@
 """Camera system type definitions and enums."""
 
 import json
+from dataclasses import asdict, dataclass, field
 from enum import Enum, auto
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 class CameraCapability(Enum):

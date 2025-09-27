@@ -1,10 +1,10 @@
 """Tests for configuration management."""
 
-import pytest
 import tempfile
-import yaml
 from pathlib import Path
 
+import pytest
+import yaml
 from src.config_manager import CameraConfigManager, SystemConfigManager
 
 

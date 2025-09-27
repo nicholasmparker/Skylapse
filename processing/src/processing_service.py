@@ -1,20 +1,20 @@
 """Main processing service for the Skylapse timelapse system."""
 
 import asyncio
+import json
 import logging
 import signal
 import time
-import json
-from typing import Dict, Any, Optional, List
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
+from .api_server import ProcessingAPIServer
+from .config_manager import ProcessingConfigManager
 from .image_processor import ImageProcessor
+from .job_queue import JobQueue
 from .timelapse_assembler import TimelapseAssembler
 from .transfer_receiver import TransferReceiver
-from .api_server import ProcessingAPIServer
-from .job_queue import JobQueue
-from .config_manager import ProcessingConfigManager
 
 logger = logging.getLogger(__name__)
 

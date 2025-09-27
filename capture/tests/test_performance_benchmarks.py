@@ -1,17 +1,17 @@
 """Performance benchmark tests for capture system."""
 
-import pytest
-import pytest_asyncio
 import asyncio
-import time
 import statistics
 import tempfile
-from pathlib import Path
+import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+import pytest
+import pytest_asyncio
 from src.camera_controller import CameraController
+from src.camera_types import CameraCapability, CaptureSettings
 from src.cameras.mock_camera import MockCamera
-from src.camera_types import CaptureSettings, CameraCapability
 from src.scheduler import CaptureScheduler
 from src.storage_manager import StorageManager
 
@@ -363,8 +363,9 @@ class TestPerformanceBenchmarks:
     @pytest.mark.asyncio
     async def test_memory_usage_stability(self, performance_camera_controller):
         """Test that memory usage remains stable under load."""
-        import psutil
         import os
+
+        import psutil
 
         controller = performance_camera_controller
         process = psutil.Process(os.getpid())

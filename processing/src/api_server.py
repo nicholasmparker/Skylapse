@@ -3,9 +3,9 @@
 import asyncio
 import json
 import logging
-from typing import Dict, Any, Optional
-from datetime import datetime
 import traceback
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 try:
     from aiohttp import web

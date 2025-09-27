@@ -1,21 +1,21 @@
 """Main capture service for the Skylapse timelapse system."""
 
 import asyncio
+import json
 import logging
 import signal
 import time
-from typing import Optional, Dict, Any, List
 from pathlib import Path
-import json
+from typing import Any, Dict, List, Optional
 
-from .camera_controller import CameraController
-from .storage_manager import StorageManager
-from .scheduler import CaptureScheduler
-from .environmental_sensing import EnvironmentalSensor
-from .transfer_manager import TransferManager
 from .api_server import CaptureAPIServer
+from .camera_controller import CameraController
+from .camera_types import CaptureSettings, EnvironmentalConditions
 from .config_manager import SystemConfigManager
-from .camera_types import EnvironmentalConditions, CaptureSettings
+from .environmental_sensing import EnvironmentalSensor
+from .scheduler import CaptureScheduler
+from .storage_manager import StorageManager
+from .transfer_manager import TransferManager
 
 logger = logging.getLogger(__name__)
 

@@ -1,12 +1,13 @@
 """Pytest configuration and shared fixtures for capture service tests."""
 
+import asyncio
+import os
+import tempfile
+from pathlib import Path
+
 import pytest
 import pytest_asyncio
-import asyncio
-import tempfile
 import yaml
-import os
-from pathlib import Path
 
 # Configure pytest for async testing
 pytest_plugins = ("pytest_asyncio",)
