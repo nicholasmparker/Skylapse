@@ -1,14 +1,15 @@
 """Camera system type definitions and enums."""
 
 import json
+from dataclasses import asdict, dataclass, field
 from enum import Enum, auto
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 class CameraCapability(Enum):
     """Supported camera capabilities for feature detection."""
+
     AUTOFOCUS = auto()
     MANUAL_FOCUS = auto()
     HDR_BRACKETING = auto()
@@ -20,6 +21,7 @@ class CameraCapability(Enum):
 @dataclass
 class CaptureSettings:
     """Camera capture settings configuration."""
+
     # Exposure settings
     exposure_time_us: Optional[int] = None
     iso: Optional[int] = None
@@ -47,6 +49,7 @@ class CaptureSettings:
 @dataclass
 class CaptureResult:
     """Result of a camera capture operation."""
+
     file_paths: List[str]
     metadata: Dict[str, Any]
     actual_settings: CaptureSettings
@@ -67,6 +70,7 @@ class CaptureResult:
 @dataclass
 class CameraSpecs:
     """Camera hardware specifications."""
+
     model: str
     resolution_mp: float
     max_resolution: tuple[int, int]
@@ -90,6 +94,7 @@ class CameraSpecs:
 @dataclass
 class EnvironmentalConditions:
     """Current environmental conditions for adaptive control."""
+
     # Weather data
     cloud_cover_pct: Optional[float] = None
     visibility_km: Optional[float] = None
@@ -114,41 +119,45 @@ class EnvironmentalConditions:
 
 class CameraError(Exception):
     """Base exception for camera-related errors."""
+
     pass
 
 
 class CameraInitializationError(CameraError):
     """Raised when camera initialization fails."""
+
     pass
 
 
 class CaptureError(CameraError):
     """Raised when image capture fails."""
+
     pass
 
 
 class FocusError(CameraError):
     """Raised when autofocus fails."""
+
     pass
 
 
 class SkylapsJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder for Skylapse dataclasses and types."""
-    
+
     def default(self, obj):
         """Convert Skylapse objects to JSON-serializable format."""
         # Handle dataclasses
-        if hasattr(obj, '__dataclass_fields__'):
+        if hasattr(obj, "__dataclass_fields__"):
             return asdict(obj)
-        
+
         # Handle enums
         if isinstance(obj, Enum):
             return obj.value
-        
+
         # Handle Path objects
         if isinstance(obj, Path):
             return str(obj)
-        
+
         # Let the base class handle other types
         return super().default(obj)
 
@@ -160,7 +169,7 @@ def to_json(obj: Any, **kwargs) -> str:
 
 def to_dict(obj: Any) -> Dict[str, Any]:
     """Convert object to dictionary using Skylapse encoder logic."""
-    if hasattr(obj, '__dataclass_fields__'):
+    if hasattr(obj, "__dataclass_fields__"):
         return asdict(obj)
     elif isinstance(obj, Enum):
         return obj.value

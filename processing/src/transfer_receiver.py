@@ -4,8 +4,8 @@ import asyncio
 import json
 import logging
 import time
-from typing import Dict, Any, List, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +22,10 @@ class TransferReceiver:
 
         self._is_initialized = False
         self._transfer_stats = {
-            'transfers_received': 0,
-            'images_received': 0,
-            'bytes_received': 0,
-            'transfer_errors': 0
+            "transfers_received": 0,
+            "images_received": 0,
+            "bytes_received": 0,
+            "transfer_errors": 0,
         }
 
     async def initialize(self) -> None:
@@ -68,23 +68,23 @@ class TransferReceiver:
                     new_transfers.append(transfer_data)
             except Exception as e:
                 logger.error(f"Failed to process transfer manifest {manifest_file}: {e}")
-                self._transfer_stats['transfer_errors'] += 1
+                self._transfer_stats["transfer_errors"] += 1
 
         return new_transfers
 
     async def _process_transfer_manifest(self, manifest_file: Path) -> Optional[Dict[str, Any]]:
         """Process a transfer manifest file."""
         try:
-            with open(manifest_file, 'r') as f:
+            with open(manifest_file, "r") as f:
                 manifest = json.load(f)
 
-            transfer_id = manifest.get('transfer_id', manifest_file.stem)
+            transfer_id = manifest.get("transfer_id", manifest_file.stem)
 
             # Verify all files exist
             image_paths = []
             total_size = 0
 
-            for image_file in manifest.get('image_files', []):
+            for image_file in manifest.get("image_files", []):
                 image_path = self.incoming_dir / image_file
                 if image_path.exists():
                     image_paths.append(str(image_path))
@@ -101,22 +101,24 @@ class TransferReceiver:
             manifest_file.rename(processing_manifest)
 
             # Update statistics
-            self._transfer_stats['transfers_received'] += 1
-            self._transfer_stats['images_received'] += len(image_paths)
-            self._transfer_stats['bytes_received'] += total_size
+            self._transfer_stats["transfers_received"] += 1
+            self._transfer_stats["images_received"] += len(image_paths)
+            self._transfer_stats["bytes_received"] += total_size
 
             transfer_data = {
-                'id': transfer_id,
-                'manifest_path': str(processing_manifest),
-                'image_paths': image_paths,
-                'image_count': len(image_paths),
-                'total_size_bytes': total_size,
-                'metadata': manifest.get('metadata', {}),
-                'received_at': time.time()
+                "id": transfer_id,
+                "manifest_path": str(processing_manifest),
+                "image_paths": image_paths,
+                "image_count": len(image_paths),
+                "total_size_bytes": total_size,
+                "metadata": manifest.get("metadata", {}),
+                "received_at": time.time(),
             }
 
-            logger.info(f"Processed transfer {transfer_id}: {len(image_paths)} images, "
-                       f"{total_size / 1024 / 1024:.1f}MB")
+            logger.info(
+                f"Processed transfer {transfer_id}: {len(image_paths)} images, "
+                f"{total_size / 1024 / 1024:.1f}MB"
+            )
 
             return transfer_data
 
@@ -151,12 +153,12 @@ class TransferReceiver:
 
             # Update completed manifest with completion time
             try:
-                with open(completed_manifest, 'r') as f:
+                with open(completed_manifest, "r") as f:
                     manifest = json.load(f)
 
-                manifest['completed_at'] = time.time()
+                manifest["completed_at"] = time.time()
 
-                with open(completed_manifest, 'w') as f:
+                with open(completed_manifest, "w") as f:
                     json.dump(manifest, f, indent=2)
 
             except Exception as e:
@@ -165,9 +167,7 @@ class TransferReceiver:
             logger.debug(f"Marked transfer {transfer_id} as completed")
 
     async def simulate_incoming_transfer(
-        self,
-        image_paths: List[str],
-        metadata: Dict[str, Any]
+        self, image_paths: List[str], metadata: Dict[str, Any]
     ) -> str:
         """
         Simulate an incoming transfer for testing purposes.
@@ -185,20 +185,21 @@ class TransferReceiver:
 
                 # Copy file
                 import shutil
+
                 shutil.copy2(source_file, target_file)
                 incoming_files.append(target_file.name)
 
         # Create transfer manifest
         manifest = {
-            'transfer_id': transfer_id,
-            'image_files': incoming_files,
-            'metadata': metadata,
-            'created_at': time.time(),
-            'simulated_transfer': True
+            "transfer_id": transfer_id,
+            "image_files": incoming_files,
+            "metadata": metadata,
+            "created_at": time.time(),
+            "simulated_transfer": True,
         }
 
         manifest_file = self.incoming_dir / f"transfer_{transfer_id}.json"
-        with open(manifest_file, 'w') as f:
+        with open(manifest_file, "w") as f:
             json.dump(manifest, f, indent=2)
 
         logger.info(f"Simulated incoming transfer {transfer_id} with {len(incoming_files)} images")
@@ -212,14 +213,14 @@ class TransferReceiver:
         completed_count = len(list(self.completed_dir.glob("*.json")))
 
         return {
-            'initialized': self._is_initialized,
-            'transfer_directory': str(self.transfer_dir),
-            'queue_counts': {
-                'incoming': incoming_count,
-                'processing': processing_count,
-                'completed': completed_count
+            "initialized": self._is_initialized,
+            "transfer_directory": str(self.transfer_dir),
+            "queue_counts": {
+                "incoming": incoming_count,
+                "processing": processing_count,
+                "completed": completed_count,
             },
-            'statistics': self._transfer_stats.copy()
+            "statistics": self._transfer_stats.copy(),
         }
 
     async def get_pending_transfers(self) -> List[Dict[str, Any]]:
@@ -228,15 +229,17 @@ class TransferReceiver:
 
         for manifest_file in self.incoming_dir.glob("transfer_*.json"):
             try:
-                with open(manifest_file, 'r') as f:
+                with open(manifest_file, "r") as f:
                     manifest = json.load(f)
 
-                pending.append({
-                    'transfer_id': manifest.get('transfer_id', manifest_file.stem),
-                    'image_count': len(manifest.get('image_files', [])),
-                    'created_at': manifest.get('created_at'),
-                    'metadata': manifest.get('metadata', {})
-                })
+                pending.append(
+                    {
+                        "transfer_id": manifest.get("transfer_id", manifest_file.stem),
+                        "image_count": len(manifest.get("image_files", [])),
+                        "created_at": manifest.get("created_at"),
+                        "metadata": manifest.get("metadata", {}),
+                    }
+                )
 
             except Exception as e:
                 logger.warning(f"Failed to read pending transfer manifest {manifest_file}: {e}")

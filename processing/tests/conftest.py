@@ -1,13 +1,14 @@
 """Pytest configuration and shared fixtures for processing service tests."""
 
-import pytest
 import asyncio
-import tempfile
 import json
+import tempfile
 from pathlib import Path
 
+import pytest
+
 # Configure pytest for async testing
-pytest_plugins = ('pytest_asyncio',)
+pytest_plugins = ("pytest_asyncio",)
 
 
 @pytest.fixture(scope="session")
@@ -36,16 +37,30 @@ def sample_image_files(temp_dir):
         image_path = image_dir / f"test_image_{i:03d}.jpg"
 
         # Create minimal JPEG-like content
-        jpeg_data = bytearray([
-            0xFF, 0xD8,  # SOI marker
-            0xFF, 0xE0,  # APP0 marker
-            0x00, 0x10,  # APP0 length
-            0x4A, 0x46, 0x49, 0x46, 0x00,  # "JFIF\0"
-            0x01, 0x01,  # JFIF version
-            0x01,  # Units
-            0x00, 0x48, 0x00, 0x48,  # DPI
-            0x00, 0x00,  # No thumbnail
-        ])
+        jpeg_data = bytearray(
+            [
+                0xFF,
+                0xD8,  # SOI marker
+                0xFF,
+                0xE0,  # APP0 marker
+                0x00,
+                0x10,  # APP0 length
+                0x4A,
+                0x46,
+                0x49,
+                0x46,
+                0x00,  # "JFIF\0"
+                0x01,
+                0x01,  # JFIF version
+                0x01,  # Units
+                0x00,
+                0x48,
+                0x00,
+                0x48,  # DPI
+                0x00,
+                0x00,  # No thumbnail
+            ]
+        )
 
         # Add test data with image index
         test_data = f"Test image {i} content".encode() * 50
@@ -54,7 +69,7 @@ def sample_image_files(temp_dir):
         # Add EOI marker
         jpeg_data.extend([0xFF, 0xD9])
 
-        with open(image_path, 'wb') as f:
+        with open(image_path, "wb") as f:
             f.write(jpeg_data)
 
         image_files.append(str(image_path))
@@ -66,20 +81,20 @@ def sample_image_files(temp_dir):
 def sample_metadata():
     """Create sample image metadata."""
     return {
-        'capture_time': 1672531200.0,
-        'camera_model': 'Mock Camera v1.0',
-        'capture_settings': {
-            'exposure_time_us': 1000,
-            'iso': 100,
-            'white_balance_k': 5500,
-            'quality': 95,
-            'format': 'JPEG'
+        "capture_time": 1672531200.0,
+        "camera_model": "Mock Camera v1.0",
+        "capture_settings": {
+            "exposure_time_us": 1000,
+            "iso": 100,
+            "white_balance_k": 5500,
+            "quality": 95,
+            "format": "JPEG",
         },
-        'environmental_conditions': {
-            'is_golden_hour': False,
-            'ambient_light_lux': 10000.0,
-            'temperature_c': 20.0
-        }
+        "environmental_conditions": {
+            "is_golden_hour": False,
+            "ambient_light_lux": 10000.0,
+            "temperature_c": 20.0,
+        },
     }
 
 
@@ -87,32 +102,22 @@ def sample_metadata():
 def processing_config():
     """Create processing service configuration."""
     return {
-        'api': {
-            'port': 8081,
-            'cors_enabled': True
+        "api": {"port": 8081, "cors_enabled": True},
+        "processing": {
+            "max_concurrent_jobs": 2,
+            "job_timeout_seconds": 300,
+            "temp_dir": "/tmp/skylapse_processing_test",
+            "output_dir": "/tmp/skylapse_output_test",
         },
-        'processing': {
-            'max_concurrent_jobs': 2,
-            'job_timeout_seconds': 300,
-            'temp_dir': '/tmp/skylapse_processing_test',
-            'output_dir': '/tmp/skylapse_output_test'
+        "image": {
+            "supported_formats": ["JPEG", "PNG", "TIFF"],
+            "quality_levels": {"high": 95, "medium": 85, "low": 75},
         },
-        'image': {
-            'supported_formats': ['JPEG', 'PNG', 'TIFF'],
-            'quality_levels': {
-                'high': 95,
-                'medium': 85,
-                'low': 75
-            }
+        "video": {
+            "output_formats": ["1080p", "4k"],
+            "framerate": 24.0,
+            "encoding": {"codec": "h264", "quality": "high"},
         },
-        'video': {
-            'output_formats': ['1080p', '4k'],
-            'framerate': 24.0,
-            'encoding': {
-                'codec': 'h264',
-                'quality': 'high'
-            }
-        }
     }
 
 
@@ -121,9 +126,9 @@ def transfer_dirs(temp_dir):
     """Create transfer directories for testing."""
     transfer_base = Path(temp_dir) / "transfers"
     dirs = {
-        'incoming': transfer_base / "incoming",
-        'processing': transfer_base / "processing",
-        'completed': transfer_base / "completed"
+        "incoming": transfer_base / "incoming",
+        "processing": transfer_base / "processing",
+        "completed": transfer_base / "completed",
     }
 
     for dir_path in dirs.values():
@@ -136,18 +141,15 @@ def transfer_dirs(temp_dir):
 def sample_job_data():
     """Create sample job data for testing."""
     return {
-        'type': 'image_processing',
-        'image_paths': ['/tmp/test_image_001.jpg', '/tmp/test_image_002.jpg'],
-        'metadata': {
-            'capture_time': 1672531200.0,
-            'camera_model': 'Test Camera'
+        "type": "image_processing",
+        "image_paths": ["/tmp/test_image_001.jpg", "/tmp/test_image_002.jpg"],
+        "metadata": {"capture_time": 1672531200.0, "camera_model": "Test Camera"},
+        "processing_options": {
+            "noise_reduction": True,
+            "sharpening": False,
+            "color_correction": True,
         },
-        'processing_options': {
-            'noise_reduction': True,
-            'sharpening': False,
-            'color_correction': True
-        },
-        'priority': 'normal'
+        "priority": "normal",
     }
 
 
@@ -156,16 +158,15 @@ def sample_timelapse_data():
     """Create sample timelapse data for testing."""
     processed_images = []
     for i in range(10):
-        processed_images.append({
-            'input_path': f'/tmp/input_{i:03d}.jpg',
-            'output_path': f'/tmp/processed_{i:03d}.jpg',
-            'timestamp': 1672531200.0 + i * 60,  # 1 minute intervals
-            'processing_applied': ['basic_processing'],
-            'metadata': {
-                'capture_time': 1672531200.0 + i * 60,
-                'frame_index': i
+        processed_images.append(
+            {
+                "input_path": f"/tmp/input_{i:03d}.jpg",
+                "output_path": f"/tmp/processed_{i:03d}.jpg",
+                "timestamp": 1672531200.0 + i * 60,  # 1 minute intervals
+                "processing_applied": ["basic_processing"],
+                "metadata": {"capture_time": 1672531200.0 + i * 60, "frame_index": i},
             }
-        })
+        )
 
     return processed_images
 
@@ -174,17 +175,14 @@ def sample_timelapse_data():
 def mock_transfer_manifest(temp_dir):
     """Create a mock transfer manifest for testing."""
     manifest = {
-        'transfer_id': 'test_transfer_001',
-        'created_at': 1672531200.0,
-        'image_files': ['test_001.jpg', 'test_002.jpg', 'test_003.jpg'],
-        'metadata': {
-            'capture_session': 'test_session',
-            'camera_model': 'Mock Camera'
-        }
+        "transfer_id": "test_transfer_001",
+        "created_at": 1672531200.0,
+        "image_files": ["test_001.jpg", "test_002.jpg", "test_003.jpg"],
+        "metadata": {"capture_session": "test_session", "camera_model": "Mock Camera"},
     }
 
     manifest_file = Path(temp_dir) / "transfer_test_001.json"
-    with open(manifest_file, 'w') as f:
+    with open(manifest_file, "w") as f:
         json.dump(manifest, f, indent=2)
 
     return str(manifest_file)
@@ -238,10 +236,10 @@ async def job_queue_with_jobs(temp_dir):
     job_ids = []
     for i in range(3):
         job_data = {
-            'type': 'image_processing',
-            'image_paths': [f'/tmp/test_{i}.jpg'],
-            'metadata': {'test_job': i},
-            'priority': 'normal' if i % 2 == 0 else 'high'
+            "type": "image_processing",
+            "image_paths": [f"/tmp/test_{i}.jpg"],
+            "metadata": {"test_job": i},
+            "priority": "normal" if i % 2 == 0 else "high",
         }
         job_id = await queue.add_job(job_data)
         job_ids.append(job_id)
@@ -255,54 +253,54 @@ async def job_queue_with_jobs(temp_dir):
 def validate_processing_result(result):
     """Validate processing result structure."""
     assert isinstance(result, dict)
-    required_fields = ['input_path', 'output_path', 'processing_applied', 'timestamp', 'metadata']
+    required_fields = ["input_path", "output_path", "processing_applied", "timestamp", "metadata"]
 
     for field in required_fields:
         assert field in result, f"Missing required field: {field}"
 
-    assert isinstance(result['processing_applied'], list)
-    assert len(result['processing_applied']) > 0
-    assert isinstance(result['metadata'], dict)
-    assert result['timestamp'] > 0
+    assert isinstance(result["processing_applied"], list)
+    assert len(result["processing_applied"]) > 0
+    assert isinstance(result["metadata"], dict)
+    assert result["timestamp"] > 0
 
 
 def validate_job_status(status):
     """Validate job status structure."""
     assert isinstance(status, dict)
-    required_fields = ['id', 'status', 'created_at', 'updated_at']
+    required_fields = ["id", "status", "created_at", "updated_at"]
 
     for field in required_fields:
         assert field in status, f"Missing required field: {field}"
 
-    valid_statuses = ['pending', 'in_progress', 'completed', 'failed', 'cancelled']
-    assert status['status'] in valid_statuses
+    valid_statuses = ["pending", "in_progress", "completed", "failed", "cancelled"]
+    assert status["status"] in valid_statuses
 
 
 def validate_timelapse_result(result):
     """Validate timelapse creation result."""
     assert isinstance(result, dict)
-    assert 'success' in result
-    assert 'outputs' in result
+    assert "success" in result
+    assert "outputs" in result
 
-    if result['success']:
-        assert len(result['outputs']) > 0
-        for output in result['outputs']:
-            assert 'format' in output
-            assert 'output_path' in output
-            assert 'resolution' in output
+    if result["success"]:
+        assert len(result["outputs"]) > 0
+        for output in result["outputs"]:
+            assert "format" in output
+            assert "output_path" in output
+            assert "resolution" in output
 
 
 def validate_service_status(status):
     """Validate service status structure."""
     assert isinstance(status, dict)
-    assert 'service' in status
-    assert 'components' in status
+    assert "service" in status
+    assert "components" in status
 
-    service_info = status['service']
-    assert 'running' in service_info
-    assert 'uptime_seconds' in service_info
+    service_info = status["service"]
+    assert "running" in service_info
+    assert "uptime_seconds" in service_info
 
-    components = status['components']
+    components = status["components"]
     assert isinstance(components, dict)
 
 
@@ -318,9 +316,9 @@ def create_mock_hdr_images(temp_dir, count=3):
 
         # Different exposure simulation
         exposure_data = f"HDR exposure {i} - EV {(i-1)*2}".encode() * 30
-        content = b'\xff\xd8' + exposure_data + b'\xff\xd9'
+        content = b"\xff\xd8" + exposure_data + b"\xff\xd9"
 
-        with open(image_path, 'wb') as f:
+        with open(image_path, "wb") as f:
             f.write(content)
 
         image_paths.append(str(image_path))
@@ -339,9 +337,9 @@ def create_mock_focus_stack(temp_dir, count=5):
 
         # Different focus simulation
         focus_data = f"Focus stack {i} - distance {100 + i * 500}mm".encode() * 25
-        content = b'\xff\xd8' + focus_data + b'\xff\xd9'
+        content = b"\xff\xd8" + focus_data + b"\xff\xd9"
 
-        with open(image_path, 'wb') as f:
+        with open(image_path, "wb") as f:
             f.write(content)
 
         image_paths.append(str(image_path))
@@ -351,10 +349,10 @@ def create_mock_focus_stack(temp_dir, count=5):
 
 # Export validation helpers and creators
 __all__ = [
-    'validate_processing_result',
-    'validate_job_status',
-    'validate_timelapse_result',
-    'validate_service_status',
-    'create_mock_hdr_images',
-    'create_mock_focus_stack'
+    "validate_processing_result",
+    "validate_job_status",
+    "validate_timelapse_result",
+    "validate_service_status",
+    "create_mock_hdr_images",
+    "create_mock_focus_stack",
 ]

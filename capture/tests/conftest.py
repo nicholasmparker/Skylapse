@@ -1,19 +1,20 @@
 """Pytest configuration and shared fixtures for capture service tests."""
 
-import pytest
-import pytest_asyncio
 import asyncio
-import tempfile
-import yaml
 import os
+import tempfile
 from pathlib import Path
 
+import pytest
+import pytest_asyncio
+import yaml
+
 # Configure pytest for async testing
-pytest_plugins = ('pytest_asyncio',)
+pytest_plugins = ("pytest_asyncio",)
 
 # Set development environment for tests
-os.environ['SKYLAPSE_ENV'] = 'development'
-os.environ['MOCK_CAMERA'] = 'true'
+os.environ["SKYLAPSE_ENV"] = "development"
+os.environ["MOCK_CAMERA"] = "true"
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -39,55 +40,52 @@ def mock_camera_config_dir(temp_dir):
 
     # Create mock camera configuration
     mock_config = {
-        'sensor': {
-            'model': 'Mock Camera v1.0',
-            'bayer_pattern': 'RGGB',
-            'base_iso': 100,
-            'max_iso': 800,
-            'iso_invariance_point': 800,
-            'max_exposure_us': 10000000,
-            'resolution_mp': 16.0,
-            'max_resolution': [4656, 3496],
-            'sensor_size_mm': [7.4, 5.6]
+        "sensor": {
+            "model": "Mock Camera v1.0",
+            "bayer_pattern": "RGGB",
+            "base_iso": 100,
+            "max_iso": 800,
+            "iso_invariance_point": 800,
+            "max_exposure_us": 10000000,
+            "resolution_mp": 16.0,
+            "max_resolution": [4656, 3496],
+            "sensor_size_mm": [7.4, 5.6],
         },
-        'optical': {
-            'focal_length_mm': 4.28,
-            'aperture': 'f/2.0',
-            'hyperfocal_distance_mm': 1830,
-            'focus_range_mm': [100.0, float('inf')]
+        "optical": {
+            "focal_length_mm": 4.28,
+            "aperture": "f/2.0",
+            "hyperfocal_distance_mm": 1830,
+            "focus_range_mm": [100.0, float("inf")],
         },
-        'processing': {
-            'demosaic_algorithm': 'DCB',
-            'spatial_nr_strength': 0.2
+        "processing": {"demosaic_algorithm": "DCB", "spatial_nr_strength": 0.2},
+        "capture": {
+            "default_quality": 95,
+            "default_format": "JPEG",
+            "enable_raw_capture": False,
+            "capture_timeout_ms": 5000,
         },
-        'capture': {
-            'default_quality': 95,
-            'default_format': 'JPEG',
-            'enable_raw_capture': False,
-            'capture_timeout_ms': 5000
+        "performance": {
+            "capture_buffer_size": 4,
+            "max_capture_latency_ms": 10,
+            "focus_timeout_ms": 500,
         },
-        'performance': {
-            'capture_buffer_size': 4,
-            'max_capture_latency_ms': 10,
-            'focus_timeout_ms': 500
+        "mock": {
+            "capture_delay_ms": 10,
+            "simulate_failures": False,
+            "failure_rate": 0.0,
+            "output_dir": temp_dir,
         },
-        'mock': {
-            'capture_delay_ms': 10,
-            'simulate_failures': False,
-            'failure_rate': 0.0,
-            'output_dir': temp_dir
-        },
-        'capabilities': [
-            'AUTOFOCUS',
-            'MANUAL_FOCUS',
-            'HDR_BRACKETING',
-            'FOCUS_STACKING',
-            'RAW_CAPTURE',
-            'LIVE_PREVIEW'
-        ]
+        "capabilities": [
+            "AUTOFOCUS",
+            "MANUAL_FOCUS",
+            "HDR_BRACKETING",
+            "FOCUS_STACKING",
+            "RAW_CAPTURE",
+            "LIVE_PREVIEW",
+        ],
     }
 
-    with open(config_dir / "mock_camera.yaml", 'w') as f:
+    with open(config_dir / "mock_camera.yaml", "w") as f:
         yaml.dump(mock_config, f, indent=2)
 
     return str(config_dir.parent.parent)
@@ -100,38 +98,34 @@ def system_config_dir(temp_dir):
     config_dir.mkdir(parents=True, exist_ok=True)
 
     system_config = {
-        'storage': {
-            'capture_buffer_path': str(Path(temp_dir) / "buffer"),
-            'buffer_retention_hours': 48,
-            'max_buffer_size_gb': 100,
-            'cleanup_interval_hours': 6
+        "storage": {
+            "capture_buffer_path": str(Path(temp_dir) / "buffer"),
+            "buffer_retention_hours": 48,
+            "max_buffer_size_gb": 100,
+            "cleanup_interval_hours": 6,
         },
-        'network': {
-            'processing_service_host': 'localhost',
-            'processing_service_port': 8081,
-            'use_rsync': False,
-            'transfer_retry_attempts': 3,
-            'transfer_timeout_seconds': 300
+        "network": {
+            "processing_service_host": "localhost",
+            "processing_service_port": 8081,
+            "use_rsync": False,
+            "transfer_retry_attempts": 3,
+            "transfer_timeout_seconds": 300,
         },
-        'capture': {
-            'service_port': 8080,
-            'max_concurrent_captures': 1,
-            'health_check_interval_seconds': 30,
-            'check_interval_seconds': 10
+        "capture": {
+            "service_port": 8080,
+            "max_concurrent_captures": 1,
+            "health_check_interval_seconds": 30,
+            "check_interval_seconds": 10,
         },
-        'monitoring': {
-            'log_level': 'DEBUG',
-            'metrics_enabled': True,
-            'performance_tracking': True
+        "monitoring": {"log_level": "DEBUG", "metrics_enabled": True, "performance_tracking": True},
+        "development": {
+            "mock_camera_enabled": True,
+            "debug_logging": True,
+            "development_mode": True,
         },
-        'development': {
-            'mock_camera_enabled': True,
-            'debug_logging': True,
-            'development_mode': True
-        }
     }
 
-    with open(config_dir / "system.yaml", 'w') as f:
+    with open(config_dir / "system.yaml", "w") as f:
         yaml.dump(system_config, f, indent=2)
 
     return str(config_dir.parent.parent)
@@ -153,7 +147,7 @@ def sample_capture_settings():
         quality=95,
         format="JPEG",
         hdr_bracket_stops=[],
-        processing_hints={}
+        processing_hints={},
     )
 
 
@@ -175,7 +169,7 @@ def sample_environmental_conditions():
         color_temperature_k=5500,
         temperature_c=20.0,
         scene_brightness=None,
-        focus_quality_score=None
+        focus_quality_score=None,
     )
 
 
@@ -205,9 +199,9 @@ def blue_hour_conditions(sample_environmental_conditions):
 async def mock_transfer_dirs(temp_dir):
     """Create mock transfer directories."""
     transfer_dirs = {
-        'incoming': Path(temp_dir) / "transfers" / "incoming",
-        'processing': Path(temp_dir) / "transfers" / "processing",
-        'completed': Path(temp_dir) / "transfers" / "completed"
+        "incoming": Path(temp_dir) / "transfers" / "incoming",
+        "processing": Path(temp_dir) / "transfers" / "processing",
+        "completed": Path(temp_dir) / "transfers" / "completed",
     }
 
     for dir_path in transfer_dirs.values():
@@ -229,16 +223,30 @@ def sample_image_files(temp_dir):
         image_path = image_dir / f"test_image_{i:03d}.jpg"
 
         # Create minimal JPEG header + data
-        jpeg_data = bytearray([
-            0xFF, 0xD8,  # SOI marker
-            0xFF, 0xE0,  # APP0 marker
-            0x00, 0x10,  # APP0 length
-            0x4A, 0x46, 0x49, 0x46, 0x00,  # "JFIF\0"
-            0x01, 0x01,  # JFIF version
-            0x01,  # Units
-            0x00, 0x48, 0x00, 0x48,  # DPI
-            0x00, 0x00,  # No thumbnail
-        ])
+        jpeg_data = bytearray(
+            [
+                0xFF,
+                0xD8,  # SOI marker
+                0xFF,
+                0xE0,  # APP0 marker
+                0x00,
+                0x10,  # APP0 length
+                0x4A,
+                0x46,
+                0x49,
+                0x46,
+                0x00,  # "JFIF\0"
+                0x01,
+                0x01,  # JFIF version
+                0x01,  # Units
+                0x00,
+                0x48,
+                0x00,
+                0x48,  # DPI
+                0x00,
+                0x00,  # No thumbnail
+            ]
+        )
 
         # Add some test data
         test_data = f"Test image {i}".encode() * 100
@@ -247,7 +255,7 @@ def sample_image_files(temp_dir):
         # Add EOI marker
         jpeg_data.extend([0xFF, 0xD9])
 
-        with open(image_path, 'wb') as f:
+        with open(image_path, "wb") as f:
             f.write(jpeg_data)
 
         image_files.append(str(image_path))
@@ -308,17 +316,14 @@ def validate_capture_result(result):
 def validate_service_status(status):
     """Validate service status response format."""
     assert isinstance(status, dict)
-    assert 'initialized' in status
-    assert 'running' in status
+    assert "initialized" in status
+    assert "running" in status
 
-    if status.get('initialized'):
-        assert 'camera_model' in status
-        assert 'capabilities' in status
-        assert isinstance(status['capabilities'], list)
+    if status.get("initialized"):
+        assert "camera_model" in status
+        assert "capabilities" in status
+        assert isinstance(status["capabilities"], list)
 
 
 # Export validation helpers
-__all__ = [
-    'validate_capture_result',
-    'validate_service_status'
-]
+__all__ = ["validate_capture_result", "validate_service_status"]

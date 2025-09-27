@@ -1,17 +1,17 @@
 """Performance benchmark tests for capture system."""
 
-import pytest
-import pytest_asyncio
 import asyncio
-import time
 import statistics
 import tempfile
-from pathlib import Path
+import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+import pytest
+import pytest_asyncio
 from src.camera_controller import CameraController
+from src.camera_types import CameraCapability, CaptureSettings
 from src.cameras.mock_camera import MockCamera
-from src.camera_types import CaptureSettings, CameraCapability
 from src.scheduler import CaptureScheduler
 from src.storage_manager import StorageManager
 
@@ -29,34 +29,32 @@ class TestPerformanceBenchmarks:
             config_dir.mkdir(exist_ok=True)
 
             performance_config = {
-                'sensor': {
-                    'model': 'Performance Test Camera',
-                    'base_iso': 100,
-                    'max_iso': 800
+                "sensor": {"model": "Performance Test Camera", "base_iso": 100, "max_iso": 800},
+                "optical": {"focal_length_mm": 4.28, "hyperfocal_distance_mm": 1830},
+                "mock": {
+                    "capture_delay_ms": 1,  # Minimal delay for performance testing
+                    "simulate_failures": False,
+                    "failure_rate": 0.0,
+                    "output_dir": temp_dir,
                 },
-                'optical': {
-                    'focal_length_mm': 4.28,
-                    'hyperfocal_distance_mm': 1830
+                "performance": {
+                    "capture_buffer_size": 1,
+                    "max_capture_latency_ms": 50,
+                    "focus_timeout_ms": 2000,
                 },
-                'mock': {
-                    'capture_delay_ms': 1,  # Minimal delay for performance testing
-                    'simulate_failures': False,
-                    'failure_rate': 0.0,
-                    'output_dir': temp_dir
-                },
-                'performance': {
-                    'capture_buffer_size': 1,
-                    'max_capture_latency_ms': 50,
-                    'focus_timeout_ms': 2000
-                },
-                'capabilities': [
-                    'AUTOFOCUS', 'MANUAL_FOCUS', 'HDR_BRACKETING',
-                    'FOCUS_STACKING', 'RAW_CAPTURE', 'LIVE_PREVIEW'
-                ]
+                "capabilities": [
+                    "AUTOFOCUS",
+                    "MANUAL_FOCUS",
+                    "HDR_BRACKETING",
+                    "FOCUS_STACKING",
+                    "RAW_CAPTURE",
+                    "LIVE_PREVIEW",
+                ],
             }
 
             import yaml
-            with open(config_dir / "mock_camera.yaml", 'w') as f:
+
+            with open(config_dir / "mock_camera.yaml", "w") as f:
                 yaml.dump(performance_config, f)
 
             controller = CameraController(config_dir=temp_dir)
@@ -67,6 +65,7 @@ class TestPerformanceBenchmarks:
     @pytest_asyncio.fixture
     async def benchmarking_timer(self):
         """Utility for precise timing measurements."""
+
         class BenchmarkTimer:
             def __init__(self):
                 self.measurements = []
@@ -79,41 +78,55 @@ class TestPerformanceBenchmarks:
                 finally:
                     end_time = time.perf_counter()
                     duration_ms = (end_time - start_time) * 1000
-                    self.measurements.append({
-                        'operation': name,
-                        'duration_ms': duration_ms,
-                        'timestamp': time.time()
-                    })
+                    self.measurements.append(
+                        {"operation": name, "duration_ms": duration_ms, "timestamp": time.time()}
+                    )
 
             def get_stats(self, operation_name: str = None):
                 if operation_name:
-                    measurements = [m for m in self.measurements if m['operation'] == operation_name]
+                    measurements = [
+                        m for m in self.measurements if m["operation"] == operation_name
+                    ]
                 else:
                     measurements = self.measurements
 
                 if not measurements:
                     return {}
 
-                durations = [m['duration_ms'] for m in measurements]
+                durations = [m["duration_ms"] for m in measurements]
                 return {
-                    'count': len(durations),
-                    'min_ms': min(durations),
-                    'max_ms': max(durations),
-                    'avg_ms': statistics.mean(durations),
-                    'median_ms': statistics.median(durations),
-                    'p95_ms': statistics.quantiles(durations, n=20)[18] if len(durations) >= 20 else max(durations),
-                    'p99_ms': statistics.quantiles(durations, n=100)[98] if len(durations) >= 100 else max(durations)
+                    "count": len(durations),
+                    "min_ms": min(durations),
+                    "max_ms": max(durations),
+                    "avg_ms": statistics.mean(durations),
+                    "median_ms": statistics.median(durations),
+                    "p95_ms": (
+                        statistics.quantiles(durations, n=20)[18]
+                        if len(durations) >= 20
+                        else max(durations)
+                    ),
+                    "p99_ms": (
+                        statistics.quantiles(durations, n=100)[98]
+                        if len(durations) >= 100
+                        else max(durations)
+                    ),
                 }
 
-            def assert_performance_target(self, operation_name: str, target_ms: float, percentile: str = 'avg'):
+            def assert_performance_target(
+                self, operation_name: str, target_ms: float, percentile: str = "avg"
+            ):
                 stats = self.get_stats(operation_name)
-                actual_ms = stats.get(f'{percentile}_ms', float('inf'))
-                assert actual_ms <= target_ms, f"{operation_name} {percentile} time {actual_ms:.2f}ms exceeds target {target_ms}ms"
+                actual_ms = stats.get(f"{percentile}_ms", float("inf"))
+                assert (
+                    actual_ms <= target_ms
+                ), f"{operation_name} {percentile} time {actual_ms:.2f}ms exceeds target {target_ms}ms"
 
         return BenchmarkTimer()
 
     @pytest.mark.asyncio
-    async def test_capture_latency_benchmark(self, performance_camera_controller, benchmarking_timer):
+    async def test_capture_latency_benchmark(
+        self, performance_camera_controller, benchmarking_timer
+    ):
         """Test capture latency meets <50ms requirement."""
         controller = performance_camera_controller
 
@@ -126,22 +139,24 @@ class TestPerformanceBenchmarks:
             quality=90,
             format="JPEG",
             iso=100,
-            autofocus_enabled=False  # Disable AF for consistent timing
+            autofocus_enabled=False,  # Disable AF for consistent timing
         )
 
         for i in range(iterations):
-            async with benchmarking_timer.time_operation('single_capture'):
+            async with benchmarking_timer.time_operation("single_capture"):
                 result = await controller.capture_single_image(settings)
                 assert len(result.file_paths) == 1
 
         # Validate performance requirements
-        stats = benchmarking_timer.get_stats('single_capture')
+        stats = benchmarking_timer.get_stats("single_capture")
 
         # Primary requirement: <50ms average capture latency
-        benchmarking_timer.assert_performance_target('single_capture', 50.0, 'avg')
+        benchmarking_timer.assert_performance_target("single_capture", 50.0, "avg")
 
         # Additional requirements for system reliability
-        benchmarking_timer.assert_performance_target('single_capture', 100.0, 'p95')  # 95th percentile
+        benchmarking_timer.assert_performance_target(
+            "single_capture", 100.0, "p95"
+        )  # 95th percentile
 
         print(f"Capture Latency Benchmark Results:")
         print(f"  Average: {stats['avg_ms']:.2f}ms (target: <50ms)")
@@ -150,7 +165,9 @@ class TestPerformanceBenchmarks:
         print(f"  Iterations: {stats['count']}")
 
     @pytest.mark.asyncio
-    async def test_focus_acquisition_benchmark(self, performance_camera_controller, benchmarking_timer):
+    async def test_focus_acquisition_benchmark(
+        self, performance_camera_controller, benchmarking_timer
+    ):
         """Test focus acquisition meets <2s requirement."""
         controller = performance_camera_controller
 
@@ -158,49 +175,49 @@ class TestPerformanceBenchmarks:
         iterations = 20
 
         for i in range(iterations):
-            async with benchmarking_timer.time_operation('autofocus'):
+            async with benchmarking_timer.time_operation("autofocus"):
                 success = await controller.camera.autofocus(timeout_ms=2000)
                 assert success is True
 
         # Validate focus speed requirement
-        benchmarking_timer.assert_performance_target('autofocus', 2000.0, 'avg')  # <2s requirement
+        benchmarking_timer.assert_performance_target("autofocus", 2000.0, "avg")  # <2s requirement
 
-        stats = benchmarking_timer.get_stats('autofocus')
+        stats = benchmarking_timer.get_stats("autofocus")
         print(f"Focus Acquisition Benchmark Results:")
         print(f"  Average: {stats['avg_ms']:.0f}ms (target: <2000ms)")
         print(f"  95th percentile: {stats['p95_ms']:.0f}ms")
         print(f"  Success rate: 100% (all attempts successful)")
 
     @pytest.mark.asyncio
-    async def test_hdr_sequence_performance(self, performance_camera_controller, benchmarking_timer):
+    async def test_hdr_sequence_performance(
+        self, performance_camera_controller, benchmarking_timer
+    ):
         """Test HDR sequence capture performance."""
         controller = performance_camera_controller
 
         # Test HDR bracketing performance
         hdr_stops = [-1, 0, 1]  # 3-shot bracket
-        base_settings = CaptureSettings(
-            exposure_time_us=1000,
-            iso=100,
-            autofocus_enabled=False
-        )
+        base_settings = CaptureSettings(exposure_time_us=1000, iso=100, autofocus_enabled=False)
 
         iterations = 10
 
         for i in range(iterations):
-            async with benchmarking_timer.time_operation('hdr_sequence'):
+            async with benchmarking_timer.time_operation("hdr_sequence"):
                 result = await controller.capture_hdr_sequence(hdr_stops, base_settings)
                 assert len(result.file_paths) == 3
 
         # HDR should complete within reasonable time (target: <500ms for 3 shots)
-        benchmarking_timer.assert_performance_target('hdr_sequence', 500.0, 'avg')
+        benchmarking_timer.assert_performance_target("hdr_sequence", 500.0, "avg")
 
-        stats = benchmarking_timer.get_stats('hdr_sequence')
+        stats = benchmarking_timer.get_stats("hdr_sequence")
         print(f"HDR Sequence Benchmark Results:")
         print(f"  Average: {stats['avg_ms']:.2f}ms (target: <500ms for 3 shots)")
         print(f"  Per shot: {stats['avg_ms']/3:.2f}ms average")
 
     @pytest.mark.asyncio
-    async def test_continuous_capture_performance(self, performance_camera_controller, benchmarking_timer):
+    async def test_continuous_capture_performance(
+        self, performance_camera_controller, benchmarking_timer
+    ):
         """Test sustained capture performance over time."""
         controller = performance_camera_controller
 
@@ -213,7 +230,7 @@ class TestPerformanceBenchmarks:
         capture_count = 0
 
         while (time.time() - start_time) < duration_seconds:
-            async with benchmarking_timer.time_operation('continuous_capture'):
+            async with benchmarking_timer.time_operation("continuous_capture"):
                 result = await controller.capture_single_image(settings)
                 assert len(result.file_paths) == 1
                 capture_count += 1
@@ -222,10 +239,12 @@ class TestPerformanceBenchmarks:
             await asyncio.sleep(capture_interval)
 
         # Validate sustained performance
-        stats = benchmarking_timer.get_stats('continuous_capture')
+        stats = benchmarking_timer.get_stats("continuous_capture")
 
         # Capture latency should remain consistent under load
-        benchmarking_timer.assert_performance_target('continuous_capture', 75.0, 'avg')  # Slightly relaxed under load
+        benchmarking_timer.assert_performance_target(
+            "continuous_capture", 75.0, "avg"
+        )  # Slightly relaxed under load
 
         # Verify we maintained target capture rate
         expected_captures = duration_seconds / capture_interval
@@ -253,7 +272,7 @@ class TestPerformanceBenchmarks:
 
                 for i, size in enumerate(file_sizes):
                     # Create test file
-                    test_data = b'X' * size
+                    test_data = b"X" * size
                     test_file = Path(temp_dir) / f"perf_test_{i}.jpg"
                     test_file.write_bytes(test_data)
 
@@ -265,7 +284,7 @@ class TestPerformanceBenchmarks:
                         capture_time_ms=30.0,
                         quality_score=0.8,
                         metadata={},
-                        actual_settings=CaptureSettings()
+                        actual_settings=CaptureSettings(),
                     )
 
                     start_time = time.perf_counter()
@@ -282,7 +301,9 @@ class TestPerformanceBenchmarks:
                 max_write_time = max(write_times)
 
                 # Storage writes should be fast (target: <100ms for typical image)
-                assert avg_write_time < 100.0, f"Average write time {avg_write_time:.2f}ms exceeds 100ms target"
+                assert (
+                    avg_write_time < 100.0
+                ), f"Average write time {avg_write_time:.2f}ms exceeds 100ms target"
 
                 print(f"Storage Write Performance:")
                 print(f"  Average write time: {avg_write_time:.2f}ms")
@@ -327,7 +348,9 @@ class TestPerformanceBenchmarks:
             max_decision_time = max(decision_times)
 
             # Scheduler decisions should be very fast (target: <10ms)
-            assert avg_decision_time < 10.0, f"Average decision time {avg_decision_time:.2f}ms exceeds 10ms target"
+            assert (
+                avg_decision_time < 10.0
+            ), f"Average decision time {avg_decision_time:.2f}ms exceeds 10ms target"
 
             print(f"Scheduler Decision Performance:")
             print(f"  Average decision time: {avg_decision_time:.2f}ms")
@@ -340,8 +363,9 @@ class TestPerformanceBenchmarks:
     @pytest.mark.asyncio
     async def test_memory_usage_stability(self, performance_camera_controller):
         """Test that memory usage remains stable under load."""
-        import psutil
         import os
+
+        import psutil
 
         controller = performance_camera_controller
         process = psutil.Process(os.getpid())
@@ -362,7 +386,9 @@ class TestPerformanceBenchmarks:
                 memory_growth = current_memory - baseline_memory
 
                 # Memory growth should be reasonable (target: <50MB growth)
-                assert memory_growth < 50.0, f"Memory grew by {memory_growth:.1f}MB after {i} captures"
+                assert (
+                    memory_growth < 50.0
+                ), f"Memory grew by {memory_growth:.1f}MB after {i} captures"
 
         final_memory = process.memory_info().rss / 1024 / 1024
         total_growth = final_memory - baseline_memory
@@ -389,17 +415,14 @@ class TestPerformanceBenchmarks:
             config_dir.mkdir(exist_ok=True)
 
             import yaml
+
             config = {
-                'sensor': {'model': 'Integration Test Camera'},
-                'mock': {
-                    'capture_delay_ms': 1,
-                    'output_dir': temp_dir,
-                    'simulate_failures': False
-                },
-                'capabilities': ['AUTOFOCUS', 'HDR_BRACKETING']
+                "sensor": {"model": "Integration Test Camera"},
+                "mock": {"capture_delay_ms": 1, "output_dir": temp_dir, "simulate_failures": False},
+                "capabilities": ["AUTOFOCUS", "HDR_BRACKETING"],
             }
 
-            with open(config_dir / "mock_camera.yaml", 'w') as f:
+            with open(config_dir / "mock_camera.yaml", "w") as f:
                 yaml.dump(config, f)
 
             controller = CameraController(config_dir=str(config_dir))
@@ -409,10 +432,7 @@ class TestPerformanceBenchmarks:
                 # Test integrated workflow timing
                 from src.camera_types import EnvironmentalConditions
 
-                conditions = EnvironmentalConditions(
-                    is_golden_hour=True,
-                    ambient_light_lux=2000
-                )
+                conditions = EnvironmentalConditions(is_golden_hour=True, ambient_light_lux=2000)
 
                 total_workflow_times = []
 
@@ -437,7 +457,9 @@ class TestPerformanceBenchmarks:
                 max_workflow_time = max(total_workflow_times)
 
                 # Complete workflow should be fast (target: <200ms)
-                assert avg_workflow_time < 200.0, f"Average workflow time {avg_workflow_time:.2f}ms exceeds 200ms target"
+                assert (
+                    avg_workflow_time < 200.0
+                ), f"Average workflow time {avg_workflow_time:.2f}ms exceeds 200ms target"
 
                 print(f"Integrated System Performance:")
                 print(f"  Average workflow time: {avg_workflow_time:.2f}ms")
@@ -464,16 +486,14 @@ class TestPerformanceRegression:
             config_dir = Path(temp_dir)
 
             import yaml
+
             config = {
-                'sensor': {'model': 'Regression Test Camera'},
-                'mock': {
-                    'capture_delay_ms': 5,  # Realistic delay
-                    'output_dir': temp_dir
-                },
-                'capabilities': ['AUTOFOCUS']
+                "sensor": {"model": "Regression Test Camera"},
+                "mock": {"capture_delay_ms": 5, "output_dir": temp_dir},  # Realistic delay
+                "capabilities": ["AUTOFOCUS"],
             }
 
-            with open(config_dir / "mock_camera.yaml", 'w') as f:
+            with open(config_dir / "mock_camera.yaml", "w") as f:
                 yaml.dump(config, f)
 
             controller = CameraController(config_dir=str(temp_dir))
@@ -497,15 +517,19 @@ class TestPerformanceRegression:
                     assert len(result.file_paths) == 1
 
                 avg_time = statistics.mean(capture_times)
-                p95_time = statistics.quantiles(capture_times, n=20)[18] if len(capture_times) >= 20 else max(capture_times)
+                p95_time = (
+                    statistics.quantiles(capture_times, n=20)[18]
+                    if len(capture_times) >= 20
+                    else max(capture_times)
+                )
 
                 # Document baseline performance for regression tracking
                 baseline_metrics = {
-                    'version': '1.0.0',  # Update with actual version
-                    'test_date': time.strftime('%Y-%m-%d'),
-                    'avg_capture_time_ms': avg_time,
-                    'p95_capture_time_ms': p95_time,
-                    'iterations': iterations
+                    "version": "1.0.0",  # Update with actual version
+                    "test_date": time.strftime("%Y-%m-%d"),
+                    "avg_capture_time_ms": avg_time,
+                    "p95_capture_time_ms": p95_time,
+                    "iterations": iterations,
                 }
 
                 print(f"Performance Baseline Metrics:")

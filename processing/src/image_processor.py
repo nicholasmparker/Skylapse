@@ -1,11 +1,11 @@
 """Image processing and enhancement module."""
 
 import asyncio
+import json
 import logging
 import time
-from typing import Dict, Any, Optional, List
 from pathlib import Path
-import json
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +17,9 @@ class ImageProcessor:
         """Initialize image processor."""
         self._is_initialized = False
         self._processing_stats = {
-            'images_processed': 0,
-            'average_processing_time_ms': 0.0,
-            'processing_errors': 0
+            "images_processed": 0,
+            "average_processing_time_ms": 0.0,
+            "processing_errors": 0,
         }
 
     async def initialize(self) -> None:
@@ -44,7 +44,7 @@ class ImageProcessor:
         self,
         image_path: str,
         metadata: Dict[str, Any],
-        processing_options: Optional[Dict[str, Any]] = None
+        processing_options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Process a single image with enhancement operations.
@@ -78,7 +78,7 @@ class ImageProcessor:
         self,
         image_path: str,
         metadata: Dict[str, Any],
-        processing_options: Optional[Dict[str, Any]]
+        processing_options: Optional[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Basic image processing for Sprint 1."""
         # Simulate processing delay
@@ -97,69 +97,70 @@ class ImageProcessor:
 
         # Generate result
         result = {
-            'input_path': str(input_path),
-            'output_path': str(output_path),
-            'processing_applied': self._get_processing_applied(processing_options),
-            'timestamp': time.time(),
-            'metadata': metadata,
-            'quality_improvements': {
-                'noise_reduction': processing_options.get('noise_reduction', False),
-                'sharpening': processing_options.get('sharpening', False),
-                'color_correction': processing_options.get('color_correction', False)
-            }
+            "input_path": str(input_path),
+            "output_path": str(output_path),
+            "processing_applied": self._get_processing_applied(processing_options),
+            "timestamp": time.time(),
+            "metadata": metadata,
+            "quality_improvements": {
+                "noise_reduction": processing_options.get("noise_reduction", False),
+                "sharpening": processing_options.get("sharpening", False),
+                "color_correction": processing_options.get("color_correction", False),
+            },
         }
 
         return result
 
-    async def _copy_with_metadata(self, input_path: Path, output_path: Path, metadata: Dict[str, Any]) -> None:
+    async def _copy_with_metadata(
+        self, input_path: Path, output_path: Path, metadata: Dict[str, Any]
+    ) -> None:
         """Copy image and preserve/enhance metadata."""
         # For Sprint 1, simple file copy
         # Phase 2 will add proper image processing with metadata preservation
         import shutil
+
         shutil.copy2(input_path, output_path)
 
         # Write processing metadata
-        metadata_file = output_path.with_suffix('.json')
+        metadata_file = output_path.with_suffix(".json")
         processing_metadata = {
-            'original_file': str(input_path),
-            'processed_file': str(output_path),
-            'processing_timestamp': time.time(),
-            'original_metadata': metadata,
-            'processing_version': '1.0.0-sprint1'
+            "original_file": str(input_path),
+            "processed_file": str(output_path),
+            "processing_timestamp": time.time(),
+            "original_metadata": metadata,
+            "processing_version": "1.0.0-sprint1",
         }
 
-        with open(metadata_file, 'w') as f:
+        with open(metadata_file, "w") as f:
             json.dump(processing_metadata, f, indent=2)
 
     def _get_processing_applied(self, processing_options: Optional[Dict[str, Any]]) -> List[str]:
         """Get list of processing operations that were applied."""
         if not processing_options:
-            return ['basic_copy']
+            return ["basic_copy"]
 
         applied = []
 
         # Check what processing was requested
-        if processing_options.get('noise_reduction'):
-            applied.append('noise_reduction')
+        if processing_options.get("noise_reduction"):
+            applied.append("noise_reduction")
 
-        if processing_options.get('sharpening'):
-            applied.append('sharpening')
+        if processing_options.get("sharpening"):
+            applied.append("sharpening")
 
-        if processing_options.get('color_correction'):
-            applied.append('color_correction')
+        if processing_options.get("color_correction"):
+            applied.append("color_correction")
 
-        if processing_options.get('hdr_processing'):
-            applied.append('hdr_processing')
+        if processing_options.get("hdr_processing"):
+            applied.append("hdr_processing")
 
         if not applied:
-            applied.append('basic_copy')
+            applied.append("basic_copy")
 
         return applied
 
     async def process_hdr_sequence(
-        self,
-        image_paths: List[str],
-        metadata: Dict[str, Any]
+        self, image_paths: List[str], metadata: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Process HDR bracketed sequence into a single enhanced image.
@@ -177,21 +178,16 @@ class ImageProcessor:
         base_image_path = image_paths[base_image_index]
 
         # Process base image with HDR hint
-        processing_options = {
-            'hdr_processing': True,
-            'bracket_count': len(image_paths)
-        }
+        processing_options = {"hdr_processing": True, "bracket_count": len(image_paths)}
 
         result = await self.process_image(base_image_path, metadata, processing_options)
-        result['hdr_sequence'] = image_paths
-        result['processing_type'] = 'hdr_merge'
+        result["hdr_sequence"] = image_paths
+        result["processing_type"] = "hdr_merge"
 
         return result
 
     async def process_focus_stack(
-        self,
-        image_paths: List[str],
-        metadata: Dict[str, Any]
+        self, image_paths: List[str], metadata: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Process focus stacked sequence for maximum sharpness.
@@ -206,50 +202,47 @@ class ImageProcessor:
         # For Sprint 1, select the first image
         base_image_path = image_paths[0]
 
-        processing_options = {
-            'focus_stacking': True,
-            'stack_count': len(image_paths)
-        }
+        processing_options = {"focus_stacking": True, "stack_count": len(image_paths)}
 
         result = await self.process_image(base_image_path, metadata, processing_options)
-        result['focus_stack_sequence'] = image_paths
-        result['processing_type'] = 'focus_stack'
+        result["focus_stack_sequence"] = image_paths
+        result["processing_type"] = "focus_stack"
 
         return result
 
     def _update_processing_stats(self, processing_time_ms: float, success: bool) -> None:
         """Update processing statistics."""
         if success:
-            self._processing_stats['images_processed'] += 1
+            self._processing_stats["images_processed"] += 1
 
             # Update running average
-            current_avg = self._processing_stats['average_processing_time_ms']
-            processed_count = self._processing_stats['images_processed']
+            current_avg = self._processing_stats["average_processing_time_ms"]
+            processed_count = self._processing_stats["images_processed"]
 
             if processed_count > 0:
-                self._processing_stats['average_processing_time_ms'] = (
-                    (current_avg * (processed_count - 1) + processing_time_ms) / processed_count
-                )
+                self._processing_stats["average_processing_time_ms"] = (
+                    current_avg * (processed_count - 1) + processing_time_ms
+                ) / processed_count
         else:
-            self._processing_stats['processing_errors'] += 1
+            self._processing_stats["processing_errors"] += 1
 
     async def get_status(self) -> Dict[str, Any]:
         """Get image processor status."""
         return {
-            'initialized': self._is_initialized,
-            'statistics': self._processing_stats.copy(),
-            'capabilities': [
-                'basic_processing',
-                'hdr_sequence',      # Stub implementation
-                'focus_stacking',    # Stub implementation
-                'metadata_preservation'
+            "initialized": self._is_initialized,
+            "statistics": self._processing_stats.copy(),
+            "capabilities": [
+                "basic_processing",
+                "hdr_sequence",  # Stub implementation
+                "focus_stacking",  # Stub implementation
+                "metadata_preservation",
             ],
-            'future_capabilities': [
-                'noise_reduction',   # Phase 2
-                'color_correction',  # Phase 2
-                'lens_correction',   # Phase 2
-                'gpu_acceleration'   # Phase 2
-            ]
+            "future_capabilities": [
+                "noise_reduction",  # Phase 2
+                "color_correction",  # Phase 2
+                "lens_correction",  # Phase 2
+                "gpu_acceleration",  # Phase 2
+            ],
         }
 
     # Future methods for Phase 2 implementation
@@ -259,12 +252,16 @@ class ImageProcessor:
         # TODO: Implement with OpenCV/PIL
         pass
 
-    async def _apply_color_correction(self, image_path: str, color_matrix: List[List[float]]) -> str:
+    async def _apply_color_correction(
+        self, image_path: str, color_matrix: List[List[float]]
+    ) -> str:
         """Apply color correction matrix (Phase 2)."""
         # TODO: Implement color matrix application
         pass
 
-    async def _apply_lens_correction(self, image_path: str, distortion_params: Dict[str, float]) -> str:
+    async def _apply_lens_correction(
+        self, image_path: str, distortion_params: Dict[str, float]
+    ) -> str:
         """Apply lens distortion correction (Phase 2)."""
         # TODO: Implement lens correction
         pass

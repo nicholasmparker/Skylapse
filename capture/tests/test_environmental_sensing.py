@@ -1,12 +1,12 @@
 """Tests for environmental sensing functionality."""
 
-import pytest
-import pytest_asyncio
 import asyncio
 import math
 
-from src.environmental_sensing import EnvironmentalSensor
+import pytest
+import pytest_asyncio
 from src.camera_types import EnvironmentalConditions
+from src.environmental_sensing import EnvironmentalSensor
 
 
 class TestEnvironmentalSensor:
@@ -119,22 +119,22 @@ class TestEnvironmentalSensor:
         status = await sensor.get_status()
 
         assert isinstance(status, dict)
-        assert status['initialized'] is True
-        assert 'last_update_time' in status
-        assert 'data_sources' in status
+        assert status["initialized"] is True
+        assert "last_update_time" in status
+        assert "data_sources" in status
 
         # Check data sources
-        data_sources = status['data_sources']
-        assert data_sources['astronomical'] == 'active'
-        assert data_sources['weather_api'] == 'stub'
-        assert data_sources['hardware_sensors'] == 'stub'
+        data_sources = status["data_sources"]
+        assert data_sources["astronomical"] == "active"
+        assert data_sources["weather_api"] == "stub"
+        assert data_sources["hardware_sensors"] == "stub"
 
         # Should have current conditions
-        if 'current_conditions' in status:
-            conditions = status['current_conditions']
-            assert 'sun_elevation_deg' in conditions
-            assert 'is_golden_hour' in conditions
-            assert 'ambient_light_lux' in conditions
+        if "current_conditions" in status:
+            conditions = status["current_conditions"]
+            assert "sun_elevation_deg" in conditions
+            assert "is_golden_hour" in conditions
+            assert "ambient_light_lux" in conditions
 
     @pytest.mark.asyncio
     async def test_uninitialized_behavior(self):
@@ -200,7 +200,7 @@ class TestEnvironmentalConditions:
             sun_elevation_deg=30.0,
             is_golden_hour=False,
             ambient_light_lux=8000.0,
-            temperature_c=15.0
+            temperature_c=15.0,
         )
 
         assert conditions.cloud_cover_pct == 50.0

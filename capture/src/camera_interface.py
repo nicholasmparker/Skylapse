@@ -1,15 +1,15 @@
 """Camera interface abstraction for multi-camera support."""
 
-from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
 import asyncio
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
 
 from .camera_types import (
     CameraCapability,
-    CaptureSettings,
-    CaptureResult,
     CameraSpecs,
-    EnvironmentalConditions
+    CaptureResult,
+    CaptureSettings,
+    EnvironmentalConditions,
 )
 
 
@@ -80,9 +80,7 @@ class CameraInterface(ABC):
     # Optional methods with default implementations
 
     async def optimize_settings_for_conditions(
-        self,
-        base_settings: CaptureSettings,
-        conditions: EnvironmentalConditions
+        self, base_settings: CaptureSettings, conditions: EnvironmentalConditions
     ) -> CaptureSettings:
         """
         Optimize capture settings based on environmental conditions.
@@ -142,20 +140,21 @@ class CameraFactory:
         Returns the first successfully initialized camera.
         """
         import os
+
         from .config_manager import CameraConfigManager
 
         config_manager = CameraConfigManager(config_dir)
 
         # Check environment for camera preference
-        skylapse_env = os.getenv('SKYLAPSE_ENV', 'production').lower()
-        mock_camera_enabled = os.getenv('MOCK_CAMERA', 'false').lower() in ('true', '1', 'yes')
+        skylapse_env = os.getenv("SKYLAPSE_ENV", "production").lower()
+        mock_camera_enabled = os.getenv("MOCK_CAMERA", "false").lower() in ("true", "1", "yes")
 
         # In development environment, prefer mock camera
-        if skylapse_env == 'development' or mock_camera_enabled:
-            detection_order = ['mock_camera', 'arducam_imx519', 'pi_camera_v3', 'pi_camera_v2']
+        if skylapse_env == "development" or mock_camera_enabled:
+            detection_order = ["mock_camera", "arducam_imx519", "pi_camera_v3", "pi_camera_v2"]
         else:
             # Try cameras in priority order: Arducam IMX519, Pi Camera v3/v2, Mock
-            detection_order = ['arducam_imx519', 'pi_camera_v3', 'pi_camera_v2', 'mock_camera']
+            detection_order = ["arducam_imx519", "pi_camera_v3", "pi_camera_v2", "mock_camera"]
 
         for camera_type in detection_order:
             if camera_type not in cls._registered_cameras:
@@ -186,8 +185,8 @@ class CameraFactory:
 
         camera_class = cls._registered_cameras[camera_type]
         return {
-            'type': camera_type,
-            'class': camera_class.__name__,
-            'module': camera_class.__module__,
-            'docstring': camera_class.__doc__
+            "type": camera_type,
+            "class": camera_class.__name__,
+            "module": camera_class.__module__,
+            "docstring": camera_class.__doc__,
         }

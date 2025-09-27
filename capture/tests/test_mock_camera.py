@@ -1,13 +1,13 @@
 """Tests for mock camera implementation."""
 
-import pytest
-import pytest_asyncio
 import asyncio
 import tempfile
 from pathlib import Path
 
+import pytest
+import pytest_asyncio
+from src.camera_types import CameraCapability, CaptureSettings, EnvironmentalConditions
 from src.cameras.mock_camera import MockCamera
-from src.camera_types import CaptureSettings, CameraCapability, EnvironmentalConditions
 
 
 class TestMockCamera:
@@ -18,10 +18,10 @@ class TestMockCamera:
         """Create mock camera configuration."""
         with tempfile.TemporaryDirectory() as temp_dir:
             config = {
-                'mock_capture_delay_ms': 10,
-                'mock_simulate_failures': False,
-                'mock_failure_rate': 0.0,
-                'mock_output_dir': temp_dir
+                "mock_capture_delay_ms": 10,
+                "mock_simulate_failures": False,
+                "mock_failure_rate": 0.0,
+                "mock_output_dir": temp_dir,
             }
             yield config
 
@@ -50,30 +50,25 @@ class TestMockCamera:
     @pytest.mark.asyncio
     async def test_capture_single(self, camera):
         """Test single image capture."""
-        settings = CaptureSettings(
-            quality=90,
-            format="JPEG",
-            iso=100,
-            exposure_time_us=1000
-        )
+        settings = CaptureSettings(quality=90, format="JPEG", iso=100, exposure_time_us=1000)
 
         result = await camera.capture_single(settings)
 
         assert len(result.file_paths) == 1
         assert result.capture_time_ms > 0
         assert result.quality_score > 0
-        assert result.metadata['mock_capture'] is True
+        assert result.metadata["mock_capture"] is True
 
         # Check that file was created
         image_file = Path(result.file_paths[0])
         assert image_file.exists()
-        assert image_file.suffix == '.jpg'
+        assert image_file.suffix == ".jpg"
 
     @pytest.mark.asyncio
     async def test_capture_sequence(self, camera):
         """Test multi-image sequence capture."""
         settings_list = [
-            CaptureSettings(exposure_time_us=500),   # -1 EV
+            CaptureSettings(exposure_time_us=500),  # -1 EV
             CaptureSettings(exposure_time_us=1000),  # Base
             CaptureSettings(exposure_time_us=2000),  # +1 EV
         ]
@@ -82,8 +77,8 @@ class TestMockCamera:
 
         assert len(result.file_paths) == 3
         assert result.capture_time_ms > 0
-        assert result.metadata['sequence_count'] == 3
-        assert result.metadata['sequence_type'] == 'hdr_bracket'
+        assert result.metadata["sequence_count"] == 3
+        assert result.metadata["sequence_type"] == "hdr_bracket"
 
         # Check that all files were created
         for file_path in result.file_paths:
@@ -112,7 +107,7 @@ class TestMockCamera:
         assert preview is not None
         assert isinstance(preview, bytes)
         # Should return mock JPEG header
-        assert preview.startswith(b'\xff\xd8\xff\xe0')
+        assert preview.startswith(b"\xff\xd8\xff\xe0")
 
     @pytest.mark.asyncio
     async def test_settings_management(self, camera):
@@ -122,11 +117,7 @@ class TestMockCamera:
         assert isinstance(current, CaptureSettings)
 
         # Test setting new settings
-        new_settings = CaptureSettings(
-            iso=400,
-            quality=85,
-            white_balance_k=5500
-        )
+        new_settings = CaptureSettings(iso=400, quality=85, white_balance_k=5500)
 
         success = await camera.set_capture_settings(new_settings)
         assert success is True
@@ -140,30 +131,19 @@ class TestMockCamera:
     @pytest.mark.asyncio
     async def test_environmental_optimization(self, camera):
         """Test environmental condition optimization."""
-        base_settings = CaptureSettings(
-            iso=100,
-            white_balance_k=4000
-        )
+        base_settings = CaptureSettings(iso=100, white_balance_k=4000)
 
         # Test golden hour optimization
-        golden_conditions = EnvironmentalConditions(
-            is_golden_hour=True,
-            ambient_light_lux=2000
-        )
+        golden_conditions = EnvironmentalConditions(is_golden_hour=True, ambient_light_lux=2000)
 
-        optimized = await camera.optimize_settings_for_conditions(
-            base_settings, golden_conditions
-        )
+        optimized = await camera.optimize_settings_for_conditions(base_settings, golden_conditions)
 
         assert optimized.white_balance_k == 3200  # Warmer for golden hour
         assert optimized.exposure_compensation > base_settings.exposure_compensation
-        assert optimized.processing_hints.get('enhance_warmth') is True
+        assert optimized.processing_hints.get("enhance_warmth") is True
 
         # Test blue hour optimization
-        blue_conditions = EnvironmentalConditions(
-            is_blue_hour=True,
-            ambient_light_lux=50
-        )
+        blue_conditions = EnvironmentalConditions(is_blue_hour=True, ambient_light_lux=50)
 
         blue_optimized = await camera.optimize_settings_for_conditions(
             base_settings, blue_conditions
@@ -171,7 +151,7 @@ class TestMockCamera:
 
         assert blue_optimized.white_balance_k == 8500  # Cooler for blue hour
         assert blue_optimized.iso == 400  # Higher ISO for low light
-        assert blue_optimized.processing_hints.get('enhance_blues') is True
+        assert blue_optimized.processing_hints.get("enhance_blues") is True
 
     @pytest.mark.asyncio
     async def test_image_quality_assessment(self, camera):
@@ -188,24 +168,21 @@ class TestMockCamera:
     @pytest.mark.asyncio
     async def test_processing_hints(self, camera):
         """Test processing hints generation."""
-        settings = CaptureSettings(
-            iso=800,
-            hdr_bracket_stops=[-1, 0, 1]
-        )
+        settings = CaptureSettings(iso=800, hdr_bracket_stops=[-1, 0, 1])
 
         hints = camera.get_processing_hints(settings)
         assert isinstance(hints, dict)
-        assert hints.get('mock_processing') is True
-        assert hints.get('use_noise_reduction') is True  # High ISO
-        assert hints.get('apply_hdr_processing') is True  # Has HDR stops
+        assert hints.get("mock_processing") is True
+        assert hints.get("use_noise_reduction") is True  # High ISO
+        assert hints.get("apply_hdr_processing") is True  # Has HDR stops
 
     @pytest.mark.asyncio
     async def test_failure_simulation(self, mock_config):
         """Test failure simulation functionality."""
         # Configure for failure simulation
         failure_config = mock_config.copy()
-        failure_config['mock_simulate_failures'] = True
-        failure_config['mock_failure_rate'] = 1.0  # 100% failure rate
+        failure_config["mock_simulate_failures"] = True
+        failure_config["mock_failure_rate"] = 1.0  # 100% failure rate
 
         camera = MockCamera(failure_config)
         await camera.initialize()
@@ -227,12 +204,12 @@ class TestMockCamera:
         settings_list = [
             CaptureSettings(focus_distance_mm=1000.0),
             CaptureSettings(focus_distance_mm=2000.0),
-            CaptureSettings(focus_distance_mm=float('inf')),
+            CaptureSettings(focus_distance_mm=float("inf")),
         ]
 
         result = await camera.capture_sequence(settings_list)
 
-        assert result.metadata['sequence_type'] == 'focus_stack'
+        assert result.metadata["sequence_type"] == "focus_stack"
         assert len(result.file_paths) == 3
 
     @pytest.mark.asyncio
@@ -253,13 +230,14 @@ class TestMockCamera:
         """Test that capture delay simulation works."""
         # Set higher delay
         delay_config = mock_config.copy()
-        delay_config['mock_capture_delay_ms'] = 100
+        delay_config["mock_capture_delay_ms"] = 100
 
         camera = MockCamera(delay_config)
         await camera.initialize()
 
         try:
             import time
+
             start_time = time.time()
 
             await camera.capture_single(CaptureSettings())
@@ -277,8 +255,8 @@ class TestMockCamera:
         # Single capture
         single_result = await camera.capture_single(CaptureSettings())
         single_path = Path(single_result.file_paths[0])
-        assert single_path.name.startswith('mock_image_')
-        assert single_path.suffix == '.jpg'
+        assert single_path.name.startswith("mock_image_")
+        assert single_path.suffix == ".jpg"
 
         # Sequence capture
         settings_list = [CaptureSettings(), CaptureSettings()]
@@ -286,7 +264,7 @@ class TestMockCamera:
 
         for i, file_path in enumerate(seq_result.file_paths):
             seq_path = Path(file_path)
-            assert seq_path.name.startswith('mock_image_')
+            assert seq_path.name.startswith("mock_image_")
             assert f"_{i:03d}.jpg" in seq_path.name  # Should have sequence index
 
     def test_camera_specs(self, mock_config):

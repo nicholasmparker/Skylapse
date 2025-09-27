@@ -1,21 +1,21 @@
 """Main capture service for the Skylapse timelapse system."""
 
 import asyncio
+import json
 import logging
 import signal
 import time
-from typing import Optional, Dict, Any, List
 from pathlib import Path
-import json
+from typing import Any, Dict, List, Optional
 
-from .camera_controller import CameraController
-from .storage_manager import StorageManager
-from .scheduler import CaptureScheduler
-from .environmental_sensing import EnvironmentalSensor
-from .transfer_manager import TransferManager
 from .api_server import CaptureAPIServer
+from .camera_controller import CameraController
+from .camera_types import CaptureSettings, EnvironmentalConditions
 from .config_manager import SystemConfigManager
-from .camera_types import EnvironmentalConditions, CaptureSettings
+from .environmental_sensing import EnvironmentalSensor
+from .scheduler import CaptureScheduler
+from .storage_manager import StorageManager
+from .transfer_manager import TransferManager
 
 logger = logging.getLogger(__name__)
 
@@ -28,23 +28,24 @@ class CaptureService:
         self._config = SystemConfigManager(config_file)
         self._camera_controller = CameraController()
         self._storage_manager = StorageManager(
-            buffer_path=self._config.get('storage.capture_buffer_path'),
-            max_size_gb=self._config.get('storage.max_buffer_size_gb'),
-            retention_hours=self._config.get('storage.buffer_retention_hours')
+            buffer_path=self._config.get("storage.capture_buffer_path"),
+            max_size_gb=self._config.get("storage.max_buffer_size_gb"),
+            retention_hours=self._config.get("storage.buffer_retention_hours"),
         )
         self._scheduler = CaptureScheduler()
         self._environmental_sensor = EnvironmentalSensor()
-        self._transfer_manager = TransferManager({
-            'queue_dir': self._config.get('storage.capture_buffer_path') + '/transfer_queue',
-            'target_dir': '/opt/skylapse/transfers/incoming',
-            'processing_host': self._config.get('network.processing_service_host'),
-            'processing_port': self._config.get('network.processing_service_port'),
-            'use_rsync': self._config.get('network.use_rsync', False),
-            'max_retries': self._config.get('network.transfer_retry_attempts', 3)
-        })
+        self._transfer_manager = TransferManager(
+            {
+                "queue_dir": self._config.get("storage.capture_buffer_path") + "/transfer_queue",
+                "target_dir": "/opt/skylapse/transfers/incoming",
+                "processing_host": self._config.get("network.processing_service_host"),
+                "processing_port": self._config.get("network.processing_service_port"),
+                "use_rsync": self._config.get("network.use_rsync", False),
+                "max_retries": self._config.get("network.transfer_retry_attempts", 3),
+            }
+        )
         self._api_server = CaptureAPIServer(
-            port=self._config.get('capture.service_port'),
-            controller=self
+            port=self._config.get("capture.service_port"), controller=self
         )
 
         self._is_running = False
@@ -168,7 +169,7 @@ class CaptureService:
                     await self._perform_scheduled_capture()
 
                 # Wait for next check interval
-                await asyncio.sleep(self._config.get('capture.check_interval_seconds', 10))
+                await asyncio.sleep(self._config.get("capture.check_interval_seconds", 10))
 
             except asyncio.CancelledError:
                 break
@@ -188,9 +189,11 @@ class CaptureService:
                 results = await self._transfer_manager.process_pending_transfers()
 
                 if results:
-                    completed = len([r for r in results if r['status'] == 'completed'])
-                    failed = len([r for r in results if r['status'] == 'failed'])
-                    logger.info(f"Transfer batch completed: {completed} successful, {failed} failed")
+                    completed = len([r for r in results if r["status"] == "completed"])
+                    failed = len([r for r in results if r["status"] == "failed"])
+                    logger.info(
+                        f"Transfer batch completed: {completed} successful, {failed} failed"
+                    )
 
                 # Wait before next transfer check
                 await asyncio.sleep(30)
@@ -216,7 +219,7 @@ class CaptureService:
                 self._last_health_check = time.time()
 
                 # Wait for next maintenance cycle
-                cleanup_interval_hours = self._config.get('storage.cleanup_interval_hours', 6)
+                cleanup_interval_hours = self._config.get("storage.cleanup_interval_hours", 6)
                 await asyncio.sleep(cleanup_interval_hours * 3600)
 
             except asyncio.CancelledError:
@@ -240,8 +243,7 @@ class CaptureService:
 
             # Perform optimized capture
             result = await self._camera_controller.capture_optimized(
-                conditions=conditions,
-                base_settings=base_settings
+                conditions=conditions, base_settings=base_settings
             )
 
             # Store captured images
@@ -267,16 +269,16 @@ class CaptureService:
             transfer_id = await self._transfer_manager.queue_transfer(
                 image_paths=image_paths,
                 metadata={
-                    'capture_metadata': result.metadata,
-                    'capture_time_ms': result.capture_time_ms,
-                    'quality_score': result.quality_score,
-                    'actual_settings': {
-                        'exposure_time_us': result.actual_settings.exposure_time_us,
-                        'iso': result.actual_settings.iso,
-                        'white_balance_k': result.actual_settings.white_balance_k
-                    }
+                    "capture_metadata": result.metadata,
+                    "capture_time_ms": result.capture_time_ms,
+                    "quality_score": result.quality_score,
+                    "actual_settings": {
+                        "exposure_time_us": result.actual_settings.exposure_time_us,
+                        "iso": result.actual_settings.iso,
+                        "white_balance_k": result.actual_settings.white_balance_k,
+                    },
                 },
-                priority='normal'
+                priority="normal",
             )
             logger.info(f"Queued transfer {transfer_id} for {len(image_paths)} images")
         except Exception as e:
@@ -284,6 +286,7 @@ class CaptureService:
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
+
         def signal_handler(signum, frame):
             logger.info(f"Received signal {signum}, initiating shutdown")
             self._shutdown_event.set()
@@ -307,30 +310,29 @@ class CaptureService:
 
             # Perform capture
             result = await self._camera_controller.capture_optimized(
-                conditions=conditions,
-                base_settings=settings
+                conditions=conditions, base_settings=settings
             )
 
             # Store result
             stored_paths = await self._storage_manager.store_capture_result(result)
 
             return {
-                'success': True,
-                'capture_time_ms': result.capture_time_ms,
-                'image_count': len(result.file_paths),
-                'stored_paths': stored_paths,
-                'quality_score': result.quality_score,
-                'metadata': result.metadata
+                "success": True,
+                "capture_time_ms": result.capture_time_ms,
+                "image_count": len(result.file_paths),
+                "stored_paths": stored_paths,
+                "quality_score": result.quality_score,
+                "metadata": result.metadata,
             }
 
         except Exception as e:
             logger.error(f"Manual capture failed: {e}")
             return {
-                'success': False,
-                'error': str(e),
-                'capture_time_ms': 0,
-                'image_count': 0,
-                'stored_paths': []
+                "success": False,
+                "error": str(e),
+                "capture_time_ms": 0,
+                "image_count": 0,
+                "stored_paths": [],
             }
 
     async def get_service_status(self) -> Dict[str, Any]:
@@ -344,16 +346,16 @@ class CaptureService:
         environmental_status = await self._environmental_sensor.get_status()
 
         return {
-            'service': {
-                'running': self._is_running,
-                'uptime_seconds': uptime_seconds,
-                'last_health_check': self._last_health_check,
-                'version': '1.0.0-sprint1'
+            "service": {
+                "running": self._is_running,
+                "uptime_seconds": uptime_seconds,
+                "last_health_check": self._last_health_check,
+                "version": "1.0.0-sprint1",
             },
-            'camera': camera_status,
-            'storage': storage_status,
-            'scheduler': scheduler_status,
-            'environmental': environmental_status
+            "camera": camera_status,
+            "storage": storage_status,
+            "scheduler": scheduler_status,
+            "environmental": environmental_status,
         }
 
     async def update_configuration(self, config_updates: Dict[str, Any]) -> bool:
@@ -381,11 +383,8 @@ async def main():
     # Set up logging
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler('/opt/skylapse/logs/capture.log')
-        ]
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(), logging.FileHandler("/opt/skylapse/logs/capture.log")],
     )
 
     # Create and start service

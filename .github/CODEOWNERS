@@ -1,0 +1,16 @@
+# CODEOWNERS
+# These owners will be the default owners for everything in the repo.
+# Consulted when someone opens a PR or modifies matching files.
+
+*   @nicholasmparker
+
+# Python capture service
+capture/**   @nicholasmparker
+
+# Processing service (Docker)
+processing/** @nicholasmparker
+
+# Documentation and planning
+agent-comms/** @nicholasmparker
+docs/**        @nicholasmparker
+planning/**    @nicholasmparker

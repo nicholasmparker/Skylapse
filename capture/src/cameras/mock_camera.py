@@ -1,21 +1,21 @@
 """Mock camera implementation for testing and development."""
 
 import asyncio
+import logging
 import time
 import uuid
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-import logging
+from typing import Any, Dict, List, Optional
 
 from ..camera_interface import CameraInterface
 from ..camera_types import (
     CameraCapability,
-    CaptureSettings,
-    CaptureResult,
-    CameraSpecs,
-    EnvironmentalConditions,
     CameraInitializationError,
-    CaptureError
+    CameraSpecs,
+    CaptureError,
+    CaptureResult,
+    CaptureSettings,
+    EnvironmentalConditions,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,11 +29,17 @@ class MockCamera(CameraInterface):
         super().__init__(config)
         self._current_settings = CaptureSettings()
         # Support both flat and nested config formats
-        mock_config = config.get('mock', {})
-        self._capture_delay_ms = config.get('mock_capture_delay_ms', mock_config.get('capture_delay_ms', 10))
-        self._simulate_failures = config.get('mock_simulate_failures', mock_config.get('simulate_failures', False))
-        self._failure_rate = config.get('mock_failure_rate', mock_config.get('failure_rate', 0.1))
-        self._output_dir = Path(config.get('mock_output_dir', mock_config.get('output_dir', '/tmp/skylapse_mock')))
+        mock_config = config.get("mock", {})
+        self._capture_delay_ms = config.get(
+            "mock_capture_delay_ms", mock_config.get("capture_delay_ms", 10)
+        )
+        self._simulate_failures = config.get(
+            "mock_simulate_failures", mock_config.get("simulate_failures", False)
+        )
+        self._failure_rate = config.get("mock_failure_rate", mock_config.get("failure_rate", 0.1))
+        self._output_dir = Path(
+            config.get("mock_output_dir", mock_config.get("output_dir", "/tmp/skylapse_mock"))
+        )
         self._image_counter = 0
 
     async def initialize(self) -> None:
@@ -57,7 +63,7 @@ class MockCamera(CameraInterface):
             max_iso=800,
             iso_invariance_point=800,
             max_exposure_us=10_000_000,  # 10 seconds
-            focus_range_mm=(100.0, float('inf')),
+            focus_range_mm=(100.0, float("inf")),
             hyperfocal_distance_mm=1830,
             capabilities=[
                 CameraCapability.AUTOFOCUS,
@@ -65,8 +71,8 @@ class MockCamera(CameraInterface):
                 CameraCapability.HDR_BRACKETING,
                 CameraCapability.FOCUS_STACKING,
                 CameraCapability.RAW_CAPTURE,
-                CameraCapability.LIVE_PREVIEW
-            ]
+                CameraCapability.LIVE_PREVIEW,
+            ],
         )
 
         self._is_initialized = True
@@ -99,10 +105,10 @@ class MockCamera(CameraInterface):
 
         # Create metadata
         metadata = {
-            'camera_model': self._specs.model,
-            'timestamp': time.time(),
-            'settings_applied': settings,
-            'mock_capture': True
+            "camera_model": self._specs.model,
+            "timestamp": time.time(),
+            "settings_applied": settings,
+            "mock_capture": True,
         }
 
         # Store current settings
@@ -113,7 +119,7 @@ class MockCamera(CameraInterface):
             metadata=metadata,
             actual_settings=settings,
             capture_time_ms=capture_time_ms,
-            quality_score=0.85  # Mock quality score
+            quality_score=0.85,  # Mock quality score
         )
 
     async def capture_sequence(self, settings_list: List[CaptureSettings]) -> CaptureResult:
@@ -140,11 +146,11 @@ class MockCamera(CameraInterface):
 
         # Create metadata for sequence
         metadata = {
-            'camera_model': self._specs.model,
-            'timestamp': time.time(),
-            'sequence_count': len(settings_list),
-            'sequence_type': self._detect_sequence_type(settings_list),
-            'mock_capture': True
+            "camera_model": self._specs.model,
+            "timestamp": time.time(),
+            "sequence_count": len(settings_list),
+            "sequence_type": self._detect_sequence_type(settings_list),
+            "mock_capture": True,
         }
 
         return CaptureResult(
@@ -152,7 +158,7 @@ class MockCamera(CameraInterface):
             metadata=metadata,
             actual_settings=settings_list[0],  # Use first settings as primary
             capture_time_ms=capture_time_ms,
-            quality_score=0.87  # Slightly higher for sequences
+            quality_score=0.87,  # Slightly higher for sequences
         )
 
     def supports_capability(self, capability: CameraCapability) -> bool:
@@ -165,7 +171,7 @@ class MockCamera(CameraInterface):
             return None
 
         # Return mock JPEG header bytes
-        return b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00'
+        return b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00"
 
     async def autofocus(self, timeout_ms: int = 2000) -> bool:
         """Simulate autofocus operation."""
@@ -192,7 +198,9 @@ class MockCamera(CameraInterface):
         await asyncio.sleep(0.01)  # Simulate settings application delay
         return True
 
-    def _generate_mock_image(self, settings: CaptureSettings, sequence_index: Optional[int] = None) -> Path:
+    def _generate_mock_image(
+        self, settings: CaptureSettings, sequence_index: Optional[int] = None
+    ) -> Path:
         """Generate a mock image file."""
         self._image_counter += 1
 
@@ -206,16 +214,30 @@ class MockCamera(CameraInterface):
         image_path = self._output_dir / filename
 
         # Create a minimal JPEG file with metadata comment
-        jpeg_header = bytearray([
-            0xFF, 0xD8,  # SOI marker
-            0xFF, 0xE0,  # APP0 marker
-            0x00, 0x10,  # APP0 length
-            0x4A, 0x46, 0x49, 0x46, 0x00,  # "JFIF\0"
-            0x01, 0x01,  # JFIF version
-            0x01,  # Units (inches)
-            0x00, 0x48, 0x00, 0x48,  # X and Y density (72 DPI)
-            0x00, 0x00,  # Thumbnail width and height
-        ])
+        jpeg_header = bytearray(
+            [
+                0xFF,
+                0xD8,  # SOI marker
+                0xFF,
+                0xE0,  # APP0 marker
+                0x00,
+                0x10,  # APP0 length
+                0x4A,
+                0x46,
+                0x49,
+                0x46,
+                0x00,  # "JFIF\0"
+                0x01,
+                0x01,  # JFIF version
+                0x01,  # Units (inches)
+                0x00,
+                0x48,
+                0x00,
+                0x48,  # X and Y density (72 DPI)
+                0x00,
+                0x00,  # Thumbnail width and height
+            ]
+        )
 
         # Add mock image data
         mock_data = f"Mock image #{self._image_counter} - {settings.format}".encode()
@@ -225,7 +247,7 @@ class MockCamera(CameraInterface):
         jpeg_data.extend([0xFF, 0xD9])
 
         # Write to file
-        with open(image_path, 'wb') as f:
+        with open(image_path, "wb") as f:
             f.write(jpeg_data)
 
         logger.debug(f"Generated mock image: {image_path}")
@@ -242,7 +264,9 @@ class MockCamera(CameraInterface):
             return "hdr_bracket"
 
         # Check for focus stacking (different focus distances)
-        focus_distances = [s.focus_distance_mm for s in settings_list if s.focus_distance_mm is not None]
+        focus_distances = [
+            s.focus_distance_mm for s in settings_list if s.focus_distance_mm is not None
+        ]
         if len(set(focus_distances)) > 1:
             return "focus_stack"
 
@@ -251,13 +275,12 @@ class MockCamera(CameraInterface):
     def _should_fail(self, rate: Optional[float] = None) -> bool:
         """Determine if operation should fail (for testing)."""
         import random
+
         failure_rate = rate if rate is not None else self._failure_rate
         return random.random() < failure_rate
 
     async def optimize_settings_for_conditions(
-        self,
-        base_settings: CaptureSettings,
-        conditions: EnvironmentalConditions
+        self, base_settings: CaptureSettings, conditions: EnvironmentalConditions
     ) -> CaptureSettings:
         """Mock optimization based on conditions."""
         optimized = CaptureSettings(
@@ -271,20 +294,20 @@ class MockCamera(CameraInterface):
             quality=base_settings.quality,
             format=base_settings.format,
             hdr_bracket_stops=base_settings.hdr_bracket_stops.copy(),
-            processing_hints=base_settings.processing_hints.copy()
+            processing_hints=base_settings.processing_hints.copy(),
         )
 
         # Mock golden hour optimization
         if conditions.is_golden_hour:
             optimized.white_balance_k = 3200  # Warmer
             optimized.exposure_compensation += 0.3
-            optimized.processing_hints['enhance_warmth'] = True
+            optimized.processing_hints["enhance_warmth"] = True
 
         # Mock blue hour optimization
         if conditions.is_blue_hour:
             optimized.white_balance_k = 8500  # Cooler
             optimized.iso = 400  # Higher ISO for low light conditions
-            optimized.processing_hints['enhance_blues'] = True
+            optimized.processing_hints["enhance_blues"] = True
 
         return optimized
 
@@ -295,16 +318,17 @@ class MockCamera(CameraInterface):
 
         # Return mock quality score based on filename
         import random
+
         random.seed(hash(image_path))
         return 0.75 + random.random() * 0.2  # 0.75 to 0.95
 
     def get_processing_hints(self, settings: CaptureSettings) -> Dict[str, Any]:
         """Generate mock processing hints."""
         hints = {
-            'mock_processing': True,
-            'use_noise_reduction': (settings.iso or 100) > 400,
-            'apply_hdr_processing': len(settings.hdr_bracket_stops) > 1,
-            'suggested_sharpening': 0.3
+            "mock_processing": True,
+            "use_noise_reduction": (settings.iso or 100) > 400,
+            "apply_hdr_processing": len(settings.hdr_bracket_stops) > 1,
+            "suggested_sharpening": 0.3,
         }
 
         return hints

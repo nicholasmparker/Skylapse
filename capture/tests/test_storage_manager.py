@@ -1,17 +1,17 @@
 """Tests for storage management functionality."""
 
-import pytest
-import pytest_asyncio
 import asyncio
 import json
 import shutil
 import tempfile
-from pathlib import Path
 from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from src.storage_manager import StorageManager
+import pytest
+import pytest_asyncio
 from src.camera_types import CaptureResult, CaptureSettings
+from src.storage_manager import StorageManager
 
 
 class TestStorageManager:
@@ -29,7 +29,7 @@ class TestStorageManager:
         manager = StorageManager(
             buffer_path=temp_storage_dir,
             max_size_gb=1.0,  # Small for testing
-            retention_hours=24  # Short for testing
+            retention_hours=24,  # Short for testing
         )
         await manager.initialize()
         yield manager
@@ -74,7 +74,7 @@ class TestStorageManager:
             capture_time_ms=45.0,
             quality_score=0.87,
             metadata={"iso": 100, "exposure_time_us": 1000},
-            actual_settings=CaptureSettings(iso=100, quality=95)
+            actual_settings=CaptureSettings(iso=100, quality=95),
         )
 
         # Create the test image file
@@ -114,7 +114,7 @@ class TestStorageManager:
             capture_time_ms=125.0,
             quality_score=0.92,
             metadata={"sequence_type": "hdr_bracket", "exposures": 3},
-            actual_settings=CaptureSettings()
+            actual_settings=CaptureSettings(),
         )
 
         stored_paths = await storage_manager.store_capture_result(capture_result)
@@ -140,20 +140,22 @@ class TestStorageManager:
             metadata={
                 "camera": "Mock Camera",
                 "timestamp": "2025-09-25T10:30:00Z",
-                "location": {"lat": 40.7128, "lon": -74.0060}
+                "location": {"lat": 40.7128, "lon": -74.0060},
             },
-            actual_settings=CaptureSettings(iso=200, quality=90)
+            actual_settings=CaptureSettings(iso=200, quality=90),
         )
 
         stored_paths = await storage_manager.store_capture_result(capture_result)
         stored_image = Path(stored_paths[0])
 
         # Check that metadata file exists
-        metadata_file = storage_manager.metadata_dir / stored_image.relative_to(storage_manager.images_dir).with_suffix('.json')
+        metadata_file = storage_manager.metadata_dir / stored_image.relative_to(
+            storage_manager.images_dir
+        ).with_suffix(".json")
         assert metadata_file.exists()
 
         # Check metadata content
-        with open(metadata_file, 'r') as f:
+        with open(metadata_file, "r") as f:
             saved_metadata = json.load(f)
 
         assert saved_metadata["capture_time_ms"] == 55.0
@@ -181,6 +183,7 @@ class TestStorageManager:
 
         # Set file modification times to the old date so they'll be cleaned up
         import os
+
         old_timestamp = old_date.timestamp()
         os.utime(old_file, (old_timestamp, old_timestamp))
         os.utime(old_metadata_file, (old_timestamp, old_timestamp))
@@ -195,7 +198,7 @@ class TestStorageManager:
         # Files should be deleted
         assert not old_file.exists()
         assert not old_metadata_file.exists()
-        assert cleanup_result['files_removed'] > 0
+        assert cleanup_result["files_removed"] > 0
 
     @pytest.mark.asyncio
     async def test_cleanup_preserves_recent_files(self, storage_manager, temp_storage_dir):
@@ -209,7 +212,7 @@ class TestStorageManager:
             capture_time_ms=30.0,
             quality_score=0.8,
             metadata={"recent": True},
-            actual_settings=CaptureSettings()
+            actual_settings=CaptureSettings(),
         )
 
         stored_paths = await storage_manager.store_capture_result(capture_result)
@@ -234,7 +237,7 @@ class TestStorageManager:
                 capture_time_ms=40.0,
                 quality_score=0.8,
                 metadata={},
-                actual_settings=CaptureSettings()
+                actual_settings=CaptureSettings(),
             )
             await storage_manager.store_capture_result(capture_result)
 
@@ -251,8 +254,10 @@ class TestStorageManager:
     async def test_storage_full_cleanup(self, storage_manager):
         """Test automatic cleanup when storage approaches capacity."""
         # Mock storage to appear over capacity (1.1GB > 1.0GB limit)
-        with patch.object(storage_manager, '_get_directory_size_bytes', return_value=int(1.1 * 1024 * 1024 * 1024)):  # 1.1GB
-            with patch.object(storage_manager, 'cleanup_old_files', return_value=5) as mock_cleanup:
+        with patch.object(
+            storage_manager, "_get_directory_size_bytes", return_value=int(1.1 * 1024 * 1024 * 1024)
+        ):  # 1.1GB
+            with patch.object(storage_manager, "cleanup_old_files", return_value=5) as mock_cleanup:
                 # This should trigger cleanup since max_size_gb is 1.0GB
                 await storage_manager._check_available_space()
                 mock_cleanup.assert_called_once()
@@ -272,7 +277,7 @@ class TestStorageManager:
             capture_time_ms=30.0,
             quality_score=0.8,
             metadata={"date": "today"},
-            actual_settings=CaptureSettings()
+            actual_settings=CaptureSettings(),
         )
         await storage_manager.store_capture_result(today_result)
 
@@ -284,8 +289,7 @@ class TestStorageManager:
 
         # Get today's files
         today_files = await storage_manager.get_files_by_date_range(
-            start_date=today.date(),
-            end_date=today.date()
+            start_date=today.date(), end_date=today.date()
         )
 
         assert len(today_files) >= 1
@@ -306,7 +310,7 @@ class TestStorageManager:
             capture_time_ms=35.0,
             quality_score=0.85,
             metadata={"transfer_ready": True},
-            actual_settings=CaptureSettings()
+            actual_settings=CaptureSettings(),
         )
 
         stored_paths = await storage_manager.store_capture_result(capture_result)
@@ -331,7 +335,7 @@ class TestStorageManager:
             capture_time_ms=42.0,
             quality_score=0.9,
             metadata={},
-            actual_settings=CaptureSettings()
+            actual_settings=CaptureSettings(),
         )
 
         stored_paths = await storage_manager.store_capture_result(capture_result)
@@ -353,7 +357,7 @@ class TestStorageManager:
         test_dates = [
             datetime.now(),
             datetime.now() - timedelta(days=1),
-            datetime.now() - timedelta(days=2)
+            datetime.now() - timedelta(days=2),
         ]
 
         stored_files = []
@@ -362,7 +366,7 @@ class TestStorageManager:
             test_image.write_bytes(f"date test {i}".encode())
 
             # Mock the datetime for proper date organization
-            with patch('src.storage_manager.datetime') as mock_datetime:
+            with patch("src.storage_manager.datetime") as mock_datetime:
                 mock_datetime.now.return_value = test_date
 
                 capture_result = CaptureResult(
@@ -370,7 +374,7 @@ class TestStorageManager:
                     capture_time_ms=30.0,
                     quality_score=0.8,
                     metadata={"test_date": i},
-                    actual_settings=CaptureSettings()
+                    actual_settings=CaptureSettings(),
                 )
 
                 stored_paths = await storage_manager.store_capture_result(capture_result)
@@ -391,7 +395,7 @@ class TestStorageManager:
             capture_time_ms=30.0,
             quality_score=0.8,
             metadata={},
-            actual_settings=CaptureSettings()
+            actual_settings=CaptureSettings(),
         )
 
         with pytest.raises(FileNotFoundError):
@@ -410,7 +414,7 @@ class TestStorageManager:
                 capture_time_ms=30.0,
                 quality_score=0.8,
                 metadata={},
-                actual_settings=CaptureSettings()
+                actual_settings=CaptureSettings(),
             )
             await storage_manager.store_capture_result(capture_result)
 
@@ -445,7 +449,7 @@ class TestStorageManagerIntegration:
         manager = StorageManager(
             buffer_path=temp_dir,
             max_size_gb=0.1,  # 100MB for testing
-            retention_hours=48  # 48 hours like production
+            retention_hours=48,  # 48 hours like production
         )
         await manager.initialize()
         yield manager
@@ -468,14 +472,11 @@ class TestStorageManagerIntegration:
                 "camera_model": "Arducam IMX519",
                 "location": {"latitude": 45.8326, "longitude": -121.7113},  # Mt. Hood
                 "weather": {"temperature_c": 5.2, "conditions": "clear"},
-                "settings": {"iso": 100, "exposure_ms": 125, "aperture": "f/2.0"}
+                "settings": {"iso": 100, "exposure_ms": 125, "aperture": "f/2.0"},
             },
             actual_settings=CaptureSettings(
-                iso=100,
-                exposure_time_us=125000,
-                quality=95,
-                format="JPEG"
-            )
+                iso=100, exposure_time_us=125000, quality=95, format="JPEG"
+            ),
         )
 
         # Store the capture
@@ -485,7 +486,7 @@ class TestStorageManagerIntegration:
         assert len(stored_paths) == 1
         stored_file = Path(stored_paths[0])
         assert stored_file.exists()
-        assert stored_file.suffix == '.jpg'
+        assert stored_file.suffix == ".jpg"
 
         # Verify date organization
         now = datetime.now()
@@ -493,11 +494,13 @@ class TestStorageManagerIntegration:
         assert stored_file.parent == expected_path
 
         # Verify metadata storage
-        metadata_file = realistic_storage_manager.metadata_dir / stored_file.relative_to(realistic_storage_manager.images_dir).with_suffix('.json')
+        metadata_file = realistic_storage_manager.metadata_dir / stored_file.relative_to(
+            realistic_storage_manager.images_dir
+        ).with_suffix(".json")
         assert metadata_file.exists()
 
         # Verify metadata content
-        with open(metadata_file, 'r') as f:
+        with open(metadata_file, "r") as f:
             metadata = json.load(f)
         assert metadata["metadata"]["camera_model"] == "Arducam IMX519"
         assert metadata["metadata"]["location"]["latitude"] == 45.8326
@@ -525,13 +528,9 @@ class TestStorageManagerIntegration:
                 "exposure_stops": [-2, 0, 2],
                 "base_exposure_us": 1000,
                 "timestamp": "2025-09-25T19:30:00Z",
-                "scene_type": "golden_hour"
+                "scene_type": "golden_hour",
             },
-            actual_settings=CaptureSettings(
-                iso=100,
-                hdr_bracket_stops=[-2, 0, 2],
-                quality=95
-            )
+            actual_settings=CaptureSettings(iso=100, hdr_bracket_stops=[-2, 0, 2], quality=95),
         )
 
         # Store the HDR sequence
@@ -551,18 +550,22 @@ class TestStorageManagerIntegration:
         # For sequence captures, metadata file uses base timestamp without sequence suffix
         first_file_name = first_file.stem
         # Remove sequence suffix (_000, _001, etc.) to get base timestamp
-        if '_' in first_file_name:
-            parts = first_file_name.split('_')
+        if "_" in first_file_name:
+            parts = first_file_name.split("_")
             if len(parts) >= 4 and parts[-1].isdigit() and len(parts[-1]) == 3:
-                base_timestamp = '_'.join(parts[:-1])  # Remove the sequence number
+                base_timestamp = "_".join(parts[:-1])  # Remove the sequence number
             else:
                 base_timestamp = first_file_name
         else:
             base_timestamp = first_file_name
 
-        metadata_file = realistic_storage_manager.metadata_dir / first_file.relative_to(realistic_storage_manager.images_dir).parent / f"{base_timestamp}.json"
+        metadata_file = (
+            realistic_storage_manager.metadata_dir
+            / first_file.relative_to(realistic_storage_manager.images_dir).parent
+            / f"{base_timestamp}.json"
+        )
 
-        with open(metadata_file, 'r') as f:
+        with open(metadata_file, "r") as f:
             metadata = json.load(f)
         assert metadata["metadata"]["sequence_type"] == "hdr_bracket"
         assert metadata["metadata"]["sequence_count"] == 3
@@ -585,6 +588,7 @@ class TestStorageManagerIntegration:
 
             # Set file modification time to simulate age
             import os
+
             old_timestamp = (old_time).timestamp()
             os.utime(old_file, (old_timestamp, old_timestamp))
 
@@ -592,7 +596,7 @@ class TestStorageManagerIntegration:
         cleanup_result = await realistic_storage_manager.cleanup_old_files()
 
         # Should have cleaned files older than retention (48 hours)
-        cleaned_count = cleanup_result['files_removed']
+        cleaned_count = cleanup_result["files_removed"]
         assert cleaned_count >= 1  # Should clean at least the 73-hour old file
 
         # Verify recent files still exist
@@ -613,7 +617,7 @@ class TestStorageManagerIntegration:
                 capture_time_ms=40.0 + i * 5,
                 quality_score=0.8 + i * 0.05,
                 metadata={"sequence": i},
-                actual_settings=CaptureSettings()
+                actual_settings=CaptureSettings(),
             )
 
             stored_paths = await realistic_storage_manager.store_capture_result(capture_result)
@@ -621,6 +625,7 @@ class TestStorageManagerIntegration:
 
             # Small delay to ensure unique timestamps
             import asyncio
+
             await asyncio.sleep(0.001)
 
         # Mark files for transfer (simulate processing pipeline pickup)
