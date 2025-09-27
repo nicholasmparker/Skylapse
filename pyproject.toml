@@ -2,9 +2,9 @@
 line-length = 100
 target-version = ["py311"]
 include = '\.pyi?$'
-exclude = """
+exclude = '''
 /(\.eggs|\.git|\.hg|\.mypy_cache|\.tox|\.venv|venv|build|dist)/
-"""
+'''
 
 [tool.isort]
 profile = "black"
