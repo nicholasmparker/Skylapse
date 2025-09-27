@@ -16,11 +16,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ScheduleRule:
     """Capture schedule rule definition."""
+
     name: str
     active: bool
     interval_seconds: int
     start_hour: Optional[int] = None  # 0-23, None for all day
-    end_hour: Optional[int] = None    # 0-23, None for all day
+    end_hour: Optional[int] = None  # 0-23, None for all day
     min_light_level: Optional[float] = None  # Minimum lux
     max_light_level: Optional[float] = None  # Maximum lux
     conditions: Dict[str, Any] = None  # Additional conditions
@@ -44,13 +45,13 @@ class CaptureScheduler:
                 name="golden_hour_intensive",
                 active=True,
                 interval_seconds=30,  # Every 30 seconds during golden hour
-                conditions={"golden_hour": True}
+                conditions={"golden_hour": True},
             ),
             ScheduleRule(
                 name="blue_hour_intensive",
                 active=True,
                 interval_seconds=60,  # Every minute during blue hour
-                conditions={"blue_hour": True}
+                conditions={"blue_hour": True},
             ),
             ScheduleRule(
                 name="daylight_standard",
@@ -58,19 +59,19 @@ class CaptureScheduler:
                 interval_seconds=300,  # Every 5 minutes during day
                 start_hour=8,
                 end_hour=17,
-                min_light_level=1000  # Bright daylight
+                min_light_level=1000,  # Bright daylight
             ),
             ScheduleRule(
                 name="low_light_reduced",
                 active=True,
                 interval_seconds=600,  # Every 10 minutes in low light
-                max_light_level=100   # Low light conditions
+                max_light_level=100,  # Low light conditions
             ),
             ScheduleRule(
                 name="default_fallback",
                 active=True,
-                interval_seconds=300  # Default 5 minute interval
-            )
+                interval_seconds=300,  # Default 5 minute interval
+            ),
         ]
 
     async def initialize(self) -> None:
@@ -102,15 +103,13 @@ class CaptureScheduler:
         current_time = time.time()
 
         # Don't capture too frequently (minimum 10 second gap)
-        if (self._last_capture_time and
-            current_time - self._last_capture_time < 10):
+        if self._last_capture_time and current_time - self._last_capture_time < 10:
             return False
 
         # Back off on repeated failures
         if self._consecutive_failures >= 3:
             backoff_seconds = min(300, 30 * (2 ** (self._consecutive_failures - 2)))
-            if (self._last_capture_time and
-                current_time - self._last_capture_time < backoff_seconds):
+            if self._last_capture_time and current_time - self._last_capture_time < backoff_seconds:
                 return False
 
         # Find matching rule
@@ -119,14 +118,18 @@ class CaptureScheduler:
             return False
 
         # Check if enough time has passed according to rule interval
-        if (self._last_capture_time and
-            current_time - self._last_capture_time < matching_rule.interval_seconds):
+        if (
+            self._last_capture_time
+            and current_time - self._last_capture_time < matching_rule.interval_seconds
+        ):
             return False
 
         logger.debug(f"Capture scheduled by rule: {matching_rule.name}")
         return True
 
-    def _find_matching_rule(self, conditions: Optional[EnvironmentalConditions] = None) -> Optional[ScheduleRule]:
+    def _find_matching_rule(
+        self, conditions: Optional[EnvironmentalConditions] = None
+    ) -> Optional[ScheduleRule]:
         """Find the first matching schedule rule for current conditions."""
         current_hour = datetime.now().hour
 
@@ -142,11 +145,15 @@ class CaptureScheduler:
 
             # Check light level constraints
             if conditions and conditions.ambient_light_lux is not None:
-                if (rule.min_light_level is not None and
-                    conditions.ambient_light_lux < rule.min_light_level):
+                if (
+                    rule.min_light_level is not None
+                    and conditions.ambient_light_lux < rule.min_light_level
+                ):
                     continue
-                if (rule.max_light_level is not None and
-                    conditions.ambient_light_lux > rule.max_light_level):
+                if (
+                    rule.max_light_level is not None
+                    and conditions.ambient_light_lux > rule.max_light_level
+                ):
                     continue
 
             # Check special conditions
@@ -157,10 +164,16 @@ class CaptureScheduler:
 
                 match = True
                 for condition, required_value in rule.conditions.items():
-                    if condition == "golden_hour" and getattr(conditions, 'is_golden_hour', False) != required_value:
+                    if (
+                        condition == "golden_hour"
+                        and getattr(conditions, "is_golden_hour", False) != required_value
+                    ):
                         match = False
                         break
-                    elif condition == "blue_hour" and getattr(conditions, 'is_blue_hour', False) != required_value:
+                    elif (
+                        condition == "blue_hour"
+                        and getattr(conditions, "is_blue_hour", False) != required_value
+                    ):
                         match = False
                         break
 
@@ -177,34 +190,31 @@ class CaptureScheduler:
         # This is a basic implementation for Sprint 1
         # In Phase 2, this will be enhanced with adaptive intelligence
 
-        base_settings = CaptureSettings(
-            quality=95,
-            format="JPEG",
-            iso=100,
-            autofocus_enabled=True
-        )
+        base_settings = CaptureSettings(quality=95, format="JPEG", iso=100, autofocus_enabled=True)
 
         # Add processing hints based on current rule
         matching_rule = self._find_matching_rule()
         if matching_rule:
-            base_settings.processing_hints['schedule_rule'] = matching_rule.name
+            base_settings.processing_hints["schedule_rule"] = matching_rule.name
 
             # Adjust settings based on rule
             if matching_rule.name == "golden_hour_intensive":
                 base_settings.hdr_bracket_stops = [-1, 0, 1]  # 3-stop HDR
-                base_settings.processing_hints['enhance_warmth'] = True
+                base_settings.processing_hints["enhance_warmth"] = True
 
             elif matching_rule.name == "blue_hour_intensive":
                 base_settings.iso = 400  # Higher ISO for low light
-                base_settings.processing_hints['enhance_blues'] = True
+                base_settings.processing_hints["enhance_blues"] = True
 
             elif matching_rule.name == "low_light_reduced":
                 base_settings.iso = 800  # High ISO for very low light
-                base_settings.processing_hints['noise_reduction'] = True
+                base_settings.processing_hints["noise_reduction"] = True
 
         return base_settings
 
-    async def record_capture_result(self, result: CaptureResult, conditions: Optional[EnvironmentalConditions] = None) -> None:
+    async def record_capture_result(
+        self, result: CaptureResult, conditions: Optional[EnvironmentalConditions] = None
+    ) -> None:
         """Record the result of a capture operation."""
         current_time = time.time()
         self._last_capture_time = current_time
@@ -214,17 +224,17 @@ class CaptureScheduler:
 
         # Add to capture history
         history_entry = {
-            'timestamp': current_time,
-            'success': True,
-            'capture_time_ms': result.capture_time_ms,
-            'image_count': len(result.file_paths),
-            'quality_score': result.quality_score,
-            'conditions': {
-                'is_golden_hour': conditions.is_golden_hour if conditions else False,
-                'is_blue_hour': conditions.is_blue_hour if conditions else False,
-                'ambient_light_lux': conditions.ambient_light_lux if conditions else None,
-                'sun_elevation_deg': conditions.sun_elevation_deg if conditions else None
-            }
+            "timestamp": current_time,
+            "success": True,
+            "capture_time_ms": result.capture_time_ms,
+            "image_count": len(result.file_paths),
+            "quality_score": result.quality_score,
+            "conditions": {
+                "is_golden_hour": conditions.is_golden_hour if conditions else False,
+                "is_blue_hour": conditions.is_blue_hour if conditions else False,
+                "ambient_light_lux": conditions.ambient_light_lux if conditions else None,
+                "sun_elevation_deg": conditions.sun_elevation_deg if conditions else None,
+            },
         }
 
         self._capture_history.append(history_entry)
@@ -233,8 +243,10 @@ class CaptureScheduler:
         if len(self._capture_history) > 1000:
             self._capture_history = self._capture_history[-1000:]
 
-        logger.info(f"Recorded successful capture: {result.capture_time_ms:.1f}ms, "
-                   f"quality: {result.quality_score:.2f}")
+        logger.info(
+            f"Recorded successful capture: {result.capture_time_ms:.1f}ms, "
+            f"quality: {result.quality_score:.2f}"
+        )
 
     async def record_capture_failure(self, error_message: str) -> None:
         """Record a capture failure."""
@@ -244,10 +256,10 @@ class CaptureScheduler:
 
         # Add failure to history
         history_entry = {
-            'timestamp': current_time,
-            'success': False,
-            'error': error_message,
-            'consecutive_failures': self._consecutive_failures
+            "timestamp": current_time,
+            "success": False,
+            "error": error_message,
+            "consecutive_failures": self._consecutive_failures,
         }
 
         self._capture_history.append(history_entry)
@@ -261,38 +273,41 @@ class CaptureScheduler:
     async def get_status(self) -> Dict[str, Any]:
         """Get current scheduler status and statistics."""
         if not self._is_initialized:
-            return {'initialized': False}
+            return {"initialized": False}
 
         current_time = time.time()
 
         # Calculate statistics from recent history
         recent_history = [
-            entry for entry in self._capture_history
-            if current_time - entry['timestamp'] < 3600  # Last hour
+            entry
+            for entry in self._capture_history
+            if current_time - entry["timestamp"] < 3600  # Last hour
         ]
 
-        successful_captures = [entry for entry in recent_history if entry['success']]
-        failed_captures = [entry for entry in recent_history if not entry['success']]
+        successful_captures = [entry for entry in recent_history if entry["success"]]
+        failed_captures = [entry for entry in recent_history if not entry["success"]]
 
         avg_capture_time = 0.0
         if successful_captures:
             avg_capture_time = sum(
-                entry.get('capture_time_ms', 0) for entry in successful_captures
+                entry.get("capture_time_ms", 0) for entry in successful_captures
             ) / len(successful_captures)
 
         return {
-            'initialized': True,
-            'active_rules': len([rule for rule in self._schedule_rules if rule.active]),
-            'last_capture_time': self._last_capture_time,
-            'consecutive_failures': self._consecutive_failures,
-            'statistics': {
-                'total_captures_hour': len(recent_history),
-                'successful_captures_hour': len(successful_captures),
-                'failed_captures_hour': len(failed_captures),
-                'success_rate_pct': (len(successful_captures) / len(recent_history) * 100) if recent_history else 0,
-                'average_capture_time_ms': avg_capture_time
+            "initialized": True,
+            "active_rules": len([rule for rule in self._schedule_rules if rule.active]),
+            "last_capture_time": self._last_capture_time,
+            "consecutive_failures": self._consecutive_failures,
+            "statistics": {
+                "total_captures_hour": len(recent_history),
+                "successful_captures_hour": len(successful_captures),
+                "failed_captures_hour": len(failed_captures),
+                "success_rate_pct": (
+                    (len(successful_captures) / len(recent_history) * 100) if recent_history else 0
+                ),
+                "average_capture_time_ms": avg_capture_time,
             },
-            'next_capture_estimate': self._estimate_next_capture_time()
+            "next_capture_estimate": self._estimate_next_capture_time(),
         }
 
     def _estimate_next_capture_time(self) -> Optional[float]:
@@ -320,14 +335,14 @@ class CaptureScheduler:
             updated_rules = []
             for rule_data in new_rules:
                 rule = ScheduleRule(
-                    name=rule_data['name'],
-                    active=rule_data.get('active', True),
-                    interval_seconds=rule_data['interval_seconds'],
-                    start_hour=rule_data.get('start_hour'),
-                    end_hour=rule_data.get('end_hour'),
-                    min_light_level=rule_data.get('min_light_level'),
-                    max_light_level=rule_data.get('max_light_level'),
-                    conditions=rule_data.get('conditions', {})
+                    name=rule_data["name"],
+                    active=rule_data.get("active", True),
+                    interval_seconds=rule_data["interval_seconds"],
+                    start_hour=rule_data.get("start_hour"),
+                    end_hour=rule_data.get("end_hour"),
+                    min_light_level=rule_data.get("min_light_level"),
+                    max_light_level=rule_data.get("max_light_level"),
+                    conditions=rule_data.get("conditions", {}),
                 )
                 updated_rules.append(rule)
 
@@ -354,14 +369,16 @@ class CaptureScheduler:
             # Use default fallback rule
             matching_rule = next(
                 (rule for rule in self._schedule_rules if rule.name == "default_fallback"),
-                self._default_rules[-1]  # Last default rule as ultimate fallback
+                self._default_rules[-1],  # Last default rule as ultimate fallback
             )
 
         # Calculate next time based on last capture + interval
         if self._last_capture_time:
             next_time = self._last_capture_time + matching_rule.interval_seconds
         else:
-            next_time = time.time() + matching_rule.interval_seconds  # Schedule based on interval from now
+            next_time = (
+                time.time() + matching_rule.interval_seconds
+            )  # Schedule based on interval from now
 
         # Account for failure backoff
         if self._consecutive_failures >= 3:
@@ -397,7 +414,12 @@ class CaptureScheduler:
             logger.info(f"Removed schedule rule: {rule_name}")
         return removed
 
-    async def record_capture_attempt(self, result: Optional[CaptureResult] = None, success: bool = True, timestamp: datetime = None) -> None:
+    async def record_capture_attempt(
+        self,
+        result: Optional[CaptureResult] = None,
+        success: bool = True,
+        timestamp: datetime = None,
+    ) -> None:
         """Record the result of a capture attempt."""
         if not self._is_initialized:
             return
@@ -413,11 +435,11 @@ class CaptureScheduler:
             self._consecutive_failures = 0
 
             history_entry = {
-                'timestamp': timestamp_float,
-                'success': True,
-                'capture_time_ms': result.capture_time_ms,
-                'image_count': len(result.file_paths),
-                'quality_score': result.quality_score,
+                "timestamp": timestamp_float,
+                "success": True,
+                "capture_time_ms": result.capture_time_ms,
+                "image_count": len(result.file_paths),
+                "quality_score": result.quality_score,
             }
         else:
             # Failure case
@@ -425,13 +447,13 @@ class CaptureScheduler:
             self._consecutive_failures += 1
 
             history_entry = {
-                'timestamp': timestamp_float,
-                'success': False,
-                'consecutive_failures': self._consecutive_failures
+                "timestamp": timestamp_float,
+                "success": False,
+                "consecutive_failures": self._consecutive_failures,
             }
 
-            if result and hasattr(result, 'error_message'):
-                history_entry['error'] = result.error_message
+            if result and hasattr(result, "error_message"):
+                history_entry["error"] = result.error_message
 
         self._capture_history.append(history_entry)
 
@@ -451,53 +473,51 @@ class CaptureScheduler:
         cutoff_time = current_time - (hours * 3600)
 
         period_history = [
-            entry for entry in self._capture_history
-            if entry['timestamp'] >= cutoff_time
+            entry for entry in self._capture_history if entry["timestamp"] >= cutoff_time
         ]
 
         if not period_history:
             return {
-                'period_hours': hours,
-                'total_captures': 0,
-                'success_rate': 0.0,
-                'avg_interval_seconds': 0,
-                'quality_stats': {}
+                "period_hours": hours,
+                "total_captures": 0,
+                "success_rate": 0.0,
+                "avg_interval_seconds": 0,
+                "quality_stats": {},
             }
 
-        successful = [entry for entry in period_history if entry['success']]
-        failed = [entry for entry in period_history if not entry['success']]
+        successful = [entry for entry in period_history if entry["success"]]
+        failed = [entry for entry in period_history if not entry["success"]]
 
         # Calculate average interval between captures
-        timestamps = sorted([entry['timestamp'] for entry in successful])
+        timestamps = sorted([entry["timestamp"] for entry in successful])
         intervals = []
         for i in range(1, len(timestamps)):
-            intervals.append(timestamps[i] - timestamps[i-1])
+            intervals.append(timestamps[i] - timestamps[i - 1])
 
         avg_interval = sum(intervals) / len(intervals) if intervals else 0
 
         # Quality statistics
         quality_scores = [
-            entry['quality_score'] for entry in successful
-            if entry.get('quality_score') is not None
+            entry["quality_score"] for entry in successful if entry.get("quality_score") is not None
         ]
 
         quality_stats = {}
         if quality_scores:
             quality_stats = {
-                'average': sum(quality_scores) / len(quality_scores),
-                'minimum': min(quality_scores),
-                'maximum': max(quality_scores),
-                'count': len(quality_scores)
+                "average": sum(quality_scores) / len(quality_scores),
+                "minimum": min(quality_scores),
+                "maximum": max(quality_scores),
+                "count": len(quality_scores),
             }
 
         return {
-            'period_hours': hours,
-            'total_captures': len(period_history),
-            'successful_captures': len(successful),
-            'failed_captures': len(failed),
-            'success_rate': len(successful) / len(period_history) * 100,
-            'avg_interval_seconds': avg_interval,
-            'quality_stats': quality_stats
+            "period_hours": hours,
+            "total_captures": len(period_history),
+            "successful_captures": len(successful),
+            "failed_captures": len(failed),
+            "success_rate": len(successful) / len(period_history) * 100,
+            "avg_interval_seconds": avg_interval,
+            "quality_stats": quality_stats,
         }
 
     def get_capture_history(self) -> List[Dict]:
@@ -507,66 +527,74 @@ class CaptureScheduler:
     async def get_statistics(self) -> Dict[str, Any]:
         """Get current statistics about scheduler performance."""
         if not self._is_initialized:
-            return {'initialized': False}
+            return {"initialized": False}
 
         current_time = time.time()
 
         # Calculate statistics from recent history
         recent_history = [
-            entry for entry in self._capture_history
-            if current_time - entry['timestamp'] < 3600  # Last hour
+            entry
+            for entry in self._capture_history
+            if current_time - entry["timestamp"] < 3600  # Last hour
         ]
 
         daily_history = [
-            entry for entry in self._capture_history
-            if current_time - entry['timestamp'] < 86400  # Last 24 hours
+            entry
+            for entry in self._capture_history
+            if current_time - entry["timestamp"] < 86400  # Last 24 hours
         ]
 
-        successful_recent = [entry for entry in recent_history if entry['success']]
-        failed_recent = [entry for entry in recent_history if not entry['success']]
+        successful_recent = [entry for entry in recent_history if entry["success"]]
+        failed_recent = [entry for entry in recent_history if not entry["success"]]
 
-        successful_daily = [entry for entry in daily_history if entry['success']]
-        failed_daily = [entry for entry in daily_history if not entry['success']]
+        successful_daily = [entry for entry in daily_history if entry["success"]]
+        failed_daily = [entry for entry in daily_history if not entry["success"]]
 
         avg_capture_time = 0.0
         if successful_recent:
-            capture_times = [entry.get('capture_time_ms', 0) for entry in successful_recent]
+            capture_times = [entry.get("capture_time_ms", 0) for entry in successful_recent]
             avg_capture_time = sum(capture_times) / len(capture_times)
 
         # Calculate average interval between captures
-        timestamps = sorted([entry['timestamp'] for entry in successful_recent])
+        timestamps = sorted([entry["timestamp"] for entry in successful_recent])
         intervals = []
         for i in range(1, len(timestamps)):
-            intervals.append(timestamps[i] - timestamps[i-1])
+            intervals.append(timestamps[i] - timestamps[i - 1])
         avg_interval = sum(intervals) / len(intervals) if intervals else 0
 
         return {
-            'initialized': True,
-            'active_rules': len([rule for rule in self._schedule_rules if rule.active]),
-            'total_rules': len(self._schedule_rules),
-            'last_capture_time': self._last_capture_time,
-            'consecutive_failures': self._consecutive_failures,
-            'total_failure_count': self._failure_count,
-            'total_captures': len(recent_history),
-            'successful_captures': len(successful_recent),
-            'failed_captures': len(failed_recent),
-            'average_interval': avg_interval,
-            'success_rate_pct': (len(successful_recent) / len(recent_history) * 100) if recent_history else 100,
-            'average_capture_time_ms': avg_capture_time,
-            'hourly_stats': {
-                'total_captures': len(recent_history),
-                'successful_captures': len(successful_recent),
-                'failed_captures': len(failed_recent),
-                'success_rate_pct': (len(successful_recent) / len(recent_history) * 100) if recent_history else 100,
-                'average_capture_time_ms': avg_capture_time
+            "initialized": True,
+            "active_rules": len([rule for rule in self._schedule_rules if rule.active]),
+            "total_rules": len(self._schedule_rules),
+            "last_capture_time": self._last_capture_time,
+            "consecutive_failures": self._consecutive_failures,
+            "total_failure_count": self._failure_count,
+            "total_captures": len(recent_history),
+            "successful_captures": len(successful_recent),
+            "failed_captures": len(failed_recent),
+            "average_interval": avg_interval,
+            "success_rate_pct": (
+                (len(successful_recent) / len(recent_history) * 100) if recent_history else 100
+            ),
+            "average_capture_time_ms": avg_capture_time,
+            "hourly_stats": {
+                "total_captures": len(recent_history),
+                "successful_captures": len(successful_recent),
+                "failed_captures": len(failed_recent),
+                "success_rate_pct": (
+                    (len(successful_recent) / len(recent_history) * 100) if recent_history else 100
+                ),
+                "average_capture_time_ms": avg_capture_time,
             },
-            'daily_stats': {
-                'total_captures': len(daily_history),
-                'successful_captures': len(successful_daily),
-                'failed_captures': len(failed_daily),
-                'success_rate_pct': (len(successful_daily) / len(daily_history) * 100) if daily_history else 100
+            "daily_stats": {
+                "total_captures": len(daily_history),
+                "successful_captures": len(successful_daily),
+                "failed_captures": len(failed_daily),
+                "success_rate_pct": (
+                    (len(successful_daily) / len(daily_history) * 100) if daily_history else 100
+                ),
             },
-            'next_capture_estimate': self._estimate_next_capture_time()
+            "next_capture_estimate": self._estimate_next_capture_time(),
         }
 
     async def set_rule_active(self, rule_name: str, active: bool) -> None:
@@ -582,7 +610,9 @@ class CaptureScheduler:
 
         raise ValueError(f"Schedule rule '{rule_name}' not found")
 
-    def _matches_rule_conditions(self, rule: ScheduleRule, conditions: EnvironmentalConditions) -> bool:
+    def _matches_rule_conditions(
+        self, rule: ScheduleRule, conditions: EnvironmentalConditions
+    ) -> bool:
         """Check if environmental conditions match a rule's requirements."""
         if not rule.active:
             return False
@@ -596,11 +626,15 @@ class CaptureScheduler:
 
         # Check light level constraints
         if conditions and conditions.ambient_light_lux is not None:
-            if (rule.min_light_level is not None and
-                conditions.ambient_light_lux < rule.min_light_level):
+            if (
+                rule.min_light_level is not None
+                and conditions.ambient_light_lux < rule.min_light_level
+            ):
                 return False
-            if (rule.max_light_level is not None and
-                conditions.ambient_light_lux > rule.max_light_level):
+            if (
+                rule.max_light_level is not None
+                and conditions.ambient_light_lux > rule.max_light_level
+            ):
                 return False
 
         # Check special conditions
@@ -610,9 +644,15 @@ class CaptureScheduler:
                 return False
 
             for condition, required_value in rule.conditions.items():
-                if condition == "golden_hour" and getattr(conditions, 'is_golden_hour', False) != required_value:
+                if (
+                    condition == "golden_hour"
+                    and getattr(conditions, "is_golden_hour", False) != required_value
+                ):
                     return False
-                elif condition == "blue_hour" and getattr(conditions, 'is_blue_hour', False) != required_value:
+                elif (
+                    condition == "blue_hour"
+                    and getattr(conditions, "is_blue_hour", False) != required_value
+                ):
                     return False
 
         return True

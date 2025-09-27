@@ -18,10 +18,10 @@ class TimelapseAssembler:
         """Initialize timelapse assembler."""
         self._is_initialized = False
         self._assembly_stats = {
-            'timelapses_created': 0,
-            'total_frames_processed': 0,
-            'average_assembly_time_ms': 0.0,
-            'assembly_errors': 0
+            "timelapses_created": 0,
+            "total_frames_processed": 0,
+            "average_assembly_time_ms": 0.0,
+            "assembly_errors": 0,
         }
         self._recent_timelapses: List[Dict[str, Any]] = []
 
@@ -47,7 +47,7 @@ class TimelapseAssembler:
         self,
         images: List[Dict[str, Any]],
         metadata: Dict[str, Any],
-        output_formats: List[str] = ['1080p']
+        output_formats: List[str] = ["1080p"],
     ) -> Dict[str, Any]:
         """
         Create timelapse video from processed images.
@@ -63,7 +63,7 @@ class TimelapseAssembler:
 
         try:
             # Sort images by timestamp
-            sorted_images = sorted(images, key=lambda x: x.get('timestamp', 0))
+            sorted_images = sorted(images, key=lambda x: x.get("timestamp", 0))
 
             # Generate output paths
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -83,12 +83,12 @@ class TimelapseAssembler:
 
             # Store recent timelapse info
             timelapse_info = {
-                'timestamp': time.time(),
-                'image_count': len(images),
-                'duration_seconds': self._calculate_duration(sorted_images),
-                'output_formats': output_formats,
-                'outputs': results,
-                'metadata': metadata
+                "timestamp": time.time(),
+                "image_count": len(images),
+                "duration_seconds": self._calculate_duration(sorted_images),
+                "output_formats": output_formats,
+                "outputs": results,
+                "metadata": metadata,
             }
             self._recent_timelapses.append(timelapse_info)
 
@@ -99,22 +99,22 @@ class TimelapseAssembler:
             logger.info(f"Timelapse created successfully in {assembly_time:.1f}ms")
 
             return {
-                'success': True,
-                'output_path': str(results[0]['output_path']) if results else None,
-                'outputs': results,
-                'frame_count': len(images),
-                'duration_seconds': timelapse_info['duration_seconds'],
-                'assembly_time_ms': assembly_time
+                "success": True,
+                "output_path": str(results[0]["output_path"]) if results else None,
+                "outputs": results,
+                "frame_count": len(images),
+                "duration_seconds": timelapse_info["duration_seconds"],
+                "assembly_time_ms": assembly_time,
             }
 
         except Exception as e:
             self._update_assembly_stats(0, 0, success=False)
             logger.error(f"Timelapse creation failed: {e}")
             return {
-                'success': False,
-                'error': str(e),
-                'frame_count': len(images),
-                'assembly_time_ms': 0
+                "success": False,
+                "error": str(e),
+                "frame_count": len(images),
+                "assembly_time_ms": 0,
             }
 
     async def _create_format_placeholder(
@@ -122,7 +122,7 @@ class TimelapseAssembler:
         images: List[Dict[str, Any]],
         format_spec: str,
         output_base: Path,
-        metadata: Dict[str, Any]
+        metadata: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Create placeholder timelapse file for specific format (Sprint 1)."""
         # Generate format-specific filename
@@ -134,50 +134,47 @@ class TimelapseAssembler:
         # For Sprint 1, create a placeholder file with metadata
         placeholder_content = self._generate_placeholder_content(images, format_spec, metadata)
 
-        with open(output_file, 'wb') as f:
+        with open(output_file, "wb") as f:
             f.write(placeholder_content)
 
         # Create metadata file
-        metadata_file = output_file.with_suffix('.json')
+        metadata_file = output_file.with_suffix(".json")
         timelapse_metadata = {
-            'format': format_spec,
-            'frame_count': len(images),
-            'input_images': [img.get('output_path', '') for img in images],
-            'creation_time': time.time(),
-            'metadata': metadata,
-            'processing_version': '1.0.0-sprint1'
+            "format": format_spec,
+            "frame_count": len(images),
+            "input_images": [img.get("output_path", "") for img in images],
+            "creation_time": time.time(),
+            "metadata": metadata,
+            "processing_version": "1.0.0-sprint1",
         }
 
-        with open(metadata_file, 'w') as f:
+        with open(metadata_file, "w") as f:
             json.dump(timelapse_metadata, f, indent=2)
 
         return {
-            'format': format_spec,
-            'output_path': str(output_file),
-            'metadata_path': str(metadata_file),
-            'file_size_bytes': output_file.stat().st_size,
-            'resolution': self._get_format_resolution(format_spec),
-            'framerate': self._get_format_framerate(format_spec)
+            "format": format_spec,
+            "output_path": str(output_file),
+            "metadata_path": str(metadata_file),
+            "file_size_bytes": output_file.stat().st_size,
+            "resolution": self._get_format_resolution(format_spec),
+            "framerate": self._get_format_framerate(format_spec),
         }
 
     def _generate_placeholder_content(
-        self,
-        images: List[Dict[str, Any]],
-        format_spec: str,
-        metadata: Dict[str, Any]
+        self, images: List[Dict[str, Any]], format_spec: str, metadata: Dict[str, Any]
     ) -> bytes:
         """Generate placeholder video content (Sprint 1)."""
         # Create minimal MP4-like header for placeholder
         # In Phase 2, this will be replaced with actual FFmpeg encoding
 
-        header = b'ftypisom'  # MP4 file type header
+        header = b"ftypisom"  # MP4 file type header
         placeholder_data = f"Skylapse Timelapse - {format_spec}\n".encode()
         placeholder_data += f"Frames: {len(images)}\n".encode()
         placeholder_data += f"Created: {datetime.now().isoformat()}\n".encode()
 
         # Pad to reasonable file size
         while len(placeholder_data) < 1024 * 100:  # 100KB minimum
-            placeholder_data += b'0' * 1000
+            placeholder_data += b"0" * 1000
 
         return header + placeholder_data
 
@@ -186,7 +183,7 @@ class TimelapseAssembler:
         if len(sorted_images) < 2:
             return 0.0
 
-        timestamps = [img.get('timestamp', 0) for img in sorted_images]
+        timestamps = [img.get("timestamp", 0) for img in sorted_images]
         real_duration = max(timestamps) - min(timestamps)
 
         # Calculate video duration at target framerate
@@ -198,10 +195,10 @@ class TimelapseAssembler:
     def _get_format_resolution(self, format_spec: str) -> tuple[int, int]:
         """Get resolution for format specification."""
         format_resolutions = {
-            '1080p': (1920, 1080),
-            '4k': (3840, 2160),
-            '720p': (1280, 720),
-            '480p': (854, 480)
+            "1080p": (1920, 1080),
+            "4k": (3840, 2160),
+            "720p": (1280, 720),
+            "480p": (854, 480),
         }
         return format_resolutions.get(format_spec, (1920, 1080))
 
@@ -210,28 +207,30 @@ class TimelapseAssembler:
         # For Sprint 1, use fixed framerate
         return 24.0
 
-    def _update_assembly_stats(self, frame_count: int, assembly_time_ms: float, success: bool) -> None:
+    def _update_assembly_stats(
+        self, frame_count: int, assembly_time_ms: float, success: bool
+    ) -> None:
         """Update assembly statistics."""
         if success:
-            self._assembly_stats['timelapses_created'] += 1
-            self._assembly_stats['total_frames_processed'] += frame_count
+            self._assembly_stats["timelapses_created"] += 1
+            self._assembly_stats["total_frames_processed"] += frame_count
 
             # Update running average
-            current_avg = self._assembly_stats['average_assembly_time_ms']
-            timelapse_count = self._assembly_stats['timelapses_created']
+            current_avg = self._assembly_stats["average_assembly_time_ms"]
+            timelapse_count = self._assembly_stats["timelapses_created"]
 
             if timelapse_count > 0:
-                self._assembly_stats['average_assembly_time_ms'] = (
-                    (current_avg * (timelapse_count - 1) + assembly_time_ms) / timelapse_count
-                )
+                self._assembly_stats["average_assembly_time_ms"] = (
+                    current_avg * (timelapse_count - 1) + assembly_time_ms
+                ) / timelapse_count
         else:
-            self._assembly_stats['assembly_errors'] += 1
+            self._assembly_stats["assembly_errors"] += 1
 
     async def create_multiple_formats(
         self,
         images: List[Dict[str, Any]],
         metadata: Dict[str, Any],
-        formats: List[str] = ['720p', '1080p', '4k']
+        formats: List[str] = ["720p", "1080p", "4k"],
     ) -> Dict[str, Any]:
         """Create timelapse in multiple formats simultaneously."""
         logger.info(f"Creating timelapse in {len(formats)} formats")
@@ -241,20 +240,17 @@ class TimelapseAssembler:
         all_results = []
         for format_spec in formats:
             result = await self.create_timelapse(images, metadata, [format_spec])
-            if result['success'] and result['outputs']:
-                all_results.extend(result['outputs'])
+            if result["success"] and result["outputs"]:
+                all_results.extend(result["outputs"])
 
         return {
-            'success': len(all_results) > 0,
-            'outputs': all_results,
-            'formats_created': len(all_results),
-            'total_frame_count': len(images)
+            "success": len(all_results) > 0,
+            "outputs": all_results,
+            "formats_created": len(all_results),
+            "total_frame_count": len(images),
         }
 
-    async def apply_stabilization(
-        self,
-        images: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    async def apply_stabilization(self, images: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Apply stabilization to image sequence.
 
@@ -265,10 +261,7 @@ class TimelapseAssembler:
         # For Sprint 1, return images unchanged
         return images
 
-    async def apply_deflickering(
-        self,
-        images: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    async def apply_deflickering(self, images: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Apply deflickering to reduce brightness variations.
 
@@ -282,21 +275,17 @@ class TimelapseAssembler:
     async def get_status(self) -> Dict[str, Any]:
         """Get timelapse assembler status."""
         return {
-            'initialized': self._is_initialized,
-            'statistics': self._assembly_stats.copy(),
-            'recent_timelapses_count': len(self._recent_timelapses),
-            'capabilities': [
-                'basic_assembly',
-                'multiple_formats',
-                'metadata_preservation'
+            "initialized": self._is_initialized,
+            "statistics": self._assembly_stats.copy(),
+            "recent_timelapses_count": len(self._recent_timelapses),
+            "capabilities": ["basic_assembly", "multiple_formats", "metadata_preservation"],
+            "future_capabilities": [
+                "stabilization",  # Phase 2
+                "deflickering",  # Phase 2
+                "gpu_acceleration",  # Phase 2
+                "h265_encoding",  # Phase 2
+                "hdr_output",  # Phase 2
             ],
-            'future_capabilities': [
-                'stabilization',     # Phase 2
-                'deflickering',      # Phase 2
-                'gpu_acceleration',  # Phase 2
-                'h265_encoding',     # Phase 2
-                'hdr_output'         # Phase 2
-            ]
         }
 
     async def get_recent_timelapses(self, limit: int = 10) -> List[Dict[str, Any]]:
@@ -306,28 +295,19 @@ class TimelapseAssembler:
     # Future methods for Phase 2 implementation
 
     async def _encode_with_ffmpeg(
-        self,
-        images: List[str],
-        output_path: str,
-        format_spec: str
+        self, images: List[str], output_path: str, format_spec: str
     ) -> Dict[str, Any]:
         """Encode timelapse using FFmpeg (Phase 2)."""
         # TODO: Implement FFmpeg encoding pipeline
         pass
 
-    async def _apply_gpu_acceleration(
-        self,
-        images: List[str],
-        processing_type: str
-    ) -> List[str]:
+    async def _apply_gpu_acceleration(self, images: List[str], processing_type: str) -> List[str]:
         """Apply GPU-accelerated processing (Phase 2)."""
         # TODO: Implement GPU acceleration
         pass
 
     async def _create_hdr_timelapse(
-        self,
-        hdr_sequences: List[List[str]],
-        output_path: str
+        self, hdr_sequences: List[List[str]], output_path: str
     ) -> Dict[str, Any]:
         """Create HDR timelapse from HDR image sequences (Phase 2)."""
         # TODO: Implement HDR timelapse creation

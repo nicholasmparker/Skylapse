@@ -24,7 +24,7 @@ class TestScheduleRule:
             end_hour=18,
             min_light_level=100.0,
             max_light_level=5000.0,
-            conditions={"test": True}
+            conditions={"test": True},
         )
 
         assert rule.name == "test_rule"
@@ -38,11 +38,7 @@ class TestScheduleRule:
 
     def test_schedule_rule_defaults(self):
         """Test schedule rule creation with minimal parameters."""
-        rule = ScheduleRule(
-            name="minimal_rule",
-            active=True,
-            interval_seconds=30
-        )
+        rule = ScheduleRule(name="minimal_rule", active=True, interval_seconds=30)
 
         assert rule.name == "minimal_rule"
         assert rule.active is True
@@ -99,11 +95,7 @@ class TestCaptureScheduler:
     async def test_add_schedule_rule(self, scheduler):
         """Test adding custom schedule rules."""
         new_rule = ScheduleRule(
-            name="custom_rule",
-            active=True,
-            interval_seconds=120,
-            start_hour=10,
-            end_hour=14
+            name="custom_rule", active=True, interval_seconds=120, start_hour=10, end_hour=14
         )
 
         await scheduler.add_schedule_rule(new_rule)
@@ -141,9 +133,7 @@ class TestCaptureScheduler:
     async def test_should_capture_now_golden_hour(self, scheduler):
         """Test capture decision during golden hour conditions."""
         golden_conditions = EnvironmentalConditions(
-            is_golden_hour=True,
-            ambient_light_lux=2000.0,
-            sun_elevation_deg=5.0
+            is_golden_hour=True, ambient_light_lux=2000.0, sun_elevation_deg=5.0
         )
 
         # Should capture during golden hour with intensive rule
@@ -157,7 +147,7 @@ class TestCaptureScheduler:
             is_golden_hour=False,
             is_blue_hour=False,
             ambient_light_lux=10000.0,
-            sun_elevation_deg=45.0
+            sun_elevation_deg=45.0,
         )
 
         # Should also capture during daylight but less frequently
@@ -170,10 +160,7 @@ class TestCaptureScheduler:
         # Simulate a recent capture
         scheduler._last_capture_time = time.time() - 10  # 10 seconds ago
 
-        conditions = EnvironmentalConditions(
-            is_golden_hour=False,
-            ambient_light_lux=8000.0
-        )
+        conditions = EnvironmentalConditions(is_golden_hour=False, ambient_light_lux=8000.0)
 
         # Should not capture if recent capture within interval
         should_capture = await scheduler.should_capture_now(conditions)
@@ -181,8 +168,7 @@ class TestCaptureScheduler:
         # If interval is > 10 seconds, should be False
         # We'll check the actual rule to be sure
         daylight_rule = next(
-            (r for r in scheduler._schedule_rules if r.name == "daylight_standard"),
-            None
+            (r for r in scheduler._schedule_rules if r.name == "daylight_standard"), None
         )
         if daylight_rule and daylight_rule.interval_seconds > 10:
             assert should_capture is False
@@ -197,10 +183,7 @@ class TestCaptureScheduler:
     @pytest.mark.asyncio
     async def test_get_next_capture_time(self, scheduler):
         """Test next capture time calculation."""
-        conditions = EnvironmentalConditions(
-            is_golden_hour=True,
-            ambient_light_lux=2000.0
-        )
+        conditions = EnvironmentalConditions(is_golden_hour=True, ambient_light_lux=2000.0)
 
         next_time = await scheduler.get_next_capture_time(conditions)
 
@@ -221,7 +204,7 @@ class TestCaptureScheduler:
             capture_time_ms=50.0,
             quality_score=0.9,
             metadata={"test": True},
-            actual_settings=CaptureSettings()
+            actual_settings=CaptureSettings(),
         )
 
         await scheduler.record_capture_attempt(mock_result, success=True)
@@ -257,18 +240,17 @@ class TestCaptureScheduler:
             name="test_specific",
             active=True,
             interval_seconds=15,
-            conditions={"test_mode": True, "min_elevation": 10}
+            conditions={"test_mode": True, "min_elevation": 10},
         )
         await scheduler.add_schedule_rule(specific_rule)
 
         # Test with matching conditions
         matching_conditions = EnvironmentalConditions(
-            sun_elevation_deg=15.0,
-            ambient_light_lux=5000.0
+            sun_elevation_deg=15.0, ambient_light_lux=5000.0
         )
 
         # Mock the condition matching for test_mode
-        with patch.object(scheduler, '_matches_rule_conditions', return_value=True):
+        with patch.object(scheduler, "_matches_rule_conditions", return_value=True):
             should_capture = await scheduler.should_capture_now(matching_conditions)
             assert should_capture is True
 
@@ -282,9 +264,9 @@ class TestCaptureScheduler:
                 capture_time_ms=45.0,
                 quality_score=0.85,
                 metadata={},
-                actual_settings=CaptureSettings()
+                actual_settings=CaptureSettings(),
             ),
-            success=True
+            success=True,
         )
 
         stats = await scheduler.get_statistics()
@@ -334,16 +316,12 @@ class TestCaptureScheduler:
         """Test that time-of-day filtering works correctly."""
         # Add a rule that's only active during specific hours
         dawn_rule = ScheduleRule(
-            name="dawn_only",
-            active=True,
-            interval_seconds=30,
-            start_hour=5,
-            end_hour=7
+            name="dawn_only", active=True, interval_seconds=30, start_hour=5, end_hour=7
         )
         await scheduler.add_schedule_rule(dawn_rule)
 
         # Mock current time to be outside the window (noon)
-        with patch('time.localtime') as mock_time:
+        with patch("time.localtime") as mock_time:
             mock_time.return_value.tm_hour = 12  # Noon
 
             conditions = EnvironmentalConditions(ambient_light_lux=8000.0)
@@ -369,21 +347,25 @@ class TestSchedulerIntegration:
         await scheduler.initialize()
 
         # Add comprehensive rules for testing
-        await scheduler.add_schedule_rule(ScheduleRule(
-            name="sunrise_golden_hour",
-            active=True,
-            interval_seconds=10,  # Very frequent during sunrise
-            conditions={"golden_hour": True, "sun_rising": True}
-        ))
+        await scheduler.add_schedule_rule(
+            ScheduleRule(
+                name="sunrise_golden_hour",
+                active=True,
+                interval_seconds=10,  # Very frequent during sunrise
+                conditions={"golden_hour": True, "sun_rising": True},
+            )
+        )
 
-        await scheduler.add_schedule_rule(ScheduleRule(
-            name="midday_sparse",
-            active=True,
-            interval_seconds=300,  # Every 5 minutes during harsh midday
-            start_hour=11,
-            end_hour=15,
-            conditions={"harsh_light": True}
-        ))
+        await scheduler.add_schedule_rule(
+            ScheduleRule(
+                name="midday_sparse",
+                active=True,
+                interval_seconds=300,  # Every 5 minutes during harsh midday
+                start_hour=11,
+                end_hour=15,
+                conditions={"harsh_light": True},
+            )
+        )
 
         yield scheduler
         await scheduler.shutdown()
@@ -396,7 +378,7 @@ class TestSchedulerIntegration:
             is_golden_hour=True,
             sun_elevation_deg=3.0,
             ambient_light_lux=1500.0,
-            color_temperature_k=3200
+            color_temperature_k=3200,
         )
 
         # Should want to capture frequently
@@ -417,7 +399,7 @@ class TestSchedulerIntegration:
             is_blue_hour=False,
             sun_elevation_deg=75.0,
             ambient_light_lux=50000.0,
-            color_temperature_k=5500
+            color_temperature_k=5500,
         )
 
         # Should still capture but less frequently

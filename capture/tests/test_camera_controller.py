@@ -38,25 +38,19 @@ class TestCameraController:
 
         # Create mock camera config
         mock_config = {
-            'sensor': {
-                'model': 'Mock Camera',
-                'base_iso': 100,
-                'max_iso': 800
+            "sensor": {"model": "Mock Camera", "base_iso": 100, "max_iso": 800},
+            "optical": {"focal_length_mm": 4.28, "hyperfocal_distance_mm": 1830},
+            "mock": {
+                "capture_delay_ms": 10,
+                "simulate_failures": False,
+                "output_dir": str(temp_config_dir),
             },
-            'optical': {
-                'focal_length_mm': 4.28,
-                'hyperfocal_distance_mm': 1830
-            },
-            'mock': {
-                'capture_delay_ms': 10,
-                'simulate_failures': False,
-                'output_dir': str(temp_config_dir)
-            },
-            'capabilities': ['AUTOFOCUS', 'MANUAL_FOCUS', 'HDR_BRACKETING']
+            "capabilities": ["AUTOFOCUS", "MANUAL_FOCUS", "HDR_BRACKETING"],
         }
 
         import yaml
-        with open(config_dir / "mock_camera.yaml", 'w') as f:
+
+        with open(config_dir / "mock_camera.yaml", "w") as f:
             yaml.dump(mock_config, f)
 
         return temp_config_dir
@@ -85,11 +79,7 @@ class TestCameraController:
         """Test basic optimized capture functionality."""
         await controller.initialize_camera()
 
-        settings = CaptureSettings(
-            quality=90,
-            format="JPEG",
-            iso=100
-        )
+        settings = CaptureSettings(quality=90, format="JPEG", iso=100)
 
         result = await controller.capture_optimized(base_settings=settings)
 
@@ -104,9 +94,7 @@ class TestCameraController:
         await controller.initialize_camera()
 
         conditions = EnvironmentalConditions(
-            is_golden_hour=True,
-            ambient_light_lux=5000,
-            sun_elevation_deg=5
+            is_golden_hour=True, ambient_light_lux=5000, sun_elevation_deg=5
         )
 
         result = await controller.capture_optimized(conditions=conditions)
@@ -120,10 +108,7 @@ class TestCameraController:
         await controller.initialize_camera()
 
         hdr_stops = [-2, -1, 0, 1, 2]
-        base_settings = CaptureSettings(
-            exposure_time_us=1000,
-            iso=100
-        )
+        base_settings = CaptureSettings(exposure_time_us=1000, iso=100)
 
         result = await controller.capture_hdr_sequence(hdr_stops, base_settings)
 
@@ -135,12 +120,7 @@ class TestCameraController:
         """Test single image capture."""
         await controller.initialize_camera()
 
-        settings = CaptureSettings(
-            quality=95,
-            format="JPEG",
-            iso=200,
-            autofocus_enabled=True
-        )
+        settings = CaptureSettings(quality=95, format="JPEG", iso=200, autofocus_enabled=True)
 
         result = await controller.capture_single_image(settings)
 
@@ -156,11 +136,11 @@ class TestCameraController:
         status = await controller.get_camera_status()
 
         assert isinstance(status, dict)
-        assert status['initialized'] is True
-        assert status['running'] is True
-        assert 'camera_model' in status
-        assert 'capabilities' in status
-        assert 'performance' in status
+        assert status["initialized"] is True
+        assert status["running"] is True
+        assert "camera_model" in status
+        assert "capabilities" in status
+        assert "performance" in status
 
     @pytest.mark.asyncio
     async def test_performance_metrics_tracking(self, controller, mock_camera_config):
@@ -175,10 +155,10 @@ class TestCameraController:
 
         metrics = controller.performance_metrics
 
-        assert metrics['total_captures'] == 3
-        assert metrics['successful_captures'] == 3
-        assert metrics['failed_captures'] == 0
-        assert metrics['average_capture_time_ms'] > 0
+        assert metrics["total_captures"] == 3
+        assert metrics["successful_captures"] == 3
+        assert metrics["failed_captures"] == 0
+        assert metrics["average_capture_time_ms"] > 0
 
     @pytest.mark.asyncio
     async def test_test_capture(self, controller, mock_camera_config):
@@ -188,10 +168,10 @@ class TestCameraController:
         result = await controller.test_capture()
 
         assert isinstance(result, dict)
-        assert result['success'] is True
-        assert 'capture_time_ms' in result
-        assert 'file_paths' in result
-        assert len(result['file_paths']) > 0
+        assert result["success"] is True
+        assert "capture_time_ms" in result
+        assert "file_paths" in result
+        assert len(result["file_paths"]) > 0
 
     @pytest.mark.asyncio
     async def test_get_live_preview(self, controller, mock_camera_config):
@@ -223,23 +203,24 @@ class TestCameraController:
 
             # Mock config with failure simulation enabled
             failure_config = {
-                'sensor': {'model': 'Mock Camera'},
-                'mock': {
-                    'simulate_failures': True,
-                    'failure_rate': 1.0,  # 100% failure rate
-                    'output_dir': temp_dir
+                "sensor": {"model": "Mock Camera"},
+                "mock": {
+                    "simulate_failures": True,
+                    "failure_rate": 1.0,  # 100% failure rate
+                    "output_dir": temp_dir,
                 },
-                'capabilities': ['AUTOFOCUS']
+                "capabilities": ["AUTOFOCUS"],
             }
 
             import yaml
-            with open(config_dir / "mock_camera.yaml", 'w') as f:
+
+            with open(config_dir / "mock_camera.yaml", "w") as f:
                 yaml.dump(failure_config, f)
 
             failure_controller = CameraController(config_dir=temp_dir)
 
             try:
-                await failure_controller.initialize_camera(camera_type='mock_camera')
+                await failure_controller.initialize_camera(camera_type="mock_camera")
 
                 settings = CaptureSettings(quality=85)
 
@@ -249,7 +230,7 @@ class TestCameraController:
 
                 # Performance metrics should track the failure
                 metrics = failure_controller.performance_metrics
-                assert metrics['failed_captures'] > 0
+                assert metrics["failed_captures"] > 0
 
             finally:
                 await failure_controller.shutdown()
@@ -269,6 +250,7 @@ class TestCameraController:
 
         # Mock camera should support these capabilities
         from src.camera_types import CameraCapability
+
         assert controller.camera.supports_capability(CameraCapability.AUTOFOCUS)
         assert controller.camera.supports_capability(CameraCapability.HDR_BRACKETING)
 
@@ -276,11 +258,11 @@ class TestCameraController:
         """Test initial state of performance metrics."""
         metrics = controller.performance_metrics
 
-        assert metrics['total_captures'] == 0
-        assert metrics['successful_captures'] == 0
-        assert metrics['failed_captures'] == 0
-        assert metrics['average_capture_time_ms'] == 0.0
-        assert metrics['last_capture_time'] is None
+        assert metrics["total_captures"] == 0
+        assert metrics["successful_captures"] == 0
+        assert metrics["failed_captures"] == 0
+        assert metrics["average_capture_time_ms"] == 0.0
+        assert metrics["last_capture_time"] is None
 
 
 # Integration-style tests
@@ -295,35 +277,37 @@ class TestCameraControllerIntegration:
             config_dir = Path(temp_dir)
 
             full_config = {
-                'sensor': {
-                    'model': 'Mock IMX519',
-                    'bayer_pattern': 'RGGB',
-                    'base_iso': 100,
-                    'max_iso': 800,
-                    'resolution_mp': 16.0
+                "sensor": {
+                    "model": "Mock IMX519",
+                    "bayer_pattern": "RGGB",
+                    "base_iso": 100,
+                    "max_iso": 800,
+                    "resolution_mp": 16.0,
                 },
-                'optical': {
-                    'focal_length_mm': 4.28,
-                    'hyperfocal_distance_mm': 1830,
-                    'focus_range_mm': [100.0, float('inf')]
+                "optical": {
+                    "focal_length_mm": 4.28,
+                    "hyperfocal_distance_mm": 1830,
+                    "focus_range_mm": [100.0, float("inf")],
                 },
-                'processing': {
-                    'demosaic_algorithm': 'DCB',
-                    'noise_reduction_strength': 0.2
+                "processing": {"demosaic_algorithm": "DCB", "noise_reduction_strength": 0.2},
+                "mock": {
+                    "capture_delay_ms": 10,
+                    "simulate_failures": False,
+                    "output_dir": temp_dir,
                 },
-                'mock': {
-                    'capture_delay_ms': 10,
-                    'simulate_failures': False,
-                    'output_dir': temp_dir
-                },
-                'capabilities': [
-                    'AUTOFOCUS', 'MANUAL_FOCUS', 'HDR_BRACKETING',
-                    'FOCUS_STACKING', 'RAW_CAPTURE', 'LIVE_PREVIEW'
-                ]
+                "capabilities": [
+                    "AUTOFOCUS",
+                    "MANUAL_FOCUS",
+                    "HDR_BRACKETING",
+                    "FOCUS_STACKING",
+                    "RAW_CAPTURE",
+                    "LIVE_PREVIEW",
+                ],
             }
 
             import yaml
-            with open(config_dir / "mock_camera.yaml", 'w') as f:
+
+            with open(config_dir / "mock_camera.yaml", "w") as f:
                 yaml.dump(full_config, f)
 
             controller = CameraController(config_dir=temp_dir)
@@ -343,7 +327,7 @@ class TestCameraControllerIntegration:
 
         # Get status
         status = await controller.get_camera_status()
-        assert status['initialized']
+        assert status["initialized"]
 
         # Perform various types of captures
         basic_result = await controller.capture_optimized()
@@ -351,19 +335,18 @@ class TestCameraControllerIntegration:
 
         # HDR capture
         hdr_result = await controller.capture_hdr_sequence(
-            stops=[-1, 0, 1],
-            base_settings=CaptureSettings(exposure_time_us=1000)
+            stops=[-1, 0, 1], base_settings=CaptureSettings(exposure_time_us=1000)
         )
         assert len(hdr_result.file_paths) >= 3
 
         # Test capture
         test_result = await controller.test_capture()
-        assert test_result['success']
+        assert test_result["success"]
 
         # Check performance metrics
         metrics = controller.performance_metrics
-        assert metrics['total_captures'] >= 3
-        assert metrics['successful_captures'] >= 3
+        assert metrics["total_captures"] >= 3
+        assert metrics["successful_captures"] >= 3
 
         # Cleanup
         await controller.shutdown()

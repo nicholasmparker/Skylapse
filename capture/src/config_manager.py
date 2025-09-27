@@ -31,7 +31,7 @@ class CameraConfigManager:
         for config_file in self.config_dir.glob("*.yaml"):
             try:
                 camera_model = config_file.stem
-                with open(config_file, 'r') as f:
+                with open(config_file, "r") as f:
                     config = yaml.safe_load(f)
 
                 self.configs[camera_model] = config
@@ -57,36 +57,38 @@ class CameraConfigManager:
     def _get_default_config(self) -> Dict[str, Any]:
         """Get default camera configuration."""
         return {
-            'sensor': {
-                'bayer_pattern': 'RGGB',
-                'base_iso': 100,
-                'max_iso': 800,
-                'iso_invariance_point': 800
+            "sensor": {
+                "bayer_pattern": "RGGB",
+                "base_iso": 100,
+                "max_iso": 800,
+                "iso_invariance_point": 800,
             },
-            'optical': {
-                'focal_length_mm': 4.28,
-                'hyperfocal_distance_mm': 1830,
-                'focus_range_mm': [100.0, float('inf')]
+            "optical": {
+                "focal_length_mm": 4.28,
+                "hyperfocal_distance_mm": 1830,
+                "focus_range_mm": [100.0, float("inf")],
             },
-            'processing': {
-                'demosaic_algorithm': 'DCB',
-                'noise_reduction_strength': 0.2,
-                'color_correction_enabled': True
+            "processing": {
+                "demosaic_algorithm": "DCB",
+                "noise_reduction_strength": 0.2,
+                "color_correction_enabled": True,
             },
-            'capture': {
-                'default_quality': 95,
-                'default_format': 'JPEG',
-                'enable_raw_capture': False,
-                'capture_timeout_ms': 5000
+            "capture": {
+                "default_quality": 95,
+                "default_format": "JPEG",
+                "enable_raw_capture": False,
+                "capture_timeout_ms": 5000,
             },
-            'performance': {
-                'capture_buffer_size': 4,
-                'max_capture_latency_ms': 50,
-                'focus_timeout_ms': 2000
-            }
+            "performance": {
+                "capture_buffer_size": 4,
+                "max_capture_latency_ms": 50,
+                "focus_timeout_ms": 2000,
+            },
         }
 
-    def _deep_merge(self, base_dict: Dict[str, Any], override_dict: Dict[str, Any]) -> Dict[str, Any]:
+    def _deep_merge(
+        self, base_dict: Dict[str, Any], override_dict: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Deep merge two dictionaries, with override_dict taking precedence."""
         result = base_dict.copy()
 
@@ -113,7 +115,7 @@ class CameraConfigManager:
         try:
             self.config_dir.mkdir(parents=True, exist_ok=True)
 
-            with open(config_file, 'w') as f:
+            with open(config_file, "w") as f:
                 yaml.safe_dump(self.configs[camera_model], f, indent=2)
 
             logger.info(f"Saved config for {camera_model}")
@@ -146,7 +148,7 @@ class SystemConfigManager:
         """Load system configuration from file."""
         try:
             if self.config_file.exists():
-                with open(self.config_file, 'r') as f:
+                with open(self.config_file, "r") as f:
                     self.config = yaml.safe_load(f) or {}
             else:
                 logger.warning(f"System config file does not exist: {self.config_file}")
@@ -165,42 +167,46 @@ class SystemConfigManager:
         import os
 
         # Check environment for development settings
-        skylapse_env = os.getenv('SKYLAPSE_ENV', 'production').lower()
-        is_development = skylapse_env == 'development'
+        skylapse_env = os.getenv("SKYLAPSE_ENV", "production").lower()
+        is_development = skylapse_env == "development"
 
         base_config = {
-            'storage': {
-                'capture_buffer_path': '/opt/skylapse/buffer' if not is_development else '/tmp/skylapse/buffer',
-                'buffer_retention_hours': 48,
-                'max_buffer_size_gb': 100,
-                'cleanup_interval_hours': 6
+            "storage": {
+                "capture_buffer_path": (
+                    "/opt/skylapse/buffer" if not is_development else "/tmp/skylapse/buffer"
+                ),
+                "buffer_retention_hours": 48,
+                "max_buffer_size_gb": 100,
+                "cleanup_interval_hours": 6,
             },
-            'network': {
-                'processing_service_host': 'localhost',
-                'processing_service_port': 8081,
-                'transfer_retry_attempts': 3,
-                'transfer_timeout_seconds': 30
+            "network": {
+                "processing_service_host": "localhost",
+                "processing_service_port": 8081,
+                "transfer_retry_attempts": 3,
+                "transfer_timeout_seconds": 30,
             },
-            'capture': {
-                'service_port': 8080,
-                'max_concurrent_captures': 1,
-                'health_check_interval_seconds': 30
+            "capture": {
+                "service_port": 8080,
+                "max_concurrent_captures": 1,
+                "health_check_interval_seconds": 30,
             },
-            'monitoring': {
-                'metrics_enabled': True,
-                'log_level': 'DEBUG' if is_development else 'INFO',
-                'performance_tracking': True
+            "monitoring": {
+                "metrics_enabled": True,
+                "log_level": "DEBUG" if is_development else "INFO",
+                "performance_tracking": True,
             },
-            'development': {
-                'mock_camera_enabled': is_development,
-                'debug_logging': is_development,
-                'development_mode': is_development
-            }
+            "development": {
+                "mock_camera_enabled": is_development,
+                "debug_logging": is_development,
+                "development_mode": is_development,
+            },
         }
 
         return base_config
 
-    def _deep_merge(self, base_dict: Dict[str, Any], override_dict: Dict[str, Any]) -> Dict[str, Any]:
+    def _deep_merge(
+        self, base_dict: Dict[str, Any], override_dict: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Deep merge two dictionaries."""
         result = base_dict.copy()
 
@@ -214,7 +220,7 @@ class SystemConfigManager:
 
     def get(self, key: str, default=None):
         """Get a configuration value using dot notation (e.g., 'storage.buffer_retention_hours')."""
-        keys = key.split('.')
+        keys = key.split(".")
         value = self.config
 
         for k in keys:
@@ -235,7 +241,7 @@ class SystemConfigManager:
         try:
             self.config_file.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(self.config_file, 'w') as f:
+            with open(self.config_file, "w") as f:
                 yaml.safe_dump(self.config, f, indent=2)
 
             logger.info("Saved system configuration")

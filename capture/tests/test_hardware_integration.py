@@ -16,9 +16,9 @@ from src.camera_types import CaptureSettings, CameraCapability
 def is_raspberry_pi() -> bool:
     """Check if running on Raspberry Pi hardware."""
     try:
-        with open('/proc/cpuinfo', 'r') as f:
+        with open("/proc/cpuinfo", "r") as f:
             cpuinfo = f.read()
-        return 'BCM' in cpuinfo and 'ARM' in cpuinfo
+        return "BCM" in cpuinfo and "ARM" in cpuinfo
     except (FileNotFoundError, PermissionError):
         return False
 
@@ -27,19 +27,21 @@ def detect_camera_hardware() -> Optional[str]:
     """Detect connected camera hardware."""
     try:
         # Check for libcamera devices
-        result = subprocess.run(['libcamera-hello', '--list-cameras'],
-                              capture_output=True, text=True, timeout=10)
-        if result.returncode == 0 and 'Available cameras' in result.stdout:
-            return 'libcamera'
+        result = subprocess.run(
+            ["libcamera-hello", "--list-cameras"], capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0 and "Available cameras" in result.stdout:
+            return "libcamera"
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
 
     try:
         # Check for V4L2 devices
-        result = subprocess.run(['v4l2-ctl', '--list-devices'],
-                              capture_output=True, text=True, timeout=5)
-        if result.returncode == 0 and 'mmal' in result.stdout.lower():
-            return 'v4l2'
+        result = subprocess.run(
+            ["v4l2-ctl", "--list-devices"], capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0 and "mmal" in result.stdout.lower():
+            return "v4l2"
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
 
@@ -49,20 +51,22 @@ def detect_camera_hardware() -> Optional[str]:
 def get_system_info() -> dict:
     """Get system information for hardware testing."""
     info = {
-        'is_raspberry_pi': is_raspberry_pi(),
-        'camera_detected': detect_camera_hardware(),
-        'python_version': None,
-        'memory_mb': None,
-        'disk_space_gb': None
+        "is_raspberry_pi": is_raspberry_pi(),
+        "camera_detected": detect_camera_hardware(),
+        "python_version": None,
+        "memory_mb": None,
+        "disk_space_gb": None,
     }
 
     try:
         import platform
-        info['python_version'] = platform.python_version()
+
+        info["python_version"] = platform.python_version()
 
         import psutil
-        info['memory_mb'] = psutil.virtual_memory().total // (1024 * 1024)
-        info['disk_space_gb'] = psutil.disk_usage('/').total // (1024 * 1024 * 1024)
+
+        info["memory_mb"] = psutil.virtual_memory().total // (1024 * 1024)
+        info["disk_space_gb"] = psutil.disk_usage("/").total // (1024 * 1024 * 1024)
     except ImportError:
         pass
 
@@ -88,37 +92,34 @@ class TestHardwareCameraIntegration:
 
             # Auto-detect camera configuration or use defaults
             camera_config = {
-                'sensor': {
-                    'model': 'Hardware Auto-Detect',
-                    'base_iso': 100,
-                    'max_iso': 800
+                "sensor": {"model": "Hardware Auto-Detect", "base_iso": 100, "max_iso": 800},
+                "optical": {
+                    "focal_length_mm": 4.28,  # Common for Pi cameras
+                    "hyperfocal_distance_mm": 1830,
                 },
-                'optical': {
-                    'focal_length_mm': 4.28,  # Common for Pi cameras
-                    'hyperfocal_distance_mm': 1830
+                "capture": {
+                    "default_quality": 95,
+                    "default_format": "JPEG",
+                    "enable_raw_capture": False,
+                    "capture_timeout_ms": 10000,  # Longer for hardware
                 },
-                'capture': {
-                    'default_quality': 95,
-                    'default_format': 'JPEG',
-                    'enable_raw_capture': False,
-                    'capture_timeout_ms': 10000  # Longer for hardware
+                "performance": {
+                    "capture_buffer_size": 2,
+                    "max_capture_latency_ms": 100,  # More lenient for hardware
+                    "focus_timeout_ms": 3000,
                 },
-                'performance': {
-                    'capture_buffer_size': 2,
-                    'max_capture_latency_ms': 100,  # More lenient for hardware
-                    'focus_timeout_ms': 3000
-                },
-                'capabilities': [
-                    'AUTOFOCUS',
-                    'MANUAL_FOCUS',
-                    'HDR_BRACKETING',
-                    'RAW_CAPTURE',
-                    'LIVE_PREVIEW'
-                ]
+                "capabilities": [
+                    "AUTOFOCUS",
+                    "MANUAL_FOCUS",
+                    "HDR_BRACKETING",
+                    "RAW_CAPTURE",
+                    "LIVE_PREVIEW",
+                ],
             }
 
             import yaml
-            with open(config_dir / "hardware_camera.yaml", 'w') as f:
+
+            with open(config_dir / "hardware_camera.yaml", "w") as f:
                 yaml.dump(camera_config, f)
 
             controller = CameraController(config_dir=temp_dir)
@@ -140,12 +141,12 @@ class TestHardwareCameraIntegration:
 
         # Get camera status
         status = await controller.get_camera_status()
-        assert status['initialized'] is True
-        assert status['running'] is True
-        assert 'camera_model' in status
+        assert status["initialized"] is True
+        assert status["running"] is True
+        assert "camera_model" in status
 
         # Camera model should not be 'Mock Camera'
-        assert 'Mock' not in status['camera_model']
+        assert "Mock" not in status["camera_model"]
 
         print(f"Hardware Camera Detected: {status['camera_model']}")
         print(f"Capabilities: {status.get('capabilities', [])}")
@@ -155,12 +156,7 @@ class TestHardwareCameraIntegration:
         """Test capturing real images with hardware camera."""
         controller = hardware_controller
 
-        settings = CaptureSettings(
-            quality=90,
-            format="JPEG",
-            iso=100,
-            autofocus_enabled=True
-        )
+        settings = CaptureSettings(quality=90, format="JPEG", iso=100, autofocus_enabled=True)
 
         # Capture single image
         result = await controller.capture_single_image(settings)
@@ -171,7 +167,7 @@ class TestHardwareCameraIntegration:
         # Verify actual image file was created
         image_path = Path(result.file_paths[0])
         assert image_path.exists()
-        assert image_path.suffix.lower() == '.jpg'
+        assert image_path.suffix.lower() == ".jpg"
         assert image_path.stat().st_size > 1000  # Should be substantial file
 
         print(f"Captured image: {image_path}")
@@ -204,7 +200,7 @@ class TestHardwareCameraIntegration:
             quality=85,
             format="JPEG",
             iso=100,
-            autofocus_enabled=False  # Disable for consistent timing
+            autofocus_enabled=False,  # Disable for consistent timing
         )
 
         # Warm-up capture
@@ -213,6 +209,7 @@ class TestHardwareCameraIntegration:
         # Performance test captures
         for i in range(10):
             import time
+
             start_time = time.perf_counter()
             result = await controller.capture_single_image(settings)
             end_time = time.perf_counter()
@@ -223,6 +220,7 @@ class TestHardwareCameraIntegration:
             assert len(result.file_paths) == 1
 
         import statistics
+
         avg_time = statistics.mean(capture_times)
         max_time = max(capture_times)
 
@@ -255,7 +253,9 @@ class TestHardwareCameraIntegration:
 
             # Different quality settings should produce different file sizes
             file_size_kb = image_path.stat().st_size // 1024
-            print(f"Settings {i+1} - Quality: {settings.quality}, ISO: {settings.iso}, Size: {file_size_kb}KB")
+            print(
+                f"Settings {i+1} - Quality: {settings.quality}, ISO: {settings.iso}, Size: {file_size_kb}KB"
+            )
 
     @pytest.mark.asyncio
     async def test_hardware_hdr_capture(self, hardware_controller):
@@ -266,11 +266,7 @@ class TestHardwareCameraIntegration:
             pytest.skip("Hardware does not support HDR bracketing")
 
         hdr_stops = [-1, 0, 1]
-        base_settings = CaptureSettings(
-            exposure_time_us=1000,
-            iso=100,
-            quality=90
-        )
+        base_settings = CaptureSettings(exposure_time_us=1000, iso=100, quality=90)
 
         result = await controller.capture_hdr_sequence(hdr_stops, base_settings)
 
@@ -298,7 +294,7 @@ class TestHardwareCameraIntegration:
         assert len(preview_data) > 100  # Should have substantial data
 
         # Should be valid image data (JPEG header)
-        assert preview_data.startswith(b'\xff\xd8\xff')
+        assert preview_data.startswith(b"\xff\xd8\xff")
 
         print(f"Live preview data: {len(preview_data)} bytes")
 
@@ -319,7 +315,7 @@ class TestSystemIntegrationOnHardware:
             storage = StorageManager(
                 buffer_path=str(Path(temp_dir) / "storage"),
                 max_size_gb=1.0,
-                retention_hours=2  # Short for testing
+                retention_hours=2,  # Short for testing
             )
             await storage.initialize()
 
@@ -331,26 +327,20 @@ class TestSystemIntegrationOnHardware:
             config_dir.mkdir()
 
             hardware_config = {
-                'sensor': {'model': 'Hardware Integration Test'},
-                'capture': {
-                    'default_quality': 85,
-                    'capture_timeout_ms': 10000
-                },
-                'capabilities': ['AUTOFOCUS', 'HDR_BRACKETING']
+                "sensor": {"model": "Hardware Integration Test"},
+                "capture": {"default_quality": 85, "capture_timeout_ms": 10000},
+                "capabilities": ["AUTOFOCUS", "HDR_BRACKETING"],
             }
 
             import yaml
-            with open(config_dir / "hardware_camera.yaml", 'w') as f:
+
+            with open(config_dir / "hardware_camera.yaml", "w") as f:
                 yaml.dump(hardware_config, f)
 
             controller = CameraController(config_dir=str(config_dir))
             await controller.initialize_camera()
 
-            system = {
-                'controller': controller,
-                'scheduler': scheduler,
-                'storage': storage
-            }
+            system = {"controller": controller, "scheduler": scheduler, "storage": storage}
 
             try:
                 yield system
@@ -362,17 +352,15 @@ class TestSystemIntegrationOnHardware:
     @pytest.mark.asyncio
     async def test_complete_hardware_workflow(self, full_hardware_system):
         """Test complete capture workflow on hardware."""
-        controller = full_hardware_system['controller']
-        scheduler = full_hardware_system['scheduler']
-        storage = full_hardware_system['storage']
+        controller = full_hardware_system["controller"]
+        scheduler = full_hardware_system["scheduler"]
+        storage = full_hardware_system["storage"]
 
         from src.camera_types import EnvironmentalConditions
 
         # Simulate realistic conditions
         conditions = EnvironmentalConditions(
-            is_golden_hour=True,
-            ambient_light_lux=2000.0,
-            sun_elevation_deg=10.0
+            is_golden_hour=True, ambient_light_lux=2000.0, sun_elevation_deg=10.0
         )
 
         # Test decision making
@@ -400,6 +388,7 @@ class TestSystemIntegrationOnHardware:
 
             # Check metadata
             from datetime import datetime
+
             date_path = stored_path.parent.name
             assert len(date_path) == 2  # Should be DD format
 
@@ -414,8 +403,8 @@ class TestSystemIntegrationOnHardware:
     @pytest.mark.asyncio
     async def test_hardware_stress_test(self, full_hardware_system):
         """Stress test hardware system under load."""
-        controller = full_hardware_system['controller']
-        storage = full_hardware_system['storage']
+        controller = full_hardware_system["controller"]
+        storage = full_hardware_system["storage"]
 
         # Rapid capture sequence
         capture_count = 20
@@ -448,7 +437,9 @@ class TestSystemIntegrationOnHardware:
         print(f"  Success rate: {success_rate:.1%}")
 
         # Should have reasonable success rate on stable hardware
-        assert success_rate >= 0.8, f"Hardware stress test success rate {success_rate:.1%} below 80%"
+        assert (
+            success_rate >= 0.8
+        ), f"Hardware stress test success rate {success_rate:.1%} below 80%"
 
 
 @pytest.mark.hardware
@@ -465,17 +456,17 @@ class TestHardwareEnvironmentValidation:
             print(f"  {key}: {value}")
 
         # Validate requirements
-        if system_info['is_raspberry_pi']:
+        if system_info["is_raspberry_pi"]:
             # Memory requirement (minimum 1GB recommended)
-            if system_info['memory_mb']:
-                assert system_info['memory_mb'] >= 512, "Insufficient memory for reliable operation"
+            if system_info["memory_mb"]:
+                assert system_info["memory_mb"] >= 512, "Insufficient memory for reliable operation"
 
             # Disk space requirement (minimum 10GB recommended)
-            if system_info['disk_space_gb']:
-                assert system_info['disk_space_gb'] >= 5, "Insufficient disk space"
+            if system_info["disk_space_gb"]:
+                assert system_info["disk_space_gb"] >= 5, "Insufficient disk space"
 
         # Camera requirement
-        assert system_info['camera_detected'] is not None, "No camera hardware detected"
+        assert system_info["camera_detected"] is not None, "No camera hardware detected"
 
     @pytest.mark.skipif(not hardware_available, reason=hardware_skip_reason)
     def test_camera_permissions(self):
@@ -485,7 +476,7 @@ class TestHardwareEnvironmentValidation:
 
         try:
             # Check if user is in video group
-            video_group = grp.getgrnam('video')
+            video_group = grp.getgrnam("video")
             current_user_groups = os.getgroups()
 
             if video_group.gr_gid not in current_user_groups:
@@ -502,14 +493,16 @@ class TestHardwareEnvironmentValidation:
     @pytest.mark.skipif(not hardware_available, reason=hardware_skip_reason)
     async def test_libcamera_functionality(self):
         """Test basic libcamera functionality."""
-        if detect_camera_hardware() != 'libcamera':
+        if detect_camera_hardware() != "libcamera":
             pytest.skip("libcamera not available")
 
         try:
             # Test libcamera-hello
             result = subprocess.run(
-                ['libcamera-hello', '--timeout', '1', '--nopreview'],
-                capture_output=True, text=True, timeout=10
+                ["libcamera-hello", "--timeout", "1", "--nopreview"],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
 
             assert result.returncode == 0, f"libcamera-hello failed: {result.stderr}"
@@ -525,33 +518,26 @@ class TestHardwareEnvironmentValidation:
 def create_hardware_test_config(temp_dir: str) -> dict:
     """Create optimal configuration for hardware testing."""
     return {
-        'sensor': {
-            'model': 'Hardware Test Camera',
-            'base_iso': 100,
-            'max_iso': 1600
+        "sensor": {"model": "Hardware Test Camera", "base_iso": 100, "max_iso": 1600},
+        "optical": {"focal_length_mm": 4.28, "hyperfocal_distance_mm": 1830},
+        "capture": {
+            "default_quality": 90,
+            "default_format": "JPEG",
+            "enable_raw_capture": False,
+            "capture_timeout_ms": 15000,  # Generous timeout for hardware
         },
-        'optical': {
-            'focal_length_mm': 4.28,
-            'hyperfocal_distance_mm': 1830
+        "performance": {
+            "capture_buffer_size": 3,
+            "max_capture_latency_ms": 150,
+            "focus_timeout_ms": 4000,
         },
-        'capture': {
-            'default_quality': 90,
-            'default_format': 'JPEG',
-            'enable_raw_capture': False,
-            'capture_timeout_ms': 15000  # Generous timeout for hardware
-        },
-        'performance': {
-            'capture_buffer_size': 3,
-            'max_capture_latency_ms': 150,
-            'focus_timeout_ms': 4000
-        },
-        'capabilities': [
-            'AUTOFOCUS',
-            'MANUAL_FOCUS',
-            'HDR_BRACKETING',
-            'LIVE_PREVIEW',
-            'RAW_CAPTURE'
-        ]
+        "capabilities": [
+            "AUTOFOCUS",
+            "MANUAL_FOCUS",
+            "HDR_BRACKETING",
+            "LIVE_PREVIEW",
+            "RAW_CAPTURE",
+        ],
     }
 
 
@@ -559,17 +545,17 @@ def hardware_test_summary():
     """Print hardware test environment summary."""
     system_info = get_system_info()
 
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("HARDWARE TEST ENVIRONMENT")
-    print("="*50)
+    print("=" * 50)
 
     for key, value in system_info.items():
         print(f"{key.replace('_', ' ').title()}: {value}")
 
-    if system_info['is_raspberry_pi']:
+    if system_info["is_raspberry_pi"]:
         print("\nOptimizations for Raspberry Pi:")
         print("- Consider increasing GPU memory split for camera operations")
         print("- Ensure adequate cooling for sustained capture operations")
         print("- Use fast SD card (Class 10+ or A1/A2) for storage")
 
-    print("="*50 + "\n")
+    print("=" * 50 + "\n")

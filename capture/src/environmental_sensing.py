@@ -51,8 +51,10 @@ class EnvironmentalSensor:
         current_time = time.time()
 
         # Update cached conditions if stale
-        if (self._last_update_time is None or
-            current_time - self._last_update_time > self._update_interval_seconds):
+        if (
+            self._last_update_time is None
+            or current_time - self._last_update_time > self._update_interval_seconds
+        ):
             await self._update_conditions()
 
         return self._cached_conditions or EnvironmentalConditions()
@@ -73,25 +75,22 @@ class EnvironmentalSensor:
         # Combine all data sources
         self._cached_conditions = EnvironmentalConditions(
             # Weather data (stubs for now)
-            cloud_cover_pct=weather_data.get('cloud_cover_pct'),
-            visibility_km=weather_data.get('visibility_km'),
-            precipitation_prob_pct=weather_data.get('precipitation_prob_pct'),
-            wind_speed_kph=weather_data.get('wind_speed_kph'),
-
+            cloud_cover_pct=weather_data.get("cloud_cover_pct"),
+            visibility_km=weather_data.get("visibility_km"),
+            precipitation_prob_pct=weather_data.get("precipitation_prob_pct"),
+            wind_speed_kph=weather_data.get("wind_speed_kph"),
             # Astronomical data (real calculations)
-            sun_elevation_deg=astronomical_data['sun_elevation_deg'],
-            sun_azimuth_deg=astronomical_data['sun_azimuth_deg'],
-            is_golden_hour=astronomical_data['is_golden_hour'],
-            is_blue_hour=astronomical_data['is_blue_hour'],
-
+            sun_elevation_deg=astronomical_data["sun_elevation_deg"],
+            sun_azimuth_deg=astronomical_data["sun_azimuth_deg"],
+            is_golden_hour=astronomical_data["is_golden_hour"],
+            is_blue_hour=astronomical_data["is_blue_hour"],
             # Sensor data (stubs for now)
-            ambient_light_lux=sensor_data.get('ambient_light_lux'),
-            color_temperature_k=sensor_data.get('color_temperature_k'),
-            temperature_c=sensor_data.get('temperature_c'),
-
+            ambient_light_lux=sensor_data.get("ambient_light_lux"),
+            color_temperature_k=sensor_data.get("color_temperature_k"),
+            temperature_c=sensor_data.get("temperature_c"),
             # Scene analysis (future implementation)
             scene_brightness=None,
-            focus_quality_score=None
+            focus_quality_score=None,
         )
 
         self._last_update_time = current_time
@@ -113,11 +112,14 @@ class EnvironmentalSensor:
         declination = 23.45 * math.sin(math.radians(360 * (284 + day_of_year) / 365))
         latitude = 45.0  # Approximate mountain latitude
 
-        sun_elevation = math.degrees(math.asin(
-            math.sin(math.radians(latitude)) * math.sin(math.radians(declination)) +
-            math.cos(math.radians(latitude)) * math.cos(math.radians(declination)) *
-            math.cos(math.radians(hour_angle))
-        ))
+        sun_elevation = math.degrees(
+            math.asin(
+                math.sin(math.radians(latitude)) * math.sin(math.radians(declination))
+                + math.cos(math.radians(latitude))
+                * math.cos(math.radians(declination))
+                * math.cos(math.radians(hour_angle))
+            )
+        )
 
         # Approximate azimuth (simplified)
         sun_azimuth = hour_angle + 180  # Very simplified
@@ -131,10 +133,10 @@ class EnvironmentalSensor:
         is_blue_hour = -12 <= sun_elevation <= -6
 
         return {
-            'sun_elevation_deg': sun_elevation,
-            'sun_azimuth_deg': sun_azimuth,
-            'is_golden_hour': is_golden_hour,
-            'is_blue_hour': is_blue_hour
+            "sun_elevation_deg": sun_elevation,
+            "sun_azimuth_deg": sun_azimuth,
+            "is_golden_hour": is_golden_hour,
+            "is_blue_hour": is_blue_hour,
         }
 
     async def _get_weather_data_stub(self) -> Dict[str, Any]:
@@ -144,10 +146,10 @@ class EnvironmentalSensor:
         """
         # Return simulated/default weather data for now
         return {
-            'cloud_cover_pct': 30.0,  # Partly cloudy
-            'visibility_km': 15.0,    # Good visibility
-            'precipitation_prob_pct': 20.0,  # Low chance of rain
-            'wind_speed_kph': 10.0    # Light breeze
+            "cloud_cover_pct": 30.0,  # Partly cloudy
+            "visibility_km": 15.0,  # Good visibility
+            "precipitation_prob_pct": 20.0,  # Low chance of rain
+            "wind_speed_kph": 10.0,  # Light breeze
         }
 
     async def _get_sensor_data_stub(self) -> Dict[str, Any]:
@@ -183,35 +185,35 @@ class EnvironmentalSensor:
         temperature_c = base_temp + daily_variation
 
         return {
-            'ambient_light_lux': ambient_light_lux,
-            'color_temperature_k': color_temperature_k,
-            'temperature_c': temperature_c
+            "ambient_light_lux": ambient_light_lux,
+            "color_temperature_k": color_temperature_k,
+            "temperature_c": temperature_c,
         }
 
     async def get_status(self) -> Dict[str, Any]:
         """Get environmental sensor system status."""
         if not self._is_initialized:
-            return {'initialized': False}
+            return {"initialized": False}
 
         status = {
-            'initialized': True,
-            'last_update_time': self._last_update_time,
-            'update_interval_seconds': self._update_interval_seconds,
-            'data_sources': {
-                'astronomical': 'active',
-                'weather_api': 'stub',  # Will be 'active' in Phase 2
-                'hardware_sensors': 'stub'  # Will be 'active' in Phase 2
-            }
+            "initialized": True,
+            "last_update_time": self._last_update_time,
+            "update_interval_seconds": self._update_interval_seconds,
+            "data_sources": {
+                "astronomical": "active",
+                "weather_api": "stub",  # Will be 'active' in Phase 2
+                "hardware_sensors": "stub",  # Will be 'active' in Phase 2
+            },
         }
 
         # Include current conditions if available
         if self._cached_conditions:
-            status['current_conditions'] = {
-                'sun_elevation_deg': self._cached_conditions.sun_elevation_deg,
-                'is_golden_hour': self._cached_conditions.is_golden_hour,
-                'is_blue_hour': self._cached_conditions.is_blue_hour,
-                'ambient_light_lux': self._cached_conditions.ambient_light_lux,
-                'temperature_c': self._cached_conditions.temperature_c
+            status["current_conditions"] = {
+                "sun_elevation_deg": self._cached_conditions.sun_elevation_deg,
+                "is_golden_hour": self._cached_conditions.is_golden_hour,
+                "is_blue_hour": self._cached_conditions.is_blue_hour,
+                "ambient_light_lux": self._cached_conditions.ambient_light_lux,
+                "temperature_c": self._cached_conditions.temperature_c,
             }
 
         return status

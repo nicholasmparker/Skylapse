@@ -13,7 +13,7 @@ from .camera_types import (
     EnvironmentalConditions,
     CameraError,
     CameraInitializationError,
-    CameraCapability
+    CameraCapability,
 )
 from .config_manager import CameraConfigManager, SystemConfigManager
 
@@ -33,11 +33,11 @@ class CameraController:
         self._system_config_manager = SystemConfigManager(system_config_file)
         self._is_running = False
         self._performance_metrics = {
-            'total_captures': 0,
-            'successful_captures': 0,
-            'failed_captures': 0,
-            'average_capture_time_ms': 0.0,
-            'last_capture_time': None
+            "total_captures": 0,
+            "successful_captures": 0,
+            "failed_captures": 0,
+            "average_capture_time_ms": 0.0,
+            "last_capture_time": None,
         }
 
     @property
@@ -96,7 +96,7 @@ class CameraController:
     async def capture_optimized(
         self,
         conditions: Optional[EnvironmentalConditions] = None,
-        base_settings: Optional[CaptureSettings] = None
+        base_settings: Optional[CaptureSettings] = None,
     ) -> CaptureResult:
         """
         Capture image with optimized settings based on environmental conditions.
@@ -112,7 +112,7 @@ class CameraController:
                 base_settings = CaptureSettings()
 
             # Optimize settings for current conditions
-            if conditions and hasattr(self._camera, 'optimize_settings_for_conditions'):
+            if conditions and hasattr(self._camera, "optimize_settings_for_conditions"):
                 optimized_settings = await self._camera.optimize_settings_for_conditions(
                     base_settings, conditions
                 )
@@ -121,7 +121,7 @@ class CameraController:
 
             # Perform autofocus if needed
             if optimized_settings.autofocus_enabled:
-                focus_timeout = self._system_config_manager.get('capture.focus_timeout_ms', 2000)
+                focus_timeout = self._system_config_manager.get("capture.focus_timeout_ms", 2000)
                 focus_success = await self._camera.autofocus(timeout_ms=focus_timeout)
                 if not focus_success:
                     logger.warning("Autofocus failed, continuing with current focus")
@@ -143,8 +143,10 @@ class CameraController:
             # Update performance metrics
             self._update_performance_metrics(True, result.capture_time_ms)
 
-            logger.info(f"Capture successful: {len(result.file_paths)} images, "
-                       f"{result.capture_time_ms:.1f}ms")
+            logger.info(
+                f"Capture successful: {len(result.file_paths)} images, "
+                f"{result.capture_time_ms:.1f}ms"
+            )
 
             return result
 
@@ -165,7 +167,7 @@ class CameraController:
         base_exposure = base_settings.exposure_time_us or 1000  # Default 1ms
 
         for stop in base_settings.hdr_bracket_stops:
-            exposure_multiplier = 2 ** stop  # Each stop doubles/halves exposure
+            exposure_multiplier = 2**stop  # Each stop doubles/halves exposure
             bracketed_settings = CaptureSettings(
                 exposure_time_us=int(base_exposure * exposure_multiplier),
                 iso=base_settings.iso,
@@ -175,7 +177,7 @@ class CameraController:
                 white_balance_k=base_settings.white_balance_k,
                 white_balance_mode=base_settings.white_balance_mode,
                 quality=base_settings.quality,
-                format=base_settings.format
+                format=base_settings.format,
             )
             sequence.append(bracketed_settings)
 
@@ -203,9 +205,7 @@ class CameraController:
             raise CameraError(f"Single image capture failed: {e}")
 
     async def capture_hdr_sequence(
-        self,
-        stops: List[float],
-        base_settings: CaptureSettings
+        self, stops: List[float], base_settings: CaptureSettings
     ) -> CaptureResult:
         """Capture HDR bracketed sequence."""
         if not self.is_initialized:
@@ -226,7 +226,7 @@ class CameraController:
                 white_balance_mode=base_settings.white_balance_mode,
                 quality=base_settings.quality,
                 format=base_settings.format,
-                hdr_bracket_stops=stops
+                hdr_bracket_stops=stops,
             )
 
             return await self.capture_optimized(base_settings=hdr_settings)
@@ -247,39 +247,39 @@ class CameraController:
 
     def _update_performance_metrics(self, success: bool, capture_time_ms: float) -> None:
         """Update performance tracking metrics."""
-        self._performance_metrics['total_captures'] += 1
-        self._performance_metrics['last_capture_time'] = time.time()
+        self._performance_metrics["total_captures"] += 1
+        self._performance_metrics["last_capture_time"] = time.time()
 
         if success:
-            self._performance_metrics['successful_captures'] += 1
+            self._performance_metrics["successful_captures"] += 1
         else:
-            self._performance_metrics['failed_captures'] += 1
+            self._performance_metrics["failed_captures"] += 1
 
         # Update rolling average capture time
-        total_successful = self._performance_metrics['successful_captures']
+        total_successful = self._performance_metrics["successful_captures"]
         if total_successful > 0:
-            current_avg = self._performance_metrics['average_capture_time_ms']
-            self._performance_metrics['average_capture_time_ms'] = (
-                (current_avg * (total_successful - 1) + capture_time_ms) / total_successful
-            )
+            current_avg = self._performance_metrics["average_capture_time_ms"]
+            self._performance_metrics["average_capture_time_ms"] = (
+                current_avg * (total_successful - 1) + capture_time_ms
+            ) / total_successful
 
     async def get_camera_status(self) -> Dict[str, Any]:
         """Get detailed camera status information."""
         status = {
-            'initialized': self.is_initialized,
-            'running': self._is_running,
-            'camera_model': None,
-            'capabilities': [],
-            'current_settings': None,
-            'performance': self._performance_metrics
+            "initialized": self.is_initialized,
+            "running": self._is_running,
+            "camera_model": None,
+            "capabilities": [],
+            "current_settings": None,
+            "performance": self._performance_metrics,
         }
 
         if self._camera and self._camera.specs:
-            status['camera_model'] = self._camera.specs.model
-            status['capabilities'] = [cap.name for cap in self._camera.specs.capabilities]
+            status["camera_model"] = self._camera.specs.model
+            status["capabilities"] = [cap.name for cap in self._camera.specs.capabilities]
 
             try:
-                status['current_settings'] = await self._camera.get_current_settings()
+                status["current_settings"] = await self._camera.get_current_settings()
             except Exception as e:
                 logger.warning(f"Failed to get current settings: {e}")
 
@@ -290,30 +290,26 @@ class CameraController:
         if not self.is_initialized:
             raise CameraError("Camera not initialized for testing")
 
-        test_settings = CaptureSettings(
-            quality=85,
-            format="JPEG",
-            iso=100
-        )
+        test_settings = CaptureSettings(quality=85, format="JPEG", iso=100)
 
         try:
             result = await self.capture_single_image(test_settings)
 
             return {
-                'success': True,
-                'capture_time_ms': result.capture_time_ms,
-                'file_paths': result.file_paths,
-                'image_count': len(result.file_paths),
-                'metadata': result.metadata
+                "success": True,
+                "capture_time_ms": result.capture_time_ms,
+                "file_paths": result.file_paths,
+                "image_count": len(result.file_paths),
+                "metadata": result.metadata,
             }
 
         except Exception as e:
             return {
-                'success': False,
-                'error': str(e),
-                'capture_time_ms': 0,
-                'file_paths': [],
-                'image_count': 0
+                "success": False,
+                "error": str(e),
+                "capture_time_ms": 0,
+                "file_paths": [],
+                "image_count": 0,
             }
 
     async def __aenter__(self):
