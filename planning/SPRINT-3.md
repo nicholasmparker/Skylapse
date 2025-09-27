@@ -200,10 +200,18 @@
 
 ## 🚀 **Technical Architecture**
 
+### **🐳 IMPORTANT: Docker Containerization Strategy**
+**DECISION**: Frontend will be **containerized with Docker** (NOT static hosting)
+- See `/docs/FRONTEND_ARCHITECTURE_DECISION.md` for full rationale
+- Consistent with existing processing service architecture
+- Self-contained system suitable for mountain installations
+- Unified deployment strategy across all services
+
 ### **Frontend Architecture**
 ```
 ┌─────────────────────────────────────────┐
-│ React Frontend (Port 3000)              │
+│ React Frontend (Docker Container)       │
+│ Port 3000 | Container: skylapse-frontend│
 ├─────────────────────────────────────────┤
 │ Components:                             │
 │ ├── Dashboard (Real-time status)        │
@@ -217,6 +225,12 @@
 │ ├── REST API (Configuration)            │
 │ ├── Media API (Image/video streaming)   │
 │ └── Auth API (Security)                 │
+├─────────────────────────────────────────┤
+│ Deployment:                             │
+│ ├── Multi-stage Dockerfile             │
+│ ├── Nginx production server            │
+│ ├── Docker Compose orchestration       │
+│ └── Unified deployment scripts         │
 └─────────────────────────────────────────┘
 ```
 

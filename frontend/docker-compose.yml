@@ -1,0 +1,102 @@
+# Skylapse Frontend Docker Compose Configuration
+# Professional Mountain Timelapse Camera System
+
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: skylapse/frontend:1.0.0-sprint3
+    container_name: skylapse-frontend
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"  # Frontend interface
+
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=http://processing:8081
+      - REACT_APP_CAPTURE_URL=http://helios.local:8080
+      - REACT_APP_WS_URL=ws://processing:8081/ws
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+    # Network configuration
+    networks:
+      - skylapse
+
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+
+    # Dependencies
+    depends_on:
+      - processing
+
+  # Development variant with hot reload
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+    image: skylapse/frontend:dev
+    container_name: skylapse-frontend-dev
+    restart: unless-stopped
+    profiles:
+      - dev
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      # Mount source code for hot reload
+      - .:/app
+      - /app/node_modules
+      - frontend_node_modules:/app/node_modules
+
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8081
+      - VITE_CAPTURE_URL=http://helios.local:8080
+      - VITE_WS_URL=ws://localhost:8081/ws
+
+    networks:
+      - skylapse
+
+    command: npm run dev
+
+volumes:
+  frontend_node_modules:
+    driver: local
+
+networks:
+  skylapse:
+    driver: bridge
+    external: true

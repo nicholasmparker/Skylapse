@@ -201,11 +201,13 @@ Build a **BEAUTIFUL, MODERN, PROFESSIONAL** web interface for the Skylapse mount
 - **Caching**: React Query for intelligent data caching
 
 ### **Deployment & Performance**
-- **Static Hosting**: Netlify or Vercel for frontend deployment
-- **CDN Integration**: Optimized asset delivery
+- **🐳 Docker Containerization**: Frontend containerized for consistent deployment (DECISION: NOT static hosting)
+- **See**: `/docs/FRONTEND_ARCHITECTURE_DECISION.md` for full architecture rationale
+- **Multi-stage Build**: Optimized production container with Nginx
+- **Unified Deployment**: Integrated with existing capture/processing deployment scripts
 - **Progressive Web App**: Service worker for offline functionality
 - **Performance Monitoring**: Web Vitals tracking and optimization
-- **SEO Optimization**: Meta tags, structured data, sitemap
+- **Self-contained System**: No external hosting dependencies
 
 ---
 
