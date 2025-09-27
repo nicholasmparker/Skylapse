@@ -170,10 +170,83 @@ class BackgroundLightMonitor:
             await asyncio.sleep(self.sampling_interval)
 
     async def _quick_light_sample(self) -> LightConditions:
-        """Quick light sampling - using time-based estimation for reliability."""
-        # For now, use reliable time-based estimation
-        # TODO: Implement full rpicam-still parsing in future iteration
-        return self._fallback_light_reading()
+        """Quick light sampling from actual Pi camera sensor."""
+        try:
+            # Use rpicam-still for actual light readings - CRITICAL for mountain conditions
+            import subprocess
+            
+            result = subprocess.run([
+                'rpicam-still', 
+                '-t', '100',      # 100ms timeout for quick reading
+                '-n',             # No preview window
+                '--immediate',    # Don't wait for focus
+                '--verbose',      # Get EV and exposure info
+                '-o', '/dev/null' # Don't save image
+            ], capture_output=True, text=True, timeout=3.0)
+            
+            if result.returncode == 0:
+                # Parse actual camera output for real light conditions
+                return self._parse_camera_output(result.stderr)
+            else:
+                logger.warning(f"rpicam-still failed, using fallback: {result.stderr[:200]}")
+                return self._fallback_light_reading()
+                
+        except subprocess.TimeoutExpired:
+            logger.warning("Light sensor reading timed out, using fallback")
+            return self._fallback_light_reading()
+        except Exception as e:
+            logger.warning(f"Light sensor reading failed: {e}, using fallback")
+            return self._fallback_light_reading()
+    
+    def _parse_camera_output(self, stderr_output: str) -> LightConditions:
+        """Parse actual camera output for real light conditions."""
+        import re
+        
+        # Parse actual EV value from camera output
+        ev_reading = 0.0  # Default
+        exposure_mode = "normal"
+        
+        lines = stderr_output.split('\n')
+        for line in lines:
+            # Look for EV value: "    ev: 0"
+            ev_match = re.search(r'ev:\s*([+-]?\d*\.?\d+)', line)
+            if ev_match:
+                ev_reading = float(ev_match.group(1))
+                
+            # Look for exposure mode: "    exposure: normal"
+            exp_match = re.search(r'exposure:\s*(\w+)', line)
+            if exp_match:
+                exposure_mode = exp_match.group(1)
+        
+        # Convert camera EV to actual light EV
+        # Camera EV compensation is relative to auto-exposure
+        # Estimate base EV from time of day, then apply camera compensation
+        hour = datetime.now().hour
+        
+        if 6 <= hour <= 8 or 18 <= hour <= 20:  # Golden hour
+            base_ev = 10.0
+            color_temp_k = 3000
+        elif 9 <= hour <= 17:  # Daylight
+            base_ev = 13.0
+            color_temp_k = 5500
+        else:  # Night/twilight
+            base_ev = 6.0
+            color_temp_k = 4000
+            
+        # Apply camera EV compensation to base estimate
+        actual_ev = base_ev + ev_reading
+        
+        # Calculate lux from EV
+        ambient_lux = 2.5 * (2 ** actual_ev)
+        
+        logger.debug(f"Camera light reading: EV compensation {ev_reading}, estimated actual EV {actual_ev:.1f}")
+        
+        return LightConditions(
+            ambient_lux=ambient_lux,
+            color_temp_k=color_temp_k,
+            ev_reading=actual_ev,
+            timestamp=datetime.now()
+        )
     
     def _parse_exposure_info(self, stderr_output: str) -> LightConditions:
         """Parse exposure information from rpicam-still stderr output."""
