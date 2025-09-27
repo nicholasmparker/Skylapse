@@ -39,20 +39,4 @@ pythonpath = [
   "capture/src",
 ]
 
-[tool.flake8]
-max-line-length = 100
-ignore = [
-  "E203",  # whitespace before ':' (black-compatible)
-  "W503",  # line break before binary operator
-]
-exclude = [
-  ".git",
-  "__pycache__",
-  "venv",
-  ".venv",
-  "build",
-  "dist",
-]
-per-file-ignores = {
-  "capture/tests/*.py" = ["D", "S101"]
-}
+# flake8 configuration is in .flake8 file
