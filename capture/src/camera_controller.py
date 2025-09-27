@@ -8,7 +8,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 # Import camera implementations
-from . import cameras  # This triggers camera registration
+from . import cameras  # noqa: F401 - This triggers camera registration
 from .camera_interface import CameraFactory, CameraInterface
 from .camera_types import (
     CameraCapability,

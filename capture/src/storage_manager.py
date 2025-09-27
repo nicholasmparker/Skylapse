@@ -163,9 +163,10 @@ class StorageManager:
             # Add to transfer queue
             await self._add_to_transfer_queue(stored_paths, metadata_file)
 
+            total_size_mb = sum(Path(p).stat().st_size for p in stored_paths) / 1024 / 1024
             logger.info(
                 f"Stored capture result: {len(stored_paths)} images, "
-                f"total size: {sum(Path(p).stat().st_size for p in stored_paths) / 1024 / 1024:.1f}MB"
+                f"total size: {total_size_mb:.1f}MB"
             )
 
             return stored_paths
@@ -175,7 +176,7 @@ class StorageManager:
             for path in stored_paths:
                 try:
                     Path(path).unlink()
-                except:
+                except Exception:
                     pass
 
             logger.error(f"Failed to store capture result: {e}")
