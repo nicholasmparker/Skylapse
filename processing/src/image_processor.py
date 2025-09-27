@@ -20,6 +20,8 @@ try:
 except ImportError:
     PIL_AVAILABLE = False
 
+from .monitoring import ProcessingResourceMonitor
+
 logger = logging.getLogger(__name__)
 
 
@@ -179,6 +181,7 @@ class ImageProcessor:
         Process HDR bracketed sequence into a single enhanced image.
         
         Implements full HDR processing with exposure fusion or tone mapping.
+        Includes comprehensive resource monitoring for QA validation.
         """
         logger.info(f"Processing HDR sequence: {len(image_paths)} images")
         
@@ -192,55 +195,68 @@ class ImageProcessor:
             result["processing_type"] = "single_exposure"
             return result
 
-        start_time = time.time()
-        
-        try:
-            # Generate output path
-            base_path = Path(image_paths[0])
-            output_filename = f"hdr_merged_{int(time.time())}_{base_path.suffix}"
-            output_path = str(base_path.parent / output_filename)
+        # Start resource monitoring for QA validation
+        async with ProcessingResourceMonitor(f"HDR_{len(image_paths)}_bracket") as monitor:
+            start_time = time.time()
             
-            # Perform HDR merge
-            merged_path = await self._merge_hdr_images(image_paths, output_path)
-            
-            # Calculate processing time
-            processing_time = (time.time() - start_time) * 1000
-            
-            # Update statistics
-            self._update_processing_stats(processing_time, success=True)
-            
-            # Generate comprehensive result
-            result = {
-                "input_paths": image_paths,
-                "output_path": merged_path,
-                "processing_type": "hdr_merge",
-                "processing_applied": ["hdr_merge", "tone_mapping", "exposure_fusion"],
-                "timestamp": time.time(),
-                "processing_time_ms": processing_time,
-                "metadata": metadata,
-                "hdr_info": {
-                    "bracket_count": len(image_paths),
-                    "merge_algorithm": "exposure_fusion" if len(image_paths) <= 5 else "debevec_tone_mapping",
-                    "estimated_dynamic_range_stops": len(image_paths) * 2,  # Rough estimate
-                    "opencv_available": CV2_AVAILABLE,
-                    "pil_available": PIL_AVAILABLE
-                },
-                "quality_improvements": {
-                    "dynamic_range_expansion": True,
-                    "shadow_detail_recovery": True,
-                    "highlight_detail_preservation": True,
-                    "noise_reduction": len(image_paths) >= 3,  # Multiple exposures reduce noise
+            try:
+                # Generate output path
+                base_path = Path(image_paths[0])
+                output_filename = f"hdr_merged_{int(time.time())}{base_path.suffix}"
+                output_path = str(base_path.parent / output_filename)
+                
+                # Perform HDR merge
+                merged_path = await self._merge_hdr_images(image_paths, output_path)
+                
+                # Calculate processing time
+                processing_time = (time.time() - start_time) * 1000
+                
+                # Update statistics
+                self._update_processing_stats(processing_time, success=True)
+                
+                # Get resource metrics
+                resource_metrics = monitor.get_metrics()
+                
+                # Generate comprehensive result with resource monitoring
+                result = {
+                    "input_paths": image_paths,
+                    "output_path": merged_path,
+                    "processing_type": "hdr_merge",
+                    "processing_applied": ["hdr_merge", "tone_mapping", "exposure_fusion"],
+                    "timestamp": time.time(),
+                    "processing_time_ms": processing_time,
+                    "metadata": metadata,
+                    "hdr_info": {
+                        "bracket_count": len(image_paths),
+                        "merge_algorithm": "exposure_fusion" if len(image_paths) <= 5 else "debevec_tone_mapping",
+                        "estimated_dynamic_range_stops": len(image_paths) * 2,  # Rough estimate
+                        "opencv_available": CV2_AVAILABLE,
+                        "pil_available": PIL_AVAILABLE
+                    },
+                    "quality_improvements": {
+                        "dynamic_range_expansion": True,
+                        "shadow_detail_recovery": True,
+                        "highlight_detail_preservation": True,
+                        "noise_reduction": len(image_paths) >= 3,  # Multiple exposures reduce noise
+                    },
+                    "resource_usage": resource_metrics.to_dict() if resource_metrics else None
                 }
-            }
-            
-            logger.info(f"HDR processing completed in {processing_time:.1f}ms: {merged_path}")
-            return result
-            
-        except Exception as e:
-            processing_time = (time.time() - start_time) * 1000
-            self._update_processing_stats(processing_time, success=False)
-            logger.error(f"HDR processing failed: {e}")
-            raise
+                
+                # QA validation checks
+                if resource_metrics:
+                    if resource_metrics.peak_memory_mb > 1500:
+                        logger.warning(f"HDR processing exceeded memory threshold: {resource_metrics.peak_memory_mb:.1f}MB")
+                    if resource_metrics.thermal_throttling_detected:
+                        logger.warning("Thermal throttling detected during HDR processing")
+                        
+                logger.info(f"HDR processing completed in {processing_time:.1f}ms: {merged_path}")
+                return result
+                
+            except Exception as e:
+                processing_time = (time.time() - start_time) * 1000
+                self._update_processing_stats(processing_time, success=False)
+                logger.error(f"HDR processing failed: {e}")
+                raise
 
     async def process_focus_stack(
         self, image_paths: List[str], metadata: Dict[str, Any]
