@@ -21,6 +21,7 @@ interface CaptureSettings {
     whiteBalance: 'auto' | 'daylight' | 'cloudy' | 'tungsten' | 'fluorescent';
     quality: number; // 1-100
     format: 'JPEG' | 'RAW' | 'RAW+JPEG';
+    rotationDegrees: number; // 0, 90, 180, 270
   };
   scheduling: {
     enabled: boolean;
@@ -60,6 +61,7 @@ const DEFAULT_SETTINGS: CaptureSettings = {
     whiteBalance: 'auto',
     quality: 95,
     format: 'JPEG',
+    rotationDegrees: 180, // Fix upside-down mount by default
   },
   scheduling: {
     enabled: false,
@@ -650,6 +652,30 @@ export const CaptureSettingsInterface: React.FC = () => {
                         />
                       </div>
                     </div>
+
+                    {/* Image Orientation */}
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-mountain-800">Image Orientation</h4>
+
+                      <div>
+                        <label className="block text-sm font-medium text-mountain-700 mb-2">
+                          Rotation
+                        </label>
+                        <select
+                          value={settings.manual.rotationDegrees}
+                          onChange={(e) => updateManualSettings('rotationDegrees', parseInt(e.target.value))}
+                          className="w-full px-3 py-2 border border-mountain-300 rounded-lg focus:ring-2 focus:ring-golden-500 focus:border-golden-500"
+                        >
+                          <option value={0}>0° (Normal)</option>
+                          <option value={90}>90° (Portrait Left)</option>
+                          <option value={180}>180° (Upside Down)</option>
+                          <option value={270}>270° (Portrait Right)</option>
+                        </select>
+                        <p className="text-xs text-mountain-500 mt-1">
+                          Adjust for camera mounting orientation
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -897,6 +923,11 @@ export const CaptureSettingsInterface: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-mountain-600">White Balance</span>
                     <span className="font-medium capitalize">{settings.manual.whiteBalance}</span>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <span className="text-mountain-600">Rotation</span>
+                    <span className="font-medium">{settings.manual.rotationDegrees}°</span>
                   </div>
 
                   {settings.scheduling.enabled && (
