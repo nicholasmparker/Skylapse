@@ -39,6 +39,9 @@ class CaptureSettings:
     quality: int = 95
     format: str = "JPEG"
 
+    # Image orientation
+    rotation_degrees: int = 0  # 0, 90, 180, 270 degrees
+
     # HDR bracketing
     hdr_bracket_stops: List[float] = field(default_factory=list)
 

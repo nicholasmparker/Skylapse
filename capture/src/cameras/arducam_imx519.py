@@ -199,6 +199,13 @@ class ArducamIMX519Camera(CameraInterface):
                 temp_path,
             ]
 
+            # Apply current rotation setting to preview
+            if (
+                self._current_settings.rotation_degrees
+                and self._current_settings.rotation_degrees in [90, 180, 270]
+            ):
+                cmd.extend(["--rotation", str(self._current_settings.rotation_degrees)])
+
             process = await asyncio.create_subprocess_exec(
                 *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
@@ -329,6 +336,9 @@ class ArducamIMX519Camera(CameraInterface):
             quality=self._capture_config.get("default_quality", 95),
             format=self._capture_config.get("default_format", "JPEG"),
             iso=self._sensor_config.get("base_iso", 100),
+            rotation_degrees=self._capture_config.get(
+                "default_rotation", 180
+            ),  # Fix upside-down mount
         )
 
         await self.set_capture_settings(initial_settings)
@@ -388,6 +398,10 @@ class ArducamIMX519Camera(CameraInterface):
                 # Approximate conversion (would need calibration for precision)
                 lens_pos = min(1.0, 1000.0 / settings.focus_distance_mm)
             cmd.extend(["--lens-position", str(lens_pos)])
+
+        # Image rotation
+        if settings.rotation_degrees and settings.rotation_degrees in [90, 180, 270]:
+            cmd.extend(["--rotation", str(settings.rotation_degrees)])
 
         return cmd
 
