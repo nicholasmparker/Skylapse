@@ -1,7 +1,7 @@
 # Skylapse Frontend Docker Compose Configuration
 # Professional Mountain Timelapse Camera System
 
-version: '3.8'
+# version: '3.8'  # Removed as obsolete in newer Docker Compose
 
 services:
   frontend:
@@ -20,7 +20,7 @@ services:
       - NODE_ENV=production
       - REACT_APP_API_URL=http://processing:8081
       - REACT_APP_CAPTURE_URL=http://helios.local:8080
-      - REACT_APP_WS_URL=ws://processing:8081/ws
+      - REACT_APP_WS_URL=http://realtime-backend:8082
 
     # Resource limits
     deploy:
@@ -56,9 +56,9 @@ services:
       - no-new-privileges:true
     read_only: false
 
-    # Dependencies
-    depends_on:
-      - processing
+    # Dependencies (commented out for standalone development)
+    # depends_on:
+    #   - processing
 
   # Development variant with hot reload
   frontend-dev:
@@ -83,9 +83,9 @@ services:
 
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://localhost:8081
+      - VITE_API_URL=http://processing:8081
       - VITE_CAPTURE_URL=http://helios.local:8080
-      - VITE_WS_URL=ws://localhost:8081/ws
+      - VITE_WS_URL=ws://realtime-backend:8082
 
     networks:
       - skylapse
@@ -99,4 +99,4 @@ volumes:
 networks:
   skylapse:
     driver: bridge
-    external: true
+    # external: true  # Commented out for standalone development
