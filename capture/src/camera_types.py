@@ -19,6 +19,22 @@ class CameraCapability(Enum):
 
 
 @dataclass
+class CameraStatus:
+    """Current camera status and health information."""
+
+    connected: bool = False
+    model: str = "Unknown"
+    battery_level: Optional[int] = None  # Percentage
+    storage_free: Optional[float] = None  # GB available
+    temperature: Optional[float] = None  # Celsius
+    last_capture_time: Optional[str] = None  # ISO format timestamp
+    captures_today: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class CaptureSettings:
     """Camera capture settings configuration."""
 

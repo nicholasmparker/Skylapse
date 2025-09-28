@@ -13,6 +13,7 @@ from ..camera_types import (
     CameraCapability,
     CameraInitializationError,
     CameraSpecs,
+    CameraStatus,
     CaptureError,
     CaptureResult,
     CaptureSettings,
@@ -280,6 +281,18 @@ class ArducamIMX519Camera(CameraInterface):
         # Store settings for next capture
         self._current_settings = settings
         return True
+
+    def get_status(self) -> CameraStatus:
+        """Get current camera status."""
+        return CameraStatus(
+            connected=self._is_initialized,
+            model=self._specs.model if self._specs else "Arducam IMX519 16MP",
+            battery_level=None,  # Camera doesn't report battery
+            storage_free=None,  # Will be handled by storage manager
+            temperature=None,  # Would need thermal monitoring
+            last_capture_time=None,  # Would need to track captures
+            captures_today=0,  # Would need to track captures
+        )
 
     async def _test_camera_availability(self) -> None:
         """Test if camera is available and working."""
