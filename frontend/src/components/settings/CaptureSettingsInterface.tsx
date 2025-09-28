@@ -237,15 +237,36 @@ export const CaptureSettingsInterface: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Try to get current settings from API
-      // For now, use defaults as API endpoint may not be implemented yet
-      // const response = await apiClient.capture.getCaptureSettings();
-      // if (response.data) {
-      //   setSettings(response.data);
-      // }
+      const response = await apiClient.capture.getCameraSettings();
+
+      if (response.success && response.data) {
+        // Convert API format to UI format
+        const apiData = response.data;
+        const loadedSettings: CaptureSettings = {
+          ...DEFAULT_SETTINGS,
+          manual: {
+            ...DEFAULT_SETTINGS.manual,
+            iso: apiData.iso || DEFAULT_SETTINGS.manual.iso,
+            exposureTime: apiData.exposure_time_us ? apiData.exposure_time_us / 1000000 : DEFAULT_SETTINGS.manual.exposureTime,
+            exposureCompensation: apiData.exposure_compensation || DEFAULT_SETTINGS.manual.exposureCompensation,
+            hdrBracketing: Array.isArray(apiData.hdr_bracket_stops) && apiData.hdr_bracket_stops.length > 1,
+            bracketStops: Array.isArray(apiData.hdr_bracket_stops) ? apiData.hdr_bracket_stops.length : DEFAULT_SETTINGS.manual.bracketStops,
+            focusDistance: apiData.focus_distance_mm || DEFAULT_SETTINGS.manual.focusDistance,
+            autofocus: apiData.autofocus_enabled ?? DEFAULT_SETTINGS.manual.autofocus,
+            whiteBalance: apiData.white_balance_mode || DEFAULT_SETTINGS.manual.whiteBalance,
+            quality: apiData.quality || DEFAULT_SETTINGS.manual.quality,
+            format: apiData.format || DEFAULT_SETTINGS.manual.format,
+            rotationDegrees: apiData.rotation_degrees ?? DEFAULT_SETTINGS.manual.rotationDegrees,
+          },
+        };
+
+        setSettings(loadedSettings);
+        console.log('Settings loaded from API:', loadedSettings);
+      }
 
     } catch (err) {
       console.warn('Could not load current settings, using defaults:', err);
+      // Keep using defaults if API fails
     } finally {
       setIsLoading(false);
     }
@@ -262,13 +283,28 @@ export const CaptureSettingsInterface: React.FC = () => {
       setIsSaving(true);
       setError(null);
 
-      // Apply settings via API
-      // const response = await apiClient.capture.updateCaptureSettings(settings);
+      // Convert UI settings to API format
+      const apiSettings = {
+        iso: settings.manual.iso,
+        exposure_time_us: Math.round(settings.manual.exposureTime * 1000000), // Convert to microseconds
+        exposure_compensation: settings.manual.exposureCompensation,
+        hdr_bracket_stops: settings.manual.hdrBracketing ?
+          Array.from({length: settings.manual.bracketStops}, (_, i) => i - Math.floor(settings.manual.bracketStops / 2)) : [],
+        focus_distance_mm: settings.manual.focusDistance,
+        autofocus_enabled: settings.manual.autofocus,
+        white_balance_mode: settings.manual.whiteBalance,
+        quality: settings.manual.quality,
+        format: settings.manual.format,
+        rotation_degrees: settings.manual.rotationDegrees,
+      };
 
-      // For now, simulate the API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await apiClient.capture.updateCameraSettings(apiSettings);
 
-      console.log('Settings saved:', settings);
+      if (response.success) {
+        console.log('Settings saved successfully:', response.data);
+      } else {
+        throw new Error(response.error?.message || 'Failed to save settings');
+      }
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save settings');
