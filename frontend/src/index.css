@@ -55,11 +55,21 @@
   }
 
   body {
-    background-color: rgb(248 250 252);
-    color: rgb(15 23 42);
+    background-color: rgb(248 250 252) !important;
+    color: rgb(15 23 42) !important;
     transition: colors 200ms;
     margin: 0;
     min-height: 100vh;
+  }
+
+  /* Force text color on all elements to prevent white-on-white */
+  * {
+    color: inherit !important;
+  }
+
+  /* Specific overrides for common white text culprits */
+  h1, h2, h3, h4, h5, h6, p, span, div, label, button {
+    color: inherit !important;
   }
 
   /* Dark mode - DISABLED to prevent automatic white text override */
