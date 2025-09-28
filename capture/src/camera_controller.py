@@ -355,6 +355,20 @@ class CameraController:
                 "image_count": 0,
             }
 
+    async def get_current_settings(self) -> CaptureSettings:
+        """Get current camera settings."""
+        if not self.is_initialized:
+            raise CameraError("Camera not initialized")
+
+        return await self._camera.get_current_settings()
+
+    async def set_capture_settings(self, settings: CaptureSettings) -> bool:
+        """Set camera settings."""
+        if not self.is_initialized:
+            raise CameraError("Camera not initialized")
+
+        return await self._camera.set_capture_settings(settings)
+
     async def __aenter__(self):
         """Async context manager entry."""
         await self.initialize_camera()
