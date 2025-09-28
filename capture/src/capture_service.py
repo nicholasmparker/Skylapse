@@ -11,6 +11,7 @@ from .camera_controller import CameraController
 from .camera_types import CaptureSettings
 from .config_manager import SystemConfigManager
 from .environmental_sensing import EnvironmentalSensor
+from .schedule_executor import ScheduleExecutor
 from .scheduler import CaptureScheduler
 from .storage_manager import StorageManager
 from .transfer_manager import TransferManager
@@ -46,6 +47,9 @@ class CaptureService:
             port=self._config.get("capture.service_port"), controller=self
         )
 
+        # Initialize schedule executor with the API server's schedule storage
+        self._schedule_executor = None  # Will be initialized after API server starts
+
         self._is_running = False
         self._shutdown_event = asyncio.Event()
         self._capture_task: Optional[asyncio.Task] = None
@@ -72,6 +76,10 @@ class CaptureService:
             # Start API server
             await self._api_server.start()
 
+            # Initialize and start schedule executor after API server is running
+            self._schedule_executor = ScheduleExecutor(self._api_server.schedule_storage)
+            await self._schedule_executor.start()
+
             self._is_running = True
             logger.info("Capture service started successfully")
 
@@ -94,6 +102,10 @@ class CaptureService:
 
         logger.info("Shutting down capture service")
         self._is_running = False
+
+        # Stop schedule executor
+        if self._schedule_executor:
+            await self._schedule_executor.stop()
 
         # Stop API server
         await self._api_server.shutdown()
@@ -162,8 +174,14 @@ class CaptureService:
 
         while self._is_running:
             try:
-                # Check if it's time for a capture
-                if await self._scheduler.should_capture():
+                # Use new schedule executor if available, fallback to old scheduler
+                should_capture = False
+                if self._schedule_executor:
+                    should_capture = await self._schedule_executor.should_capture()
+                else:
+                    should_capture = await self._scheduler.should_capture()
+
+                if should_capture:
                     await self._perform_scheduled_capture()
 
                 # Wait for next check interval

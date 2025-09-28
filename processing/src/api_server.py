@@ -9,11 +9,19 @@ from datetime import datetime, timedelta
 try:
     import socketio
     from aiohttp import web
-    from aiohttp.web import json_response
+    from aiohttp.web import json_response, StreamResponse
 except ImportError:
     web = None
     json_response = None
     socketio = None
+    StreamResponse = None
+
+# Import camera service
+try:
+    from .camera_service import camera_service
+except ImportError:
+    camera_service = None
+    logger.warning("Camera service not available")
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +80,11 @@ class ProcessingAPIServer:
 
             self.site = web.TCPSite(self.runner, "0.0.0.0", self.port)
             await self.site.start()
+
+            # Initialize camera service
+            if camera_service:
+                await camera_service.initialize()
+                logger.info("Camera service initialized")
 
             self._is_running = True
             logger.info(f"Processing API server started on http://0.0.0.0:{self.port}")
@@ -186,6 +199,16 @@ class ProcessingAPIServer:
         self.app.router.add_post("/api/gallery/generate", self._generate_timelapse)
         self.app.router.add_get("/api/gallery/jobs", self._get_generation_jobs)
         self.app.router.add_get("/api/analytics", self._get_analytics_data)
+
+        # Camera API - Live preview and control
+        if camera_service:
+            self.app.router.add_get("/api/camera/stream", self._camera_stream)
+            self.app.router.add_get("/api/camera/status", self._get_camera_status)
+            self.app.router.add_get("/api/camera/settings", self._get_camera_settings)
+            self.app.router.add_put("/api/camera/settings", self._update_camera_settings)
+            self.app.router.add_post("/api/camera/capture", self._manual_capture)
+            self.app.router.add_post("/api/camera/start-stream", self._start_camera_stream)
+            self.app.router.add_post("/api/camera/stop-stream", self._stop_camera_stream)
 
     @web.middleware
     async def _logging_middleware(self, request, handler):
@@ -863,4 +886,158 @@ class ProcessingAPIServer:
             )
         except Exception as e:
             logger.error(f"Error getting analytics data: {e}")
+            return json_response({"error": str(e)}, status=500)
+
+    # Camera API Handlers
+    async def _camera_stream(self, request) -> web.StreamResponse:
+        """Stream live camera feed as MJPEG."""
+        if not camera_service or not camera_service.is_connected():
+            return web.Response(status=503, text="Camera not available")
+
+        try:
+            # Start streaming if not already started
+            await camera_service.start_streaming()
+
+            response = StreamResponse(
+                status=200,
+                reason="OK",
+                headers={
+                    "Content-Type": "multipart/x-mixed-replace; boundary=frame",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0",
+                    "Access-Control-Allow-Origin": "*",
+                }
+            )
+            await response.prepare(request)
+
+            # Stream MJPEG frames
+            async for frame_data in camera_service.generate_mjpeg_stream():
+                try:
+                    await response.write(frame_data)
+                except Exception as e:
+                    logger.warning(f"Client disconnected from camera stream: {e}")
+                    break
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Error in camera stream: {e}")
+            return web.Response(status=500, text=str(e))
+
+    async def _get_camera_status(self, request) -> web.Response:
+        """Get current camera status."""
+        try:
+            if not camera_service:
+                return json_response({"error": "Camera service not available"}, status=503)
+
+            status = camera_service.get_status()
+            return json_response({
+                "data": status,
+                "status": 200,
+                "message": "Camera status retrieved successfully"
+            })
+
+        except Exception as e:
+            logger.error(f"Error getting camera status: {e}")
+            return json_response({"error": str(e)}, status=500)
+
+    async def _get_camera_settings(self, request) -> web.Response:
+        """Get current camera settings."""
+        try:
+            if not camera_service:
+                return json_response({"error": "Camera service not available"}, status=503)
+
+            settings = camera_service.get_settings()
+            return json_response({
+                "data": settings,
+                "status": 200,
+                "message": "Camera settings retrieved successfully"
+            })
+
+        except Exception as e:
+            logger.error(f"Error getting camera settings: {e}")
+            return json_response({"error": str(e)}, status=500)
+
+    async def _update_camera_settings(self, request) -> web.Response:
+        """Update camera settings."""
+        try:
+            if not camera_service:
+                return json_response({"error": "Camera service not available"}, status=503)
+
+            data = await request.json()
+            success = await camera_service.update_settings(data)
+
+            if success:
+                updated_settings = camera_service.get_settings()
+                return json_response({
+                    "data": updated_settings,
+                    "status": 200,
+                    "message": "Camera settings updated successfully"
+                })
+            else:
+                return json_response({"error": "Failed to update camera settings"}, status=400)
+
+        except Exception as e:
+            logger.error(f"Error updating camera settings: {e}")
+            return json_response({"error": str(e)}, status=500)
+
+    async def _manual_capture(self, request) -> web.Response:
+        """Trigger manual image capture."""
+        try:
+            if not camera_service:
+                return json_response({"error": "Camera service not available"}, status=503)
+
+            # Parse optional settings override
+            try:
+                data = await request.json()
+                settings_override = data.get("settings", None)
+            except:
+                settings_override = None
+
+            # Capture image
+            capture_result = await camera_service.capture_image(settings_override)
+
+            return json_response({
+                "data": capture_result,
+                "status": 200,
+                "message": "Image captured successfully"
+            })
+
+        except Exception as e:
+            logger.error(f"Error during manual capture: {e}")
+            return json_response({"error": str(e)}, status=500)
+
+    async def _start_camera_stream(self, request) -> web.Response:
+        """Start camera streaming."""
+        try:
+            if not camera_service:
+                return json_response({"error": "Camera service not available"}, status=503)
+
+            await camera_service.start_streaming()
+            return json_response({
+                "data": {"streaming": True},
+                "status": 200,
+                "message": "Camera streaming started"
+            })
+
+        except Exception as e:
+            logger.error(f"Error starting camera stream: {e}")
+            return json_response({"error": str(e)}, status=500)
+
+    async def _stop_camera_stream(self, request) -> web.Response:
+        """Stop camera streaming."""
+        try:
+            if not camera_service:
+                return json_response({"error": "Camera service not available"}, status=503)
+
+            await camera_service.stop_streaming()
+            return json_response({
+                "data": {"streaming": False},
+                "status": 200,
+                "message": "Camera streaming stopped"
+            })
+
+        except Exception as e:
+            logger.error(f"Error stopping camera stream: {e}")
             return json_response({"error": str(e)}, status=500)

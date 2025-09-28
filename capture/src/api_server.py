@@ -17,6 +17,8 @@ except ImportError:
     Response = None
 
 from .camera_types import CaptureSettings, SkylapsJSONEncoder, to_dict
+from .schedule_models import ScheduleValidationError
+from .schedule_storage import ScheduleStorageManager
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,9 @@ class CaptureAPIServer:
         self.site = None
         self._is_running = False
 
+        # Initialize schedule storage manager
+        self.schedule_storage = ScheduleStorageManager()
+
         if web is None:
             logger.warning("aiohttp not available, API server will be disabled")
 
@@ -64,6 +69,9 @@ class CaptureAPIServer:
         try:
             # Create web application
             self.app = web.Application()
+
+            # Initialize schedule storage
+            await self.schedule_storage.initialize()
 
             # Add routes
             self._setup_routes()
@@ -100,6 +108,9 @@ class CaptureAPIServer:
 
             if self.runner:
                 await self.runner.cleanup()
+
+            # Shutdown schedule storage
+            await self.schedule_storage.shutdown()
 
             self._is_running = False
             logger.info("API server shutdown complete")
@@ -138,6 +149,13 @@ class CaptureAPIServer:
 
         # Performance baseline (QA validation)
         self.app.router.add_post("/capture/baseline", self._run_baseline)
+
+        # Schedule management API endpoints
+        self.app.router.add_get("/api/schedule", self._get_schedules)
+        self.app.router.add_post("/api/schedule", self._create_schedule)
+        self.app.router.add_get("/api/schedule/{id}", self._get_schedule)
+        self.app.router.add_put("/api/schedule/{id}", self._update_schedule)
+        self.app.router.add_delete("/api/schedule/{id}", self._delete_schedule)
 
     @web.middleware
     async def _error_middleware(self, request, handler):
@@ -456,3 +474,128 @@ class CaptureAPIServer:
             error_response = web.Response(status=500, text=str(e))
             error_response.headers["Access-Control-Allow-Origin"] = "*"
             return error_response
+
+    # Schedule Management API Handlers
+
+    async def _get_schedules(self, request) -> web.Response:
+        """Get all schedule rules."""
+        try:
+            schedules = await self.schedule_storage.get_all_schedules()
+            schedule_list = [schedule.to_dict() for schedule in schedules]
+
+            return json_response(
+                {
+                    "data": schedule_list,
+                    "total": len(schedule_list),
+                    "status": 200,
+                    "message": "Schedules retrieved successfully",
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Error getting schedules: {e}")
+            return json_response({"error": str(e)}, status=500)
+
+    async def _create_schedule(self, request) -> web.Response:
+        """Create a new schedule rule."""
+        try:
+            data = await request.json()
+
+            # Create schedule
+            schedule = await self.schedule_storage.create_schedule(data)
+
+            return json_response(
+                {
+                    "data": schedule.to_dict(),
+                    "status": 201,
+                    "message": f"Schedule '{schedule.name}' created successfully",
+                },
+                status=201,
+            )
+
+        except ScheduleValidationError as e:
+            logger.warning(f"Schedule validation error: {e}")
+            return json_response({"error": str(e)}, status=400)
+        except json.JSONDecodeError:
+            return json_response({"error": "Invalid JSON in request body"}, status=400)
+        except Exception as e:
+            logger.error(f"Error creating schedule: {e}")
+            return json_response({"error": str(e)}, status=500)
+
+    async def _get_schedule(self, request) -> web.Response:
+        """Get a specific schedule by ID."""
+        try:
+            schedule_id = request.match_info["id"]
+            schedule = await self.schedule_storage.get_schedule(schedule_id)
+
+            if not schedule:
+                return json_response({"error": "Schedule not found"}, status=404)
+
+            return json_response(
+                {
+                    "data": schedule.to_dict(),
+                    "status": 200,
+                    "message": "Schedule retrieved successfully",
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Error getting schedule: {e}")
+            return json_response({"error": str(e)}, status=500)
+
+    async def _update_schedule(self, request) -> web.Response:
+        """Update an existing schedule rule."""
+        try:
+            schedule_id = request.match_info["id"]
+            data = await request.json()
+
+            # Update schedule
+            updated_schedule = await self.schedule_storage.update_schedule(schedule_id, data)
+
+            if not updated_schedule:
+                return json_response({"error": "Schedule not found"}, status=404)
+
+            return json_response(
+                {
+                    "data": updated_schedule.to_dict(),
+                    "status": 200,
+                    "message": f"Schedule '{updated_schedule.name}' updated successfully",
+                }
+            )
+
+        except ScheduleValidationError as e:
+            logger.warning(f"Schedule validation error: {e}")
+            return json_response({"error": str(e)}, status=400)
+        except json.JSONDecodeError:
+            return json_response({"error": "Invalid JSON in request body"}, status=400)
+        except Exception as e:
+            logger.error(f"Error updating schedule: {e}")
+            return json_response({"error": str(e)}, status=500)
+
+    async def _delete_schedule(self, request) -> web.Response:
+        """Delete a schedule rule."""
+        try:
+            schedule_id = request.match_info["id"]
+
+            # Check if schedule exists first
+            schedule = await self.schedule_storage.get_schedule(schedule_id)
+            if not schedule:
+                return json_response({"error": "Schedule not found"}, status=404)
+
+            # Delete schedule
+            success = await self.schedule_storage.delete_schedule(schedule_id)
+
+            if success:
+                return json_response(
+                    {
+                        "data": {"id": schedule_id, "deleted": True},
+                        "status": 200,
+                        "message": f"Schedule '{schedule.name}' deleted successfully",
+                    }
+                )
+            else:
+                return json_response({"error": "Failed to delete schedule"}, status=500)
+
+        except Exception as e:
+            logger.error(f"Error deleting schedule: {e}")
+            return json_response({"error": str(e)}, status=500)
