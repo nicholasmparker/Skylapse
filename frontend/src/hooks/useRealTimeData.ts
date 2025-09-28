@@ -240,55 +240,8 @@ export const useRealTimeData = (): UseRealTimeDataReturn => {
         }
       }));
 
-      console.log('=== DEBUGGING VALIDATION ISSUE ===');
-      console.log('Raw API data:', captures);
-      console.log('Transformed data:', transformedCaptures);
-
-      // Validate and filter data with detailed logging
-      const validCaptures: TimelapseSequence[] = [];
-      const invalidCaptures: any[] = [];
-
-      transformedCaptures.forEach((capture, index) => {
-        console.log(`\n--- Validating capture ${index + 1} ---`);
-        console.log('Capture data:', capture);
-
-        const validationResults = {
-          exists: !!capture,
-          isObject: capture && typeof capture === 'object',
-          hasId: !!capture?.id,
-          hasName: !!capture?.name,
-          hasStartTime: !!capture?.startTime,
-          hasEndTime: !!capture?.endTime,
-          hasStatus: !!capture?.status,
-          hasCaptureCount: capture?.captureCount !== undefined,
-          hasThumbnail: capture?.thumbnail !== undefined,
-          hasMetadata: !!capture?.metadata,
-          metadataIsObject: capture?.metadata && typeof capture.metadata === 'object'
-        };
-
-        console.log('Validation results:', validationResults);
-
-        const isValid = validateTimelapseSequence(capture);
-        console.log('Final validation result:', isValid);
-
-        if (isValid) {
-          validCaptures.push(capture);
-        } else {
-          invalidCaptures.push({ capture, validationResults });
-        }
-      });
-
-      console.log(`\n=== VALIDATION SUMMARY ===`);
-      console.log(`Fetched: ${captures.length} captures`);
-      console.log(`Transformed: ${transformedCaptures.length} captures`);
-      console.log(`Valid: ${validCaptures.length} captures`);
-      console.log(`Invalid: ${invalidCaptures.length} captures`);
-
-      if (invalidCaptures.length > 0) {
-        console.log('Invalid captures details:', invalidCaptures);
-      }
-
-      console.log('=== END DEBUGGING ===\n');
+      // Validate and filter data
+      const validCaptures = transformedCaptures.filter(validateTimelapseSequence);
 
       setRecentCaptures(validCaptures.slice(0, 6));
       updateCache('recentCaptures', validCaptures.slice(0, 6));

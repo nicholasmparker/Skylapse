@@ -11,24 +11,24 @@ const StatusIndicator = forwardRef<HTMLDivElement, StatusIndicatorProps>(
   ({ status, label, pulse = false, className, ...props }, ref) => {
     const statusStyles = {
       active: {
-        dot: 'bg-success-400',
-        text: 'text-success-800',
-        bg: 'bg-success-100',
+        dot: 'bg-green-500',
+        text: 'text-green-800',
+        bg: 'bg-green-100',
       },
       paused: {
-        dot: 'bg-warning-400',
-        text: 'text-warning-800',
-        bg: 'bg-warning-100',
+        dot: 'bg-golden-500',
+        text: 'text-golden-800',
+        bg: 'bg-golden-100',
       },
       error: {
-        dot: 'bg-error-400',
-        text: 'text-error-800',
-        bg: 'bg-error-100',
+        dot: 'bg-red-500',
+        text: 'text-red-800',
+        bg: 'bg-red-100',
       },
       success: {
-        dot: 'bg-success-400',
-        text: 'text-success-800',
-        bg: 'bg-success-100',
+        dot: 'bg-green-500',
+        text: 'text-green-800',
+        bg: 'bg-green-100',
       },
     };
 
@@ -78,7 +78,7 @@ const ServiceStatus = forwardRef<HTMLDivElement, ServiceStatusProps>(
         {services.map((service) => (
           <div
             key={service.name}
-            className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200"
+            className="flex items-center justify-between p-3 bg-white rounded-lg border border-mountain-200"
           >
             <div className="flex items-center space-x-3">
               <StatusIndicator
@@ -87,14 +87,14 @@ const ServiceStatus = forwardRef<HTMLDivElement, ServiceStatusProps>(
                 pulse={service.status === 'running'}
               />
               <div>
-                <h4 className="text-sm font-medium text-slate-900">{service.name}</h4>
+                <h4 className="text-sm font-medium text-mountain-900">{service.name}</h4>
                 {service.uptime && (
-                  <p className="text-xs text-slate-500">Uptime: {service.uptime}</p>
+                  <p className="text-xs text-mountain-500">Uptime: {service.uptime}</p>
                 )}
               </div>
             </div>
             {service.version && (
-              <span className="text-xs text-slate-400 font-mono">
+              <span className="text-xs text-mountain-400 font-mono">
                 v{service.version}
               </span>
             )}

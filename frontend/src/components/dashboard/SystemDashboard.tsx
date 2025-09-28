@@ -27,7 +27,7 @@ export const SystemDashboard: React.FC = () => {
 
   if (error && error.includes('Failed to connect')) {
     return (
-      <div className="min-h-screen bg-mountain-50 p-6">
+      <div className="p-6">
         <Card className="max-w-md mx-auto">
           <div className="text-center p-6">
             <div className="text-red-500 text-4xl mb-4">⚠️</div>
@@ -50,45 +50,43 @@ export const SystemDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-mountain-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-mountain-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-mountain-900">
-                🏔️ Skylapse Dashboard
-              </h1>
-              <p className="text-mountain-600 mt-1">
-                Mountain Timelapse Camera System
-              </p>
+    <div className="p-6">
+      {/* Status Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-mountain-900">
+              System Dashboard
+            </h1>
+            <p className="text-mountain-600 mt-2">
+              Real-time monitoring and camera control
+            </p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className={`flex items-center space-x-2 ${
+              isConnected ? 'text-green-600' : 'text-yellow-600'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                isConnected ? 'bg-green-500' : 'bg-yellow-500'
+              } ${isConnected ? 'animate-pulse-slow' : ''}`} />
+              <span className="text-sm font-medium">
+                {isConnected ? 'Real-time' : 'Manual refresh'}
+              </span>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className={`flex items-center space-x-2 ${
-                isConnected ? 'text-green-600' : 'text-yellow-600'
-              }`}>
-                <div className={`w-2 h-2 rounded-full ${
-                  isConnected ? 'bg-green-500' : 'bg-yellow-500'
-                } ${isConnected ? 'animate-pulse-slow' : ''}`} />
-                <span className="text-sm font-medium">
-                  {isConnected ? 'Real-time' : 'Manual refresh'}
-                </span>
+            {error && error.includes('Real-time updates unavailable') && (
+              <div className="text-sm text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
+                WebSocket offline - Dashboard functional
               </div>
-              {error && error.includes('Real-time updates unavailable') && (
-                <div className="text-sm text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
-                  WebSocket offline - Dashboard functional
-                </div>
-              )}
-              <div className="text-sm text-mountain-500">
-                Last updated: {new Date().toLocaleTimeString()}
-              </div>
+            )}
+            <div className="text-sm text-mountain-500">
+              Last updated: {new Date().toLocaleTimeString()}
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Dashboard Grid */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* System Status - Full width on mobile, 4 cols on desktop */}
@@ -156,7 +154,7 @@ export const SystemDashboard: React.FC = () => {
             </RealTimeErrorBoundary>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 };

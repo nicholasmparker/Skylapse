@@ -271,7 +271,15 @@ export const DashboardErrorBoundary: React.FC<{ children: ReactNode }> = ({ chil
     level="feature"
     resetOnPropsChange={true}
     onError={(error, errorInfo) => {
-      console.error('Dashboard error:', error, errorInfo);
+      console.error('🚨 DashboardErrorBoundary: Error caught!', error, errorInfo);
+      console.error('🚨 Current URL when error occurred:', window.location.href);
+      console.error('🚨 Component stack:', errorInfo.componentStack);
+
+      // Check if this is happening on the schedule route
+      if (window.location.pathname === '/schedule') {
+        console.error('🚨 CRITICAL: Error occurred on /schedule route!');
+        console.error('🚨 This might be causing the redirect to /dashboard');
+      }
     }}
   >
     {children}

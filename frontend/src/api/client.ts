@@ -181,6 +181,27 @@ class CaptureAPI extends APIClient {
   async deleteScheduleRule(id: string): Promise<APIResponse<void>> {
     return this.delete<void>(`/api/schedule/${id}`);
   }
+
+  // Schedule management aliases for UI compatibility
+  async getSchedules(): Promise<APIResponse<{ schedules: ScheduleRule[] }>> {
+    const response = await this.get<ScheduleRule[]>('/api/schedule');
+    return {
+      ...response,
+      data: response.data ? { schedules: response.data } : undefined
+    };
+  }
+
+  async createSchedule(schedule: any): Promise<APIResponse<ScheduleRule>> {
+    return this.createScheduleRule(schedule);
+  }
+
+  async updateSchedule(id: string, schedule: any): Promise<APIResponse<ScheduleRule>> {
+    return this.updateScheduleRule(id, schedule);
+  }
+
+  async deleteSchedule(id: string): Promise<APIResponse<void>> {
+    return this.deleteScheduleRule(id);
+  }
 }
 
 class ProcessingAPI extends APIClient {

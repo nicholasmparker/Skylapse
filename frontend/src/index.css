@@ -5,31 +5,29 @@
 /* Skylapse Mountain Photography Theme - Tailwind v4 CSS Variables */
 @layer theme {
   :root {
-    /* Mountain Photography Theme Colors */
-    --color-mountain-50: #f0f9ff;
-    --color-mountain-100: #e0f2fe;
-    --color-mountain-200: #bae6fd;
-    --color-mountain-300: #7dd3fc;
-    --color-mountain-400: #38bdf8;
-    --color-mountain-500: #0ea5e9;
-    --color-mountain-600: #0284c7;
-    --color-mountain-700: #0369a1;
-    --color-mountain-800: #075985;
-    --color-mountain-900: #0c4a6e;
-    --color-mountain-950: #082f49;
+    /* Mountain Photography Theme Colors - FIXED to match tailwind.config.js */
+    --color-mountain-50: #f8fafc;
+    --color-mountain-100: #f1f5f9;
+    --color-mountain-200: #e2e8f0;
+    --color-mountain-300: #cbd5e1;
+    --color-mountain-400: #94a3b8;
+    --color-mountain-500: #64748b;
+    --color-mountain-600: #475569;
+    --color-mountain-700: #334155;
+    --color-mountain-800: #1e293b;
+    --color-mountain-900: #0f172a;
 
-    /* Golden hour accents */
-    --color-golden-50: #fefce8;
-    --color-golden-100: #fef9c3;
-    --color-golden-200: #fef08a;
-    --color-golden-300: #fde047;
-    --color-golden-400: #facc15;
-    --color-golden-500: #eab308;
-    --color-golden-600: #ca8a04;
-    --color-golden-700: #a16207;
-    --color-golden-800: #854d0e;
-    --color-golden-900: #713f12;
-    --color-golden-950: #422006;
+    /* Golden hour accents - FIXED to match tailwind.config.js */
+    --color-golden-50: #fffbeb;
+    --color-golden-100: #fef3c7;
+    --color-golden-200: #fde68a;
+    --color-golden-300: #fcd34d;
+    --color-golden-400: #fbbf24;
+    --color-golden-500: #f59e0b;
+    --color-golden-600: #d97706;
+    --color-golden-700: #b45309;
+    --color-golden-800: #92400e;
+    --color-golden-900: #78350f;
 
     /* Typography */
     --font-family-sans: 'Inter', system-ui, sans-serif;
