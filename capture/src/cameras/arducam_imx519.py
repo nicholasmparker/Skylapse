@@ -182,19 +182,19 @@ class ArducamIMX519Camera(CameraInterface):
             return None
 
         try:
-            # Use rpicam-still with very short timeout for preview
+            # Use rpicam-still for high-quality preview with proper autofocus
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
                 temp_path = temp_file.name
 
             cmd = [
                 self._rpicam_cmd,
                 "-t",
-                "100",  # Very short capture time
+                "2000",  # 2 seconds - enough time for autofocus but not hanging
                 "-n",  # No preview window
                 "--width",
-                "640",  # Small preview size
+                "1920",  # Much better preview resolution
                 "--height",
-                "480",
+                "1440",  # Maintains 4:3 aspect ratio like full capture
                 "-o",
                 temp_path,
             ]
@@ -203,7 +203,7 @@ class ArducamIMX519Camera(CameraInterface):
                 *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
 
-            await asyncio.wait_for(process.wait(), timeout=2.0)
+            await asyncio.wait_for(process.wait(), timeout=10.0)
 
             if process.returncode == 0 and Path(temp_path).exists():
                 with open(temp_path, "rb") as f:
