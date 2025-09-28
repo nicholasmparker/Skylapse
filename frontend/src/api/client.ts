@@ -212,7 +212,7 @@ class ProcessingAPI extends APIClient {
 
   // Analytics
   async getPerformanceAnalytics(): Promise<APIResponse<PerformanceAnalytics>> {
-    return this.get<PerformanceAnalytics>('/api/analytics/performance');
+    return this.get<PerformanceAnalytics>('/api/analytics');
   }
 
   async getSystemOverview(): Promise<APIResponse<any>> {

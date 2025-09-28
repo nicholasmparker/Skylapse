@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     libopencv-dev \
     libpython3-dev \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies

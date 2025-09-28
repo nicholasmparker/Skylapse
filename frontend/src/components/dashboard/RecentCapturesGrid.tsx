@@ -20,8 +20,25 @@ interface RecentCapturesGridProps {
   isConnected: boolean;
 }
 
+// Data validation helper
+const validateCapture = (capture: any): capture is TimelapseSequence => {
+  return (
+    capture &&
+    typeof capture === 'object' &&
+    capture.id &&
+    capture.name &&
+    capture.startTime &&
+    capture.status
+  );
+};
+
+// Safe metadata access helper
+const safeMetadata = (capture: TimelapseSequence) => {
+  return capture.metadata || {};
+};
+
 export const RecentCapturesGrid: React.FC<RecentCapturesGridProps> = ({
-  captures,
+  captures = [],
   isConnected
 }) => {
   const formatDuration = (seconds: number) => {
@@ -136,7 +153,7 @@ export const RecentCapturesGrid: React.FC<RecentCapturesGridProps> = ({
       className="h-full"
     >
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {captures.map((capture) => (
+        {captures.filter(validateCapture).map((capture) => (
           <div
             key={capture.id}
             className="group relative bg-white border border-mountain-200 rounded-lg overflow-hidden hover:shadow-md transition-all duration-200"
@@ -199,7 +216,7 @@ export const RecentCapturesGrid: React.FC<RecentCapturesGridProps> = ({
                   </div>
                   <div className="flex items-center space-x-1">
                     <ClockIcon className="w-3 h-3" />
-                    <span>{formatDuration(capture.metadata.duration)}</span>
+                    <span>{formatDuration(safeMetadata(capture).duration || 0)}</span>
                   </div>
                 </div>
 
@@ -210,21 +227,21 @@ export const RecentCapturesGrid: React.FC<RecentCapturesGridProps> = ({
                     <span>{capture.captureCount} frames</span>
                   </div>
                   <div className="text-xs">
-                    {formatFileSize(capture.metadata.fileSize)}
+                    {formatFileSize(safeMetadata(capture).fileSize || 0)}
                   </div>
                 </div>
 
                 {/* Location */}
-                {capture.metadata.location && (
+                {safeMetadata(capture).location && (
                   <div className="text-xs text-mountain-500 truncate">
-                    📍 {capture.metadata.location.name}
+                    📍 {safeMetadata(capture).location?.name || 'Unknown'}
                   </div>
                 )}
 
                 {/* Weather */}
-                {capture.metadata.weather && (
+                {safeMetadata(capture).weather && (
                   <div className="text-xs text-mountain-500">
-                    🌤️ {capture.metadata.weather.condition}, {capture.metadata.weather.temperature}°C
+                    🌤️ {safeMetadata(capture).weather?.condition || 'Unknown'}, {safeMetadata(capture).weather?.temperature || 'N/A'}°C
                   </div>
                 )}
               </div>

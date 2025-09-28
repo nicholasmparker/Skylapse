@@ -28,13 +28,11 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
 
     switch (service) {
       case 'capture':
-        return status.service.capture === 'running' ? 'active' :
-               status.service.capture === 'error' ? 'error' : 'paused';
+        return status.captureService?.status === 'healthy' ? 'active' : 'error';
       case 'processing':
-        return status.service.processing === 'running' ? 'active' :
-               status.service.processing === 'error' ? 'error' : 'paused';
+        return status.processingService?.status === 'healthy' ? 'active' : 'error';
       case 'camera':
-        return status.service.camera === 'connected' ? 'active' : 'error';
+        return status.networkStatus?.connected ? 'active' : 'error';
       default:
         return 'paused';
     }
@@ -43,17 +41,21 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
   const formatStorageUsage = () => {
     if (!status?.storage) return 'Unknown';
 
-    const usedGB = (status.storage.used / (1024 ** 3)).toFixed(1);
-    const totalGB = (status.storage.total / (1024 ** 3)).toFixed(1);
-    const percentage = status.storage.percentage.toFixed(1);
+    const used = status.storage.used ?? 0;
+    const total = status.storage.total ?? 1000;
+    const percentage = status.storage.percentage ?? 0;
 
-    return `${usedGB}GB / ${totalGB}GB (${percentage}%)`;
+    const usedGB = (used / (1024 ** 3)).toFixed(1);
+    const totalGB = (total / (1024 ** 3)).toFixed(1);
+    const percentageFormatted = percentage.toFixed(1);
+
+    return `${usedGB}GB / ${totalGB}GB (${percentageFormatted}%)`;
   };
 
   const getStorageStatus = () => {
     if (!status?.storage) return 'paused';
 
-    const percentage = status.storage.percentage;
+    const percentage = status.storage.percentage ?? 0;
     if (percentage > 90) return 'error';
     if (percentage > 75) return 'paused';
     return 'active';
@@ -155,22 +157,22 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
               {/* CPU Usage */}
               <div className="text-center">
                 <div className="text-2xl font-bold text-mountain-900">
-                  {status.resources.cpu.usage.toFixed(1)}%
+                  {status.resources?.cpu?.usage?.toFixed(1) || '0'}%
                 </div>
                 <div className="text-sm text-mountain-600">CPU Usage</div>
                 <div className="text-xs text-mountain-500">
-                  {status.resources.cpu.temperature.toFixed(1)}°C
+                  {status.resources?.cpu?.temperature?.toFixed(1) || '0'}°C
                 </div>
               </div>
 
               {/* Memory Usage */}
               <div className="text-center">
                 <div className="text-2xl font-bold text-mountain-900">
-                  {status.resources.memory.percentage.toFixed(1)}%
+                  {status.resources?.memory?.percentage?.toFixed(1) || '0'}%
                 </div>
                 <div className="text-sm text-mountain-600">Memory</div>
                 <div className="text-xs text-mountain-500">
-                  {(status.resources.memory.used / (1024 ** 3)).toFixed(1)}GB used
+                  {((status.resources?.memory?.used || 0) / (1024 ** 3)).toFixed(1)}GB used
                 </div>
               </div>
             </div>

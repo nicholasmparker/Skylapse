@@ -1,0 +1,320 @@
+# Production-Ready Skylapse Mountain Camera System
+# Bulletproof real-time architecture for enterprise mountain deployments
+
+version: '3.8'
+
+services:
+  # Reverse Proxy & Load Balancer
+  gateway:
+    image: nginx:alpine
+    container_name: skylapse-gateway
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    environment:
+      - NGINX_HOST=${SKYLAPSE_DOMAIN:-skylapse.local}
+      - NGINX_PORT=80
+    networks:
+      - skylapse-frontend
+      - skylapse-backend
+    depends_on:
+      - frontend
+      - realtime-backend
+      - processing
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    image: skylapse/frontend:${VERSION:-latest}
+    container_name: skylapse-frontend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - VITE_API_BASE_URL=https://gateway/api
+      - VITE_SSE_URL=https://gateway/events
+      - VITE_WS_URL=wss://gateway/ws
+      - VITE_CAMERA_ID=${CAMERA_ID:-camera-01}
+    networks:
+      - skylapse-frontend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    security_opt:
+      - no-new-privileges:true
+
+  # Real-time Backend (SSE/WebSocket Server)
+  realtime-backend:
+    build:
+      context: ./realtime-backend
+      dockerfile: Dockerfile
+    image: skylapse/realtime-backend:${VERSION:-latest}
+    container_name: skylapse-realtime-backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/skylapse
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRY=15m
+      - JWT_REFRESH_EXPIRY=7d
+      - CAMERA_ID=${CAMERA_ID:-camera-01}
+      - LOG_LEVEL=info
+      - SSE_HEARTBEAT_INTERVAL=30000
+      - MAX_CONNECTIONS_PER_USER=5
+    networks:
+      - skylapse-backend
+      - skylapse-frontend
+    depends_on:
+      - redis
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.2'
+    security_opt:
+      - no-new-privileges:true
+
+  # Processing Service
+  processing:
+    build:
+      context: ./processing
+      dockerfile: Dockerfile
+    image: skylapse/processing:${VERSION:-latest}
+    container_name: skylapse-processing
+    restart: unless-stopped
+    environment:
+      - PYTHONPATH=/app
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/skylapse
+      - REDIS_URL=redis://redis:6379
+      - STORAGE_PATH=/data/processed
+      - CAMERA_ID=${CAMERA_ID:-camera-01}
+    volumes:
+      - processed_data:/data/processed
+      - raw_data:/data/raw:ro
+    networks:
+      - skylapse-backend
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8081/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    security_opt:
+      - no-new-privileges:true
+
+  # Capture Service
+  capture:
+    build:
+      context: ./capture
+      dockerfile: Dockerfile
+    image: skylapse/capture:${VERSION:-latest}
+    container_name: skylapse-capture
+    restart: unless-stopped
+    privileged: true  # Required for camera access
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/i2c-1:/dev/i2c-1  # For sensor access
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379
+      - STORAGE_PATH=/data/raw
+      - CAMERA_ID=${CAMERA_ID:-camera-01}
+      - LOCATION_LAT=${LOCATION_LAT:-45.0}
+      - LOCATION_LON=${LOCATION_LON:--110.0}
+      - TIMEZONE=${TIMEZONE:-America/Denver}
+    volumes:
+      - raw_data:/data/raw
+      - camera_config:/config
+    networks:
+      - skylapse-backend
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.2'
+
+  # Redis (Message Broker & Cache)
+  redis:
+    image: redis:7-alpine
+    container_name: skylapse-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - skylapse-backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    security_opt:
+      - no-new-privileges:true
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: skylapse-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=skylapse
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - skylapse-backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    security_opt:
+      - no-new-privileges:true
+
+  # Monitoring & Alerting (Optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: skylapse-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - skylapse-backend
+    profiles:
+      - monitoring
+    security_opt:
+      - no-new-privileges:true
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: skylapse-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning:ro
+    networks:
+      - skylapse-backend
+    profiles:
+      - monitoring
+    security_opt:
+      - no-new-privileges:true
+
+# Networks
+networks:
+  skylapse-frontend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+  skylapse-backend:
+    driver: bridge
+    internal: true  # No external access for security
+    ipam:
+      config:
+        - subnet: 172.21.0.0/24
+
+# Volumes
+volumes:
+  raw_data:
+    driver: local
+    driver_opts:
+      type: bind
+      o: bind
+      device: ${DATA_PATH:-/data/skylapse}/raw
+
+  processed_data:
+    driver: local
+    driver_opts:
+      type: bind
+      o: bind
+      device: ${DATA_PATH:-/data/skylapse}/processed
+
+  camera_config:
+    driver: local
+
+  redis_data:
+    driver: local
+
+  postgres_data:
+    driver: local
+
+  prometheus_data:
+    driver: local
+
+  grafana_data:
+    driver: local

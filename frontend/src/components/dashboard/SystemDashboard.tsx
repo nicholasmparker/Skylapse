@@ -11,6 +11,7 @@ import { EnvironmentalConditionsPanel } from './EnvironmentalConditionsPanel';
 import { CaptureProgressPanel } from './CaptureProgressPanel';
 import { RecentCapturesGrid } from './RecentCapturesGrid';
 import { Card } from '../../design-system/components';
+import { RealTimeErrorBoundary } from '../ErrorBoundary';
 
 export const SystemDashboard: React.FC = () => {
   const {
@@ -23,7 +24,7 @@ export const SystemDashboard: React.FC = () => {
     error
   } = useRealTimeData();
 
-  if (error) {
+  if (error && error.includes('Failed to connect')) {
     return (
       <div className="min-h-screen bg-mountain-50 p-6">
         <Card className="max-w-md mx-auto">
@@ -63,15 +64,20 @@ export const SystemDashboard: React.FC = () => {
             </div>
             <div className="flex items-center space-x-4">
               <div className={`flex items-center space-x-2 ${
-                isConnected ? 'text-green-600' : 'text-red-600'
+                isConnected ? 'text-green-600' : 'text-yellow-600'
               }`}>
                 <div className={`w-2 h-2 rounded-full ${
-                  isConnected ? 'bg-green-500' : 'bg-red-500'
+                  isConnected ? 'bg-green-500' : 'bg-yellow-500'
                 } ${isConnected ? 'animate-pulse-slow' : ''}`} />
                 <span className="text-sm font-medium">
-                  {isConnected ? 'Connected' : 'Disconnected'}
+                  {isConnected ? 'Real-time' : 'Manual refresh'}
                 </span>
               </div>
+              {error && error.includes('Real-time updates unavailable') && (
+                <div className="text-sm text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
+                  WebSocket offline - Dashboard functional
+                </div>
+              )}
               <div className="text-sm text-mountain-500">
                 Last updated: {new Date().toLocaleTimeString()}
               </div>
@@ -118,10 +124,12 @@ export const SystemDashboard: React.FC = () => {
 
           {/* Recent Captures - Full width */}
           <div className="lg:col-span-12">
-            <RecentCapturesGrid
-              captures={recentCaptures}
-              isConnected={isConnected}
-            />
+            <RealTimeErrorBoundary>
+              <RecentCapturesGrid
+                captures={recentCaptures}
+                isConnected={isConnected}
+              />
+            </RealTimeErrorBoundary>
           </div>
         </div>
       </main>
