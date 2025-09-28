@@ -44,7 +44,7 @@
   }
 }
 
-/* Base styles */
+/* Base styles - IMPORTANT: Avoid global text color overrides that conflict with Tailwind */
 @layer base {
 
   html {
@@ -62,13 +62,15 @@
     min-height: 100vh;
   }
 
-  /* Dark mode */
+  /* Dark mode - DISABLED to prevent automatic white text override */
+  /*
   @media (prefers-color-scheme: dark) {
     body {
       background-color: rgb(15 23 42);
       color: rgb(248 250 252);
     }
   }
+  */
 
   /* Custom scrollbar for mountain theme */
   ::-webkit-scrollbar {
@@ -88,7 +90,8 @@
     background: rgb(148 163 184);
   }
 
-  /* Dark mode scrollbar */
+  /* Dark mode scrollbar - DISABLED to prevent auto dark mode issues */
+  /*
   @media (prefers-color-scheme: dark) {
     ::-webkit-scrollbar-track {
       background: rgb(30 41 59);
@@ -102,4 +105,5 @@
       background: rgb(100 116 139);
     }
   }
+  */
 }
