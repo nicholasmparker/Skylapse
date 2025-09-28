@@ -98,14 +98,14 @@ export const AppLayout: React.FC = () => {
                   'flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors group',
                   isActive
                     ? 'bg-golden-50 text-golden-700 border border-golden-200'
-                    : 'text-mountain-600 hover:bg-mountain-50 hover:text-mountain-900'
+                    : 'text-mountain-700 hover:bg-mountain-50 hover:text-mountain-900'
                 )}
                 onClick={() => setSidebarOpen(false)}
               >
                 <span className="text-lg mr-3">{item.icon}</span>
                 <div className="flex-1">
                   <div className="font-medium">{item.name}</div>
-                  <div className="text-xs text-mountain-500 group-hover:text-mountain-600">
+                  <div className="text-xs text-mountain-600 group-hover:text-mountain-700">
                     {item.description}
                   </div>
                 </div>

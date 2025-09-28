@@ -58,7 +58,7 @@ export const SystemDashboard: React.FC = () => {
             <h1 className="text-3xl font-bold text-mountain-900">
               System Dashboard
             </h1>
-            <p className="text-mountain-600 mt-2">
+            <p className="text-mountain-700 mt-2">
               Real-time monitoring and camera control
             </p>
           </div>

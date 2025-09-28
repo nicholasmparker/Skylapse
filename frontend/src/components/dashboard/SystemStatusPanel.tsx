@@ -80,7 +80,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
               </div>
               <div>
                 <div className="font-medium text-mountain-900">Capture Service</div>
-                <div className="text-sm text-mountain-600">Camera control & scheduling</div>
+                <div className="text-sm text-mountain-700">Camera control & scheduling</div>
               </div>
             </div>
             <StatusIndicator
@@ -98,7 +98,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
               </div>
               <div>
                 <div className="font-medium text-mountain-900">Processing Service</div>
-                <div className="text-sm text-mountain-600">HDR & timelapse assembly</div>
+                <div className="text-sm text-mountain-700">HDR & timelapse assembly</div>
               </div>
             </div>
             <StatusIndicator
@@ -116,7 +116,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
               </div>
               <div>
                 <div className="font-medium text-mountain-900">Camera Hardware</div>
-                <div className="text-sm text-mountain-600">
+                <div className="text-sm text-mountain-700">
                   {status?.camera?.model || 'Unknown model'}
                 </div>
               </div>
@@ -136,7 +136,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
               </div>
               <div>
                 <div className="font-medium text-mountain-900">Storage</div>
-                <div className="text-sm text-mountain-600">
+                <div className="text-sm text-mountain-700">
                   {formatStorageUsage()}
                 </div>
               </div>
@@ -159,7 +159,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                 <div className="text-2xl font-bold text-mountain-900">
                   {status.resources?.cpu?.usage?.toFixed(1) || '0'}%
                 </div>
-                <div className="text-sm text-mountain-600">CPU Usage</div>
+                <div className="text-sm text-mountain-700">CPU Usage</div>
                 <div className="text-xs text-mountain-500">
                   {status.resources?.cpu?.temperature?.toFixed(1) || '0'}°C
                 </div>
@@ -170,7 +170,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
                 <div className="text-2xl font-bold text-mountain-900">
                   {status.resources?.memory?.percentage?.toFixed(1) || '0'}%
                 </div>
-                <div className="text-sm text-mountain-600">Memory</div>
+                <div className="text-sm text-mountain-700">Memory</div>
                 <div className="text-xs text-mountain-500">
                   {((status.resources?.memory?.used || 0) / (1024 ** 3)).toFixed(1)}GB used
                 </div>
