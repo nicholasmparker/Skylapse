@@ -152,6 +152,19 @@ class CaptureAPI extends APIClient {
     return this.post<void>('/api/capture/stop');
   }
 
+  // Camera preview and streaming
+  getCameraPreviewURL(): string {
+    return `${this.baseURL}/capture/preview`;
+  }
+
+  async getCameraStatus(): Promise<APIResponse<any>> {
+    return this.get<any>('/camera/status');
+  }
+
+  async manualCapture(): Promise<APIResponse<any>> {
+    return this.post<any>('/capture/manual');
+  }
+
   // Schedule management
   async getSchedule(): Promise<APIResponse<ScheduleRule[]>> {
     return this.get<ScheduleRule[]>('/api/schedule');

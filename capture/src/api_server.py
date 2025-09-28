@@ -68,7 +68,8 @@ class CaptureAPIServer:
             # Add routes
             self._setup_routes()
 
-            # Add middleware
+            # Add middleware - CORS must be first
+            self.app.middlewares.append(self._cors_middleware)
             self.app.middlewares.append(self._error_middleware)
             self.app.middlewares.append(self._logging_middleware)
 
@@ -134,7 +135,7 @@ class CaptureAPIServer:
         # Metrics and statistics
         self.app.router.add_get("/metrics", self._get_metrics)
         self.app.router.add_get("/statistics", self._get_statistics)
-        
+
         # Performance baseline (QA validation)
         self.app.router.add_post("/capture/baseline", self._run_baseline)
 
@@ -428,3 +429,30 @@ class CaptureAPIServer:
             hdr_bracket_stops=data.get("hdr_bracket_stops", []),
             processing_hints=data.get("processing_hints", {}),
         )
+
+    @web.middleware
+    async def _cors_middleware(self, request, handler):
+        """CORS middleware to allow cross-origin requests from frontend."""
+        try:
+            # Handle preflight OPTIONS requests
+            if request.method == "OPTIONS":
+                response = web.Response()
+            else:
+                response = await handler(request)
+
+            # Add CORS headers
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = (
+                "Content-Type, Authorization, X-Requested-With"
+            )
+            response.headers["Access-Control-Max-Age"] = "86400"  # 24 hours
+
+            return response
+
+        except Exception as e:
+            logger.error(f"CORS middleware error: {e}")
+            # Even on error, return response with CORS headers
+            error_response = web.Response(status=500, text=str(e))
+            error_response.headers["Access-Control-Allow-Origin"] = "*"
+            return error_response

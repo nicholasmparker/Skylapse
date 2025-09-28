@@ -12,6 +12,7 @@ import { CaptureProgressPanel } from './CaptureProgressPanel';
 import { RecentCapturesGrid } from './RecentCapturesGrid';
 import { Card } from '../../design-system/components';
 import { RealTimeErrorBoundary } from '../ErrorBoundary';
+import { CameraPreview } from '../camera/CameraPreview';
 
 export const SystemDashboard: React.FC = () => {
   const {
@@ -98,8 +99,31 @@ export const SystemDashboard: React.FC = () => {
             />
           </div>
 
-          {/* Resource Monitoring - Full width on mobile, 8 cols on desktop */}
+          {/* Live Camera Preview - Full width on mobile, 8 cols on desktop */}
           <div className="lg:col-span-8">
+            <Card className="h-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-mountain-900">
+                      🎥 Live Camera Preview
+                    </h3>
+                    <p className="text-sm text-mountain-600">
+                      Real-time camera feed with manual capture controls
+                    </p>
+                  </div>
+                </div>
+                <CameraPreview
+                  showControls={true}
+                  showOverlay={true}
+                  autoStart={true}
+                />
+              </div>
+            </Card>
+          </div>
+
+          {/* Resource Monitoring - Full width on mobile, 12 cols on desktop */}
+          <div className="lg:col-span-12">
             <ResourceMonitoringChart
               metrics={resourceMetrics}
               isConnected={isConnected}
