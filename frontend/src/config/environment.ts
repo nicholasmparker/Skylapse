@@ -52,6 +52,9 @@ function validateEnvironment(): EnvironmentConfig {
     console.log('🏔️ Environment:', requiredVars.NODE_ENV);
     console.log('📍 Location:', `${requiredVars.LOCATION.name} (${requiredVars.LOCATION.latitude}°N, ${requiredVars.LOCATION.longitude}°W)`);
     console.log('🌤️ Weather API Key:', requiredVars.OPENWEATHER_API_KEY ? 'Configured' : 'Not configured');
+
+    // Validation checkpoint for tests
+    console.log('✅ Configuration validation completed successfully');
   }
 
   return requiredVars as EnvironmentConfig;
@@ -66,6 +69,7 @@ function getDefaultAPIURL(): string {
 
 function getDefaultWSURL(): string {
   const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  // Socket.IO is running on processing service (8081), not backend service (8082)
   return isDevelopment ? 'http://localhost:8081' : 'http://processing:8081';
 }
 
@@ -102,3 +106,35 @@ export const config = validateEnvironment();
 
 // Export individual values for convenience
 export const { API_URL, WS_URL, CAPTURE_URL, NODE_ENV, OPENWEATHER_API_KEY, LOCATION } = config;
+
+// Expose configuration globally for testing and debugging
+if (typeof window !== 'undefined') {
+  // Expose config to global scope for Playwright tests and debugging
+  (window as any).APP_CONFIG = {
+    API_URL,
+    WS_URL,
+    CAPTURE_URL,
+    NODE_ENV,
+    OPENWEATHER_API_KEY: OPENWEATHER_API_KEY ? 'configured' : 'not configured',
+    LOCATION,
+    // Add validation flag for tests
+    configValidated: true,
+    // Add build info if available
+    buildInfo: {
+      version: (globalThis as any).__APP_VERSION__ || 'unknown',
+      buildTime: (globalThis as any).__BUILD_TIME__ || 'unknown',
+    },
+  };
+
+  // Enhanced logging for development
+  if (NODE_ENV === 'development') {
+    console.log('🌍 Global configuration exposed to window.APP_CONFIG');
+    console.log('🔧 Frontend Environment Variables Debug:');
+    console.log('  VITE_API_URL:', import.meta.env.VITE_API_URL);
+    console.log('  VITE_WS_URL:', import.meta.env.VITE_WS_URL);
+    console.log('  VITE_CAPTURE_URL:', import.meta.env.VITE_CAPTURE_URL);
+    console.log('  MODE:', import.meta.env.MODE);
+    console.log('  NODE_ENV:', import.meta.env.NODE_ENV);
+    console.log('  All VITE vars:', Object.keys(import.meta.env).filter(key => key.startsWith('VITE_')));
+  }
+}

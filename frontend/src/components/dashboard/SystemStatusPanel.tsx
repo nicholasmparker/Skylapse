@@ -23,7 +23,8 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
   isConnected
 }) => {
   const getServiceStatus = (service: string) => {
-    if (!isConnected) return 'error';
+    // Don't show all services as error just because WebSocket is disconnected
+    // Each service should show its actual health status
     if (!status) return 'paused';
 
     switch (service) {
@@ -64,6 +65,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
   return (
     <Card
       title="System Status"
+      data-testid="system-metrics"
       subtitle="Service health and system overview"
       className="h-full"
     >

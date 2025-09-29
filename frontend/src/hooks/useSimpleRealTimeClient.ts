@@ -64,6 +64,10 @@ export function useSimpleRealTimeClient(
         error: null,
         connectionQuality: 'good'
       }));
+
+      // Automatically subscribe to dashboard events
+      socket.emit('subscribe', 'dashboard');
+      console.log('🔔 Subscribed to dashboard events');
     });
 
     socket.on('disconnect', (reason) => {

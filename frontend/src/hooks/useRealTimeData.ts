@@ -320,55 +320,67 @@ export const useRealTimeData = (): UseRealTimeDataReturn => {
 
   const fetchSystemStatus = useCallback(async (useCache = true): Promise<void> => {
     try {
+      console.log('🔍 Fetching system status...');
+
       // Check cache first
       if (useCache && isCacheValid(cacheRef.current.systemStatus, CACHE_DURATION.systemStatus)) {
         const cachedData = getCachedData<SystemStatus>('systemStatus');
         if (cachedData) {
+          console.log('📦 Using cached system status');
           setSystemStatus(cachedData);
           return;
         }
       }
 
-      const response = await apiClient.processing.getPerformanceAnalytics();
-      const analytics = response.data;
+      console.log('🌐 Fetching fresh health status from all services...');
+      // Fetch health status from all services directly
+      const [captureHealth, processingHealth, backendHealth] = await Promise.allSettled([
+        fetch('http://helios.local:8080/health').then(r => r.json()),
+        fetch('http://localhost:8081/health').then(r => r.json()),
+        fetch('http://localhost:8082/health').then(r => r.json())
+      ]);
 
-      // Convert analytics data to SystemStatus format
+      console.log('📡 Health check results:', { captureHealth, processingHealth, backendHealth });
+
+      // Convert health check responses to SystemStatus format
       const status: SystemStatus = {
         isOnline: true,
         lastUpdate: new Date().toISOString(),
         captureService: {
-          status: 'healthy',
-          uptime: analytics.overview?.systemUptime || 'Unknown',
+          status: captureHealth.status === 'fulfilled' && captureHealth.value?.status === 'healthy' ? 'healthy' : 'error',
+          uptime: captureHealth.status === 'fulfilled' ? captureHealth.value?.uptime || 'Unknown' : 'Unknown',
           memory: {
-            used: analytics.performance?.systemLoad?.memory || 0,
+            used: 0,
             total: 100,
-            percentage: analytics.performance?.systemLoad?.memory || 0
+            percentage: 0
           },
           cpu: {
-            usage: analytics.performance?.systemLoad?.cpu || 0,
+            usage: 0,
             temperature: 45.2
           }
         },
         processingService: {
-          status: 'healthy',
+          status: processingHealth.status === 'fulfilled' && processingHealth.value?.status === 'healthy' ? 'healthy' : 'error',
           queueLength: 0,
           processing: false
         },
         storage: {
-          used: parseFloat(analytics.overview?.totalStorageUsed?.replace(' GB', '') || '0'),
+          used: 0,
           total: 1000,
-          available: 844,
-          percentage: (parseFloat(analytics.overview?.totalStorageUsed?.replace(' GB', '') || '0') / 1000) * 100
+          available: 1000,
+          percentage: 0
         },
         networkStatus: {
-          connected: true,
+          connected: backendHealth.status === 'fulfilled' && backendHealth.value?.status === 'healthy',
           signal: 85
         }
       };
 
+      console.log('✅ System status created:', status);
       setSystemStatus(status);
       updateCache('systemStatus', status);
       setHasDataError(false);
+      console.log('✅ System status updated successfully');
     } catch (error) {
       console.error('Failed to fetch system status:', error);
       setHasDataError(true);

@@ -180,32 +180,34 @@ class ArducamIMX519Camera(CameraInterface):
     async def get_preview_frame(self) -> Optional[bytes]:
         """Get preview frame from IMX519."""
         if not self._is_initialized:
+            logger.error("Preview: Camera not initialized")
             return None
 
+        temp_path = None
         try:
             # Use rpicam-still for high-quality preview with proper autofocus
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
                 temp_path = temp_file.name
 
+            logger.info(f"Preview: Creating temp file at {temp_path}")
+
+            # Build preview command - simpler approach, let's align with successful capture method
             cmd = [
                 self._rpicam_cmd,
                 "-t",
-                "2000",  # 2 seconds - enough time for autofocus but not hanging
+                str(self._capture_timeout_ms),  # Use same timeout as successful captures
                 "-n",  # No preview window
                 "--width",
-                "1920",  # 4:3 aspect ratio to match full captures
+                "1920",  # Preview resolution
                 "--height",
-                "1440",  # Matches 4:3 aspect ratio (4656x3496)
+                "1440",  # 4:3 aspect ratio matching sensor
                 "-o",
                 temp_path,
             ]
 
-            # Apply current rotation setting to preview
+            # Apply current rotation setting to preview - same logic as _build_capture_command
             logger.info(f"Preview: checking rotation={self._current_settings.rotation_degrees}")
-            if (
-                self._current_settings.rotation_degrees
-                and self._current_settings.rotation_degrees in [180]
-            ):
+            if self._current_settings.rotation_degrees and self._current_settings.rotation_degrees in [180]:
                 cmd.extend(["--rotation", str(self._current_settings.rotation_degrees)])
                 logger.info(
                     f"Preview: Added --rotation "
@@ -217,24 +219,80 @@ class ArducamIMX519Camera(CameraInterface):
                     f"(rotation={self._current_settings.rotation_degrees})"
                 )
 
+            # Log the full command for debugging
+            logger.info(f"Preview: Executing command: {' '.join(cmd)}")
+
+            # Use the same execution pattern as the working _execute_capture_command method
             process = await asyncio.create_subprocess_exec(
                 *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
 
-            await asyncio.wait_for(process.wait(), timeout=10.0)
+            # Use same timeout calculation as working capture method
+            timeout_seconds = self._capture_timeout_ms / 1000 + 5  # Add 5s buffer for processing
 
-            if process.returncode == 0 and Path(temp_path).exists():
-                with open(temp_path, "rb") as f:
-                    preview_data = f.read()
-                Path(temp_path).unlink()  # Clean up
-                return preview_data
-            else:
-                if Path(temp_path).exists():
-                    Path(temp_path).unlink()
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout_seconds)
+                logger.info(f"Preview: Process completed with return code {process.returncode}")
+
+                # Decode and log output
+                stdout_text = stdout.decode() if stdout else ""
+                stderr_text = stderr.decode() if stderr else ""
+
+                if stdout_text:
+                    logger.info(f"Preview: stdout: {stdout_text}")
+                if stderr_text:
+                    logger.warning(f"Preview: stderr: {stderr_text}")
+
+                # Check for command failure using same logic as working capture method
+                if process.returncode != 0:
+                    logger.error(f"Preview: rpicam-still command failed with return code {process.returncode}")
+                    logger.error(f"Preview: stderr: {stderr_text}")
+                    return None
+
+            except asyncio.TimeoutError:
+                logger.error(f"Preview: Process timed out after {timeout_seconds} seconds")
+                try:
+                    process.kill()
+                    await process.wait()
+                except Exception:
+                    pass
                 return None
 
+            # Check if file was created (same verification as working capture method)
+            temp_file_exists = Path(temp_path).exists()
+            logger.info(f"Preview: Temp file exists: {temp_file_exists}")
+
+            if not temp_file_exists:
+                logger.error("Preview: Image file was not created")
+                return None
+
+            # Get file size for debugging
+            file_size = Path(temp_path).stat().st_size
+            logger.info(f"Preview: Temp file size: {file_size} bytes")
+
+            if file_size == 0:
+                logger.error("Preview: Created file is empty")
+                Path(temp_path).unlink()
+                return None
+
+            # Read and return the preview data
+            with open(temp_path, "rb") as f:
+                preview_data = f.read()
+            logger.info(f"Preview: Successfully read {len(preview_data)} bytes from temp file")
+
+            # Clean up temp file
+            Path(temp_path).unlink()
+            return preview_data
+
         except Exception as e:
-            logger.warning(f"Failed to get preview frame: {e}")
+            logger.error(f"Preview: Exception occurred: {e}", exc_info=True)
+            # Clean up temp file on exception
+            if temp_path and Path(temp_path).exists():
+                try:
+                    Path(temp_path).unlink()
+                    logger.info(f"Preview: Cleaned up temp file {temp_path}")
+                except Exception as cleanup_e:
+                    logger.warning(f"Preview: Failed to clean up temp file: {cleanup_e}")
             return None
 
     async def autofocus(self, timeout_ms: int = 2000) -> bool:

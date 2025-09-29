@@ -15,6 +15,9 @@ COPY package*.json ./
 # Install all dependencies (including dev dependencies)
 RUN npm install
 
+# Copy source code (required for Vite to access environment variables)
+COPY . .
+
 # Expose port for development server
 EXPOSE 3000
 

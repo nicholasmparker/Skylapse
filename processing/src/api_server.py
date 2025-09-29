@@ -17,18 +17,63 @@ except ImportError:
     socketio = None
     StreamResponse = None
 
-# Add common directory to path for shared middleware
-sys.path.insert(0, str(Path(__file__).parent.parent / "common"))
+# Add project root common directory to path for shared middleware and config
+common_path = str(Path(__file__).parent.parent / "common")
+if common_path not in sys.path:
+    sys.path.insert(0, common_path)
 
-from middleware.cors_handler import PROCESSING_SERVICE_CORS_CONFIG, create_cors_middleware
-from middleware.error_handler import (
-    ProcessingError,
-    SkylapsError,
-    create_aiohttp_error_middleware,
-    create_json_validation_middleware,
-    json_response,
-    log_error,
-)
+try:
+    from middleware.cors_handler import PROCESSING_SERVICE_CORS_CONFIG, create_cors_middleware
+    from middleware.error_handler import (
+        ProcessingError,
+        SkylapsError,
+        create_aiohttp_error_middleware,
+        create_json_validation_middleware,
+        json_response,
+        log_error,
+    )
+except ImportError as e:
+    # Fallback for Docker environment - use simplified middleware
+    logger.warning(f"Middleware import failed: {e}, using simplified middleware")
+    PROCESSING_SERVICE_CORS_CONFIG = None
+
+    def create_cors_middleware(config, service_name):
+        @web.middleware
+        async def cors_handler(request, handler):
+            response = await handler(request)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            return response
+        return cors_handler
+
+    def create_aiohttp_error_middleware(service_name):
+        @web.middleware
+        async def error_handler(request, handler):
+            try:
+                return await handler(request)
+            except Exception as e:
+                return web.json_response({"error": str(e)}, status=500)
+        return error_handler
+
+    def create_json_validation_middleware(service_name):
+        @web.middleware
+        async def json_validator(request, handler):
+            return await handler(request)
+        return json_validator
+
+    def json_response(data, status=200):
+        return web.json_response(data, status=status)
+
+    def log_error(msg, exc_info=None):
+        logger.error(msg, exc_info=exc_info)
+
+    class ProcessingError(Exception):
+        pass
+
+    class SkylapsError(Exception):
+        pass
+from .config import get_processing_config, get_shared_config
 
 # Import camera service
 try:

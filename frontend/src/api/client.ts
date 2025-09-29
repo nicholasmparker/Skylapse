@@ -17,6 +17,7 @@ import type {
   PaginatedResponse,
   SearchFilters
 } from './types';
+import { API_URL, WS_URL, CAPTURE_URL } from '../config/environment';
 
 class APIClient {
   private baseURL: string;
@@ -377,9 +378,18 @@ export class SkylarpseAPIClient {
   public websocket: WebSocketClient;
 
   constructor() {
-    this.captureBaseURL = import.meta.env.VITE_CAPTURE_URL || 'http://helios.local:8080';
-    this.processingBaseURL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
-    this.wsURL = import.meta.env.VITE_WS_URL || 'ws://localhost:8081/ws';
+    // Use centralized configuration instead of direct env access
+    this.captureBaseURL = CAPTURE_URL;
+    this.processingBaseURL = API_URL;
+    this.wsURL = WS_URL;
+
+    // Log configuration in development for debugging
+    if (import.meta.env.MODE === 'development') {
+      console.log('🔧 API Client Configuration:');
+      console.log('  Capture URL:', this.captureBaseURL);
+      console.log('  Processing URL:', this.processingBaseURL);
+      console.log('  WebSocket URL:', this.wsURL);
+    }
 
     this.capture = new CaptureAPI(this.captureBaseURL);
     this.processing = new ProcessingAPI(this.processingBaseURL);

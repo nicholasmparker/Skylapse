@@ -41,5 +41,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose API port
 EXPOSE 8081
 
-# Run the processing service
+# Run the full processing service with all APIs
 CMD ["python", "-m", "src.processing_service"]

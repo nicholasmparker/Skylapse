@@ -50,7 +50,7 @@ export const SystemDashboard: React.FC = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6" data-testid="dashboard-container">
       {/* Status Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">

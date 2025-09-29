@@ -164,7 +164,7 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
   };
 
   return (
-    <div className={cn('relative bg-mountain-900 rounded-lg overflow-hidden', className)}>
+    <div className={cn('relative bg-mountain-900 rounded-lg overflow-hidden', className)} data-testid="camera-preview">
       {/* Preview Image */}
       <div className="relative aspect-[4/3] bg-mountain-800">
         {isStreaming ? (
