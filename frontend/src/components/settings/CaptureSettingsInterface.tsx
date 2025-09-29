@@ -237,11 +237,15 @@ export const CaptureSettingsInterface: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      const response = await apiClient.capture.getCameraSettings();
+      // Use capture service directly instead of processing service
+      const response = await fetch('http://helios.local:8080/api/settings');
+      const data = await response.json();
+      console.log('🔍 Raw API response:', data);
 
-      if (response.success && response.data) {
+      if (response.ok && data) {
         // Convert API format to UI format
-        const apiData = response.data;
+        const apiData = data;
+        console.log('🔍 API data rotation_degrees:', apiData.rotation_degrees);
         const loadedSettings: CaptureSettings = {
           ...DEFAULT_SETTINGS,
           manual: {
@@ -256,11 +260,13 @@ export const CaptureSettingsInterface: React.FC = () => {
             whiteBalance: apiData.white_balance_mode || DEFAULT_SETTINGS.manual.whiteBalance,
             quality: apiData.quality || DEFAULT_SETTINGS.manual.quality,
             format: apiData.format || DEFAULT_SETTINGS.manual.format,
-            rotationDegrees: apiData.rotation_degrees ?? DEFAULT_SETTINGS.manual.rotationDegrees,
+            rotationDegrees: apiData.rotation_degrees !== undefined ? apiData.rotation_degrees : DEFAULT_SETTINGS.manual.rotationDegrees,
           },
         };
 
+        console.log('🔍 Final UI rotationDegrees:', loadedSettings.manual.rotationDegrees);
         setSettings(loadedSettings);
+        console.log('🔍 Settings state updated to:', loadedSettings.manual.rotationDegrees);
         console.log('Settings loaded from API:', loadedSettings);
       }
 
@@ -300,10 +306,17 @@ export const CaptureSettingsInterface: React.FC = () => {
 
       const response = await apiClient.capture.updateCameraSettings(apiSettings);
 
-      if (response.success) {
-        console.log('Settings saved successfully:', response.data);
+      if (response.data.success) {
+        console.log('Settings saved successfully:', response.data.data);
+        // Critical fix: Immediately reload settings from backend to ensure UI shows actual values
+        try {
+          await loadCurrentSettings();
+        } catch (loadError) {
+          console.warn('Failed to reload settings after save:', loadError);
+          // Don't throw error here - save was successful, just warn about reload failure
+        }
       } else {
-        throw new Error(response.error?.message || 'Failed to save settings');
+        throw new Error(response.data.error?.message || 'Failed to save settings');
       }
 
     } catch (err) {

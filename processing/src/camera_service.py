@@ -4,15 +4,14 @@ Handles camera control, streaming, and capture operations
 """
 
 import asyncio
-import json
 import logging
-import time
-from typing import Dict, Optional, Any, AsyncGenerator
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from typing import Any, AsyncGenerator, Dict, Optional
+
+import aiofiles
 import cv2
 import numpy as np
-from dataclasses import dataclass, asdict
-import aiofiles
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CameraSettings:
     """Camera settings configuration"""
+
     iso: int = 800
     shutter_speed: str = "1/60"  # e.g., "1/60", "2", "30"
     aperture: str = "f/2.8"
@@ -35,6 +35,7 @@ class CameraSettings:
 @dataclass
 class CameraStatus:
     """Current camera status"""
+
     connected: bool = False
     model: str = "Unknown"
     battery_level: Optional[int] = None
@@ -97,22 +98,45 @@ class MockCamera:
 
             # Add timestamp overlay
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            cv2.putText(frame, f"Live Preview - {timestamp}",
-                       (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.putText(
+                frame,
+                f"Live Preview - {timestamp}",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2,
+            )
 
             # Add settings overlay
-            settings_text = f"ISO:{self.settings.iso} {self.settings.shutter_speed} {self.settings.aperture}"
-            cv2.putText(frame, settings_text,
-                       (10, height - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+            settings_text = (
+                f"ISO:{self.settings.iso} {self.settings.shutter_speed} {self.settings.aperture}"
+            )
+            cv2.putText(
+                frame,
+                settings_text,
+                (10, height - 20),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 0),
+                2,
+            )
 
             # Add capture indicator if capturing
             if self.capturing:
                 cv2.circle(frame, (width - 50, 50), 20, (0, 0, 255), -1)
-                cv2.putText(frame, "REC", (width - 70, 55),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                cv2.putText(
+                    frame,
+                    "REC",
+                    (width - 70, 55),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (255, 255, 255),
+                    2,
+                )
 
             # Encode frame as JPEG
-            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
             return buffer.tobytes()
 
         except Exception as e:
@@ -141,12 +165,14 @@ class MockCamera:
             # Add mountain-like gradient
             for y in range(height):
                 intensity = int(30 + (y / height) * 150)
-                image[y, :] = np.clip(image[y, :] + [intensity // 4, intensity // 3, intensity // 2], 0, 255)
+                image[y, :] = np.clip(
+                    image[y, :] + [intensity // 4, intensity // 3, intensity // 2], 0, 255
+                )
 
             # Save image
             capture_path = f"/tmp/{filename}"
-            async with aiofiles.open(capture_path, 'wb') as f:
-                _, buffer = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            async with aiofiles.open(capture_path, "wb") as f:
+                _, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 95])
                 await f.write(buffer.tobytes())
 
             # Update status
@@ -155,13 +181,13 @@ class MockCamera:
             self.status.captures_today += 1
 
             capture_info = {
-                'filename': filename,
-                'path': capture_path,
-                'timestamp': datetime.now().isoformat(),
-                'settings': self.settings.to_dict(),
-                'file_size': len(buffer.tobytes()),
-                'resolution': f"{width}x{height}",
-                'capture_number': self.capture_count
+                "filename": filename,
+                "path": capture_path,
+                "timestamp": datetime.now().isoformat(),
+                "settings": self.settings.to_dict(),
+                "file_size": len(buffer.tobytes()),
+                "resolution": f"{width}x{height}",
+                "capture_number": self.capture_count,
             }
 
             logger.info(f"Image captured: {filename}")
@@ -235,16 +261,17 @@ class CameraService:
             while self.streaming:
                 frame = await self.camera.get_live_frame()
                 if frame:
-                    yield (b'--frame\r\n'
-                           b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                    yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
 
                 # Control frame rate (~30 FPS)
-                await asyncio.sleep(1/30)
+                await asyncio.sleep(1 / 30)
 
         except Exception as e:
             logger.error(f"Error in MJPEG stream generation: {e}")
 
-    async def capture_image(self, settings_override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def capture_image(
+        self, settings_override: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Capture a single image with optional settings override"""
         # Apply temporary settings if provided
         original_settings = None
@@ -268,8 +295,8 @@ class CameraService:
     def get_status(self) -> Dict[str, Any]:
         """Get current camera status"""
         status = self.camera.get_status().to_dict()
-        status['streaming'] = self.streaming
-        status['connected_clients'] = len(self.stream_clients)
+        status["streaming"] = self.streaming
+        status["connected_clients"] = len(self.stream_clients)
         return status
 
     def get_settings(self) -> Dict[str, Any]:

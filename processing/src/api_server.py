@@ -9,7 +9,9 @@ from datetime import datetime, timedelta
 try:
     import socketio
     from aiohttp import web
-    from aiohttp.web import json_response, StreamResponse
+    from aiohttp.web import StreamResponse, json_response
+
+    logger = logging.getLogger(__name__)
 except ImportError:
     web = None
     json_response = None
@@ -907,7 +909,7 @@ class ProcessingAPIServer:
                     "Pragma": "no-cache",
                     "Expires": "0",
                     "Access-Control-Allow-Origin": "*",
-                }
+                },
             )
             await response.prepare(request)
 
@@ -932,11 +934,9 @@ class ProcessingAPIServer:
                 return json_response({"error": "Camera service not available"}, status=503)
 
             status = camera_service.get_status()
-            return json_response({
-                "data": status,
-                "status": 200,
-                "message": "Camera status retrieved successfully"
-            })
+            return json_response(
+                {"data": status, "status": 200, "message": "Camera status retrieved successfully"}
+            )
 
         except Exception as e:
             logger.error(f"Error getting camera status: {e}")
@@ -949,11 +949,13 @@ class ProcessingAPIServer:
                 return json_response({"error": "Camera service not available"}, status=503)
 
             settings = camera_service.get_settings()
-            return json_response({
-                "data": settings,
-                "status": 200,
-                "message": "Camera settings retrieved successfully"
-            })
+            return json_response(
+                {
+                    "data": settings,
+                    "status": 200,
+                    "message": "Camera settings retrieved successfully",
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error getting camera settings: {e}")
@@ -970,11 +972,13 @@ class ProcessingAPIServer:
 
             if success:
                 updated_settings = camera_service.get_settings()
-                return json_response({
-                    "data": updated_settings,
-                    "status": 200,
-                    "message": "Camera settings updated successfully"
-                })
+                return json_response(
+                    {
+                        "data": updated_settings,
+                        "status": 200,
+                        "message": "Camera settings updated successfully",
+                    }
+                )
             else:
                 return json_response({"error": "Failed to update camera settings"}, status=400)
 
@@ -998,11 +1002,9 @@ class ProcessingAPIServer:
             # Capture image
             capture_result = await camera_service.capture_image(settings_override)
 
-            return json_response({
-                "data": capture_result,
-                "status": 200,
-                "message": "Image captured successfully"
-            })
+            return json_response(
+                {"data": capture_result, "status": 200, "message": "Image captured successfully"}
+            )
 
         except Exception as e:
             logger.error(f"Error during manual capture: {e}")
@@ -1015,11 +1017,9 @@ class ProcessingAPIServer:
                 return json_response({"error": "Camera service not available"}, status=503)
 
             await camera_service.start_streaming()
-            return json_response({
-                "data": {"streaming": True},
-                "status": 200,
-                "message": "Camera streaming started"
-            })
+            return json_response(
+                {"data": {"streaming": True}, "status": 200, "message": "Camera streaming started"}
+            )
 
         except Exception as e:
             logger.error(f"Error starting camera stream: {e}")
@@ -1032,11 +1032,9 @@ class ProcessingAPIServer:
                 return json_response({"error": "Camera service not available"}, status=503)
 
             await camera_service.stop_streaming()
-            return json_response({
-                "data": {"streaming": False},
-                "status": 200,
-                "message": "Camera streaming stopped"
-            })
+            return json_response(
+                {"data": {"streaming": False}, "status": 200, "message": "Camera streaming stopped"}
+            )
 
         except Exception as e:
             logger.error(f"Error stopping camera stream: {e}")

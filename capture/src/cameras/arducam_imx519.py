@@ -201,11 +201,19 @@ class ArducamIMX519Camera(CameraInterface):
             ]
 
             # Apply current rotation setting to preview
+            logger.info(f"Preview: checking rotation={self._current_settings.rotation_degrees}")
             if (
                 self._current_settings.rotation_degrees
-                and self._current_settings.rotation_degrees in [90, 180, 270]
+                and self._current_settings.rotation_degrees in [180]
             ):
                 cmd.extend(["--rotation", str(self._current_settings.rotation_degrees)])
+                logger.info(
+                    f"Preview: Added --rotation {self._current_settings.rotation_degrees} to command"
+                )
+            else:
+                logger.info(
+                    f"Preview: No rotation applied (rotation={self._current_settings.rotation_degrees})"
+                )
 
             process = await asyncio.create_subprocess_exec(
                 *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
@@ -280,6 +288,7 @@ class ArducamIMX519Camera(CameraInterface):
 
         # Store settings for next capture
         self._current_settings = settings
+        logger.info(f"Camera settings updated: rotation={settings.rotation_degrees}")
         return True
 
     def get_status(self) -> CameraStatus:
@@ -413,7 +422,7 @@ class ArducamIMX519Camera(CameraInterface):
             cmd.extend(["--lens-position", str(lens_pos)])
 
         # Image rotation
-        if settings.rotation_degrees and settings.rotation_degrees in [90, 180, 270]:
+        if settings.rotation_degrees and settings.rotation_degrees in [180]:
             cmd.extend(["--rotation", str(settings.rotation_degrees)])
 
         return cmd
