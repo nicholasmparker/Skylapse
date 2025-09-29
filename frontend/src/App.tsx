@@ -6,15 +6,16 @@
  * error boundaries, and bulletproof real-time connectivity.
  */
 
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ApplicationErrorBoundary, DashboardErrorBoundary } from './components/ErrorBoundary';
-import { SystemDashboard } from './components/dashboard';
-import { CaptureSettingsInterface } from './components/settings/CaptureSettingsInterface';
-import { VideoGenerationInterface } from './components/video/VideoGenerationInterface';
-import { ScheduleManagementInterface } from './components/schedule/ScheduleManagementInterface';
-import { AppLayout } from './components/layout/AppLayout';
+import {
+  LazySystemDashboard,
+  LazyCaptureSettings,
+  LazyVideoGeneration,
+  LazyScheduleManagement,
+  LazyAppLayout
+} from './components/routing/LazyRoutes';
 import './config/environment'; // Initialize and validate environment
 
 function App() {
@@ -25,12 +26,12 @@ function App() {
         <BrowserRouter>
           <DashboardErrorBoundary>
             <Routes>
-              <Route path="/" element={<AppLayout />}>
+              <Route path="/" element={<LazyAppLayout />}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={<SystemDashboard />} />
-                <Route path="settings" element={<CaptureSettingsInterface />} />
-                <Route path="gallery" element={<VideoGenerationInterface />} />
-                <Route path="automation" element={<ScheduleManagementInterface />} />
+                <Route path="dashboard" element={<LazySystemDashboard />} />
+                <Route path="settings" element={<LazyCaptureSettings />} />
+                <Route path="gallery" element={<LazyVideoGeneration />} />
+                <Route path="automation" element={<LazyScheduleManagement />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Route>
             </Routes>

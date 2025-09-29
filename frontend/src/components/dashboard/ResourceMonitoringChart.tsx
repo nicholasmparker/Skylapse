@@ -3,32 +3,18 @@
  * Professional Mountain Timelapse Camera System
  */
 
-import React, { useMemo } from 'react';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-} from 'chart.js';
+import React, { useMemo, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import type { ResourceMetrics } from '../../api/types';
 import { Card } from '../../design-system/components';
+import {
+  initializeChartJS,
+  getOptimizedChartOptions,
+  CHART_COLORS
+} from '../charts/ChartConfiguration';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
+// Initialize Chart.js with only the components we need
+initializeChartJS();
 
 interface ResourceMonitoringChartProps {
   metrics: ResourceMetrics[];
@@ -40,10 +26,13 @@ export const ResourceMonitoringChart: React.FC<ResourceMonitoringChartProps> = (
   isConnected
 }) => {
   const chartData = useMemo(() => {
-    // Generate time labels for the last 50 data points
-    const labels = metrics.slice(-50).map((_, index) => {
+    // Optimize by limiting to last 30 data points for better performance
+    const limitedMetrics = metrics.slice(-30);
+
+    // Generate time labels
+    const labels = limitedMetrics.map((_, index) => {
       const now = new Date();
-      const timeAgo = new Date(now.getTime() - (49 - index) * 5000); // 5 second intervals
+      const timeAgo = new Date(now.getTime() - (limitedMetrics.length - 1 - index) * 5000);
       return timeAgo.toLocaleTimeString('en-US', {
         hour12: false,
         minute: '2-digit',
@@ -51,10 +40,10 @@ export const ResourceMonitoringChart: React.FC<ResourceMonitoringChartProps> = (
       });
     });
 
-    // Extract data series
-    const cpuData = metrics.slice(-50).map(m => m.cpu.usage);
-    const memoryData = metrics.slice(-50).map(m => m.memory.percentage);
-    const temperatureData = metrics.slice(-50).map(m => m.cpu.temperature);
+    // Extract data series with optimized structure
+    const cpuData = limitedMetrics.map(m => m.cpu.usage);
+    const memoryData = limitedMetrics.map(m => m.memory.percentage);
+    const temperatureData = limitedMetrics.map(m => m.cpu.temperature);
 
     return {
       labels,
@@ -62,135 +51,28 @@ export const ResourceMonitoringChart: React.FC<ResourceMonitoringChartProps> = (
         {
           label: 'CPU Usage (%)',
           data: cpuData,
-          borderColor: 'rgb(59, 130, 246)', // blue-500
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 0,
-          pointHoverRadius: 4,
+          borderColor: CHART_COLORS.cpu.border,
+          backgroundColor: CHART_COLORS.cpu.background,
         },
         {
           label: 'Memory Usage (%)',
           data: memoryData,
-          borderColor: 'rgb(245, 158, 11)', // golden-500
-          backgroundColor: 'rgba(245, 158, 11, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 0,
-          pointHoverRadius: 4,
+          borderColor: CHART_COLORS.memory.border,
+          backgroundColor: CHART_COLORS.memory.background,
         },
         {
           label: 'Temperature (°C)',
           data: temperatureData,
-          borderColor: 'rgb(239, 68, 68)', // red-500
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          borderWidth: 2,
+          borderColor: CHART_COLORS.temperature.border,
+          backgroundColor: CHART_COLORS.temperature.background,
           fill: false,
-          tension: 0.4,
-          pointRadius: 0,
-          pointHoverRadius: 4,
           yAxisID: 'temperature',
         }
       ]
     };
   }, [metrics]);
 
-  const chartOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: 'index' as const,
-      intersect: false,
-    },
-    plugins: {
-      legend: {
-        position: 'top' as const,
-        labels: {
-          usePointStyle: true,
-          padding: 20,
-        }
-      },
-      tooltip: {
-        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-        titleColor: '#f8fafc',
-        bodyColor: '#f1f5f9',
-        borderColor: '#64748b',
-        borderWidth: 1,
-        cornerRadius: 8,
-        displayColors: true,
-        callbacks: {
-          title: (context: any) => `Time: ${context[0].label}`,
-          label: (context: any) => {
-            const label = context.dataset.label;
-            const value = context.parsed.y;
-            return label.includes('Temperature')
-              ? `${label}: ${value.toFixed(1)}°C`
-              : `${label}: ${value.toFixed(1)}%`;
-          }
-        }
-      }
-    },
-    scales: {
-      x: {
-        display: true,
-        title: {
-          display: true,
-          text: 'Time'
-        },
-        ticks: {
-          maxTicksLimit: 10
-        },
-        grid: {
-          color: 'rgba(148, 163, 184, 0.2)'
-        }
-      },
-      y: {
-        type: 'linear' as const,
-        display: true,
-        position: 'left' as const,
-        title: {
-          display: true,
-          text: 'Usage (%)'
-        },
-        min: 0,
-        max: 100,
-        ticks: {
-          callback: (value: any) => `${value}%`
-        },
-        grid: {
-          color: 'rgba(148, 163, 184, 0.2)'
-        }
-      },
-      temperature: {
-        type: 'linear' as const,
-        display: true,
-        position: 'right' as const,
-        title: {
-          display: true,
-          text: 'Temperature (°C)'
-        },
-        min: 20,
-        max: 80,
-        ticks: {
-          callback: (value: any) => `${value}°C`
-        },
-        grid: {
-          drawOnChartArea: false
-        }
-      }
-    },
-    elements: {
-      point: {
-        hoverBackgroundColor: '#ffffff',
-        hoverBorderWidth: 2
-      }
-    },
-    animation: {
-      duration: 750
-    }
-  } as any), []);
+  const chartOptions = useMemo(() => getOptimizedChartOptions(), []);
 
   const currentMetrics = metrics[metrics.length - 1];
 
