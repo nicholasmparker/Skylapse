@@ -320,16 +320,16 @@ class CaptureService:
             # Get current conditions
             conditions = await self._environmental_sensor.get_current_conditions()
 
-            # Use provided settings or get current stored camera settings
+            # Use provided settings or get stored user settings from API server
             if settings is None:
                 try:
-                    settings = await self._camera_controller.get_current_settings()
+                    settings = self._api_server.get_stored_settings()
                     logger.info(
-                        f"Using stored camera settings for manual capture: "
+                        f"Using stored user settings for manual capture: "
                         f"rotation={settings.rotation_degrees}"
                     )
                 except Exception as e:
-                    logger.warning(f"Failed to get stored settings, using defaults: {e}")
+                    logger.warning(f"Failed to get stored user settings, using defaults: {e}")
                     settings = CaptureSettings()
 
             # Perform capture

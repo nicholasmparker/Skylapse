@@ -5,6 +5,7 @@ import json
 import logging
 import traceback
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict
 
 try:
@@ -16,11 +17,84 @@ except ImportError:
     web_request = None
     Response = None
 
+import yaml
+
 from .camera_types import CaptureSettings, SkylapsJSONEncoder, to_dict
 from .schedule_models import ScheduleValidationError
 from .schedule_storage import ScheduleStorageManager
 
 logger = logging.getLogger(__name__)
+
+
+class PersistentSettingsManager:
+    """Manages persistent storage of user camera settings."""
+
+    def __init__(self, settings_file: str = "/opt/skylapse/config/user_camera_settings.yaml"):
+        """Initialize persistent settings manager."""
+        self.settings_file = Path(settings_file)
+        self._settings = {}
+        self._load_settings()
+
+    def _load_settings(self) -> None:
+        """Load settings from file."""
+        try:
+            if self.settings_file.exists():
+                with open(self.settings_file, "r") as f:
+                    self._settings = yaml.safe_load(f) or {}
+                logger.info(f"Loaded user camera settings from {self.settings_file}")
+            else:
+                self._settings = {}
+                logger.info("No existing user camera settings file found, using defaults")
+        except Exception as e:
+            logger.error(f"Failed to load user camera settings: {e}")
+            self._settings = {}
+
+    def _save_settings(self) -> None:
+        """Save settings to file."""
+        try:
+            self.settings_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.settings_file, "w") as f:
+                yaml.safe_dump(self._settings, f, indent=2)
+            logger.info(f"Saved user camera settings to {self.settings_file}")
+        except Exception as e:
+            logger.error(f"Failed to save user camera settings: {e}")
+
+    def save_settings(self, settings: CaptureSettings) -> None:
+        """Save user camera settings."""
+        # Convert settings to dictionary and store
+        settings_dict = to_dict(settings)
+        self._settings.update(settings_dict)
+        self._save_settings()
+        logger.info(f"Stored user camera settings: rotation={settings.rotation_degrees}")
+
+    def get_settings(self) -> CaptureSettings:
+        """Get stored user camera settings as CaptureSettings object."""
+        if not self._settings:
+            logger.info("No stored user settings, returning defaults")
+            return CaptureSettings()
+
+        # Create CaptureSettings from stored data
+        settings = CaptureSettings(
+            exposure_time_us=self._settings.get("exposure_time_us"),
+            iso=self._settings.get("iso"),
+            exposure_compensation=self._settings.get("exposure_compensation", 0.0),
+            focus_distance_mm=self._settings.get("focus_distance_mm"),
+            autofocus_enabled=self._settings.get("autofocus_enabled", True),
+            white_balance_k=self._settings.get("white_balance_k"),
+            white_balance_mode=self._settings.get("white_balance_mode", "auto"),
+            quality=self._settings.get("quality", 95),
+            format=self._settings.get("format", "JPEG"),
+            rotation_degrees=self._settings.get("rotation_degrees", 0),
+            hdr_bracket_stops=self._settings.get("hdr_bracket_stops", []),
+            processing_hints=self._settings.get("processing_hints", {}),
+        )
+
+        logger.info(f"Retrieved stored user settings: rotation={settings.rotation_degrees}")
+        return settings
+
+    def get_settings_dict(self) -> Dict[str, Any]:
+        """Get stored settings as dictionary."""
+        return self._settings.copy()
 
 
 def json_response(data: Any, status: int = 200, **kwargs) -> web.Response:
@@ -54,6 +128,9 @@ class CaptureAPIServer:
 
         # Initialize schedule storage manager
         self.schedule_storage = ScheduleStorageManager()
+
+        # Initialize persistent settings manager
+        self.settings_manager = PersistentSettingsManager()
 
         if web is None:
             logger.warning("aiohttp not available, API server will be disabled")
@@ -134,6 +211,10 @@ class CaptureAPIServer:
         self.app.router.add_post("/capture/manual", self._manual_capture)
         self.app.router.add_post("/capture/test", self._test_capture)
         self.app.router.add_get("/capture/preview", self._get_preview)
+
+        # Camera settings
+        self.app.router.add_get("/api/settings", self._get_camera_settings)
+        self.app.router.add_put("/api/settings", self._update_camera_settings)
 
         # Configuration
         self.app.router.add_get("/config", self._get_config)
@@ -234,6 +315,52 @@ class CaptureAPIServer:
             camera_status = await self.controller._camera_controller.get_camera_status()
             return json_response(camera_status)
         except Exception as e:
+            return json_response({"error": str(e)}, status=500)
+
+    async def _get_camera_settings(self, request) -> web.Response:
+        """Get stored user camera settings."""
+        if not self.controller:
+            return json_response({"error": "Service not available"}, status=503)
+
+        try:
+            # Return stored user settings, not current camera state
+            settings_dict = self.settings_manager.get_settings_dict()
+            rotation = settings_dict.get("rotation_degrees", 0)
+            logger.info(f"API returning stored settings: rotation={rotation}")
+            return json_response(settings_dict)
+        except Exception as e:
+            logger.error(f"Error getting stored camera settings: {e}")
+            return json_response({"error": str(e)}, status=500)
+
+    async def _update_camera_settings(self, request) -> web.Response:
+        """Update camera settings and store them persistently."""
+        if not self.controller:
+            return json_response({"error": "Service not available"}, status=503)
+
+        try:
+            data = await request.json()
+            settings = self._parse_capture_settings(data)
+
+            # Save settings persistently first
+            self.settings_manager.save_settings(settings)
+            logger.info(f"API saved settings persistently: rotation={settings.rotation_degrees}")
+
+            # Also apply settings to camera immediately (optional, for immediate effect)
+            success = await self.controller._camera_controller.set_capture_settings(settings)
+            if not success:
+                logger.warning(
+                    "Failed to apply settings to camera immediately, but settings are saved"
+                )
+
+            # Return the stored settings
+            stored_settings_dict = self.settings_manager.get_settings_dict()
+            return json_response({"success": True, "data": stored_settings_dict})
+
+        except ValueError as e:
+            logger.error(f"Invalid camera settings data: {e}")
+            return json_response({"error": f"Invalid settings data: {e}"}, status=400)
+        except Exception as e:
+            logger.error(f"Error updating camera settings: {e}")
             return json_response({"error": str(e)}, status=500)
 
     async def _manual_capture(self, request) -> web.Response:
@@ -432,6 +559,10 @@ class CaptureAPIServer:
         except Exception as e:
             return json_response({"error": str(e)}, status=500)
 
+    def get_stored_settings(self) -> CaptureSettings:
+        """Get stored user camera settings (called by capture service)."""
+        return self.settings_manager.get_settings()
+
     def _parse_capture_settings(self, data: Dict[str, Any]) -> CaptureSettings:
         """Parse capture settings from request data."""
         return CaptureSettings(
@@ -444,6 +575,7 @@ class CaptureAPIServer:
             white_balance_mode=data.get("white_balance_mode", "auto"),
             quality=data.get("quality", 95),
             format=data.get("format", "JPEG"),
+            rotation_degrees=data.get("rotation_degrees", 0),
             hdr_bracket_stops=data.get("hdr_bracket_stops", []),
             processing_hints=data.get("processing_hints", {}),
         )
