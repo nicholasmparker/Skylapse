@@ -193,9 +193,9 @@ class ArducamIMX519Camera(CameraInterface):
                 "2000",  # 2 seconds - enough time for autofocus but not hanging
                 "-n",  # No preview window
                 "--width",
-                "1920",  # Much better preview resolution
+                "1920",  # 4:3 aspect ratio to match full captures
                 "--height",
-                "1440",  # Maintains 4:3 aspect ratio like full capture
+                "1440",  # Matches 4:3 aspect ratio (4656x3496)
                 "-o",
                 temp_path,
             ]
@@ -208,11 +208,13 @@ class ArducamIMX519Camera(CameraInterface):
             ):
                 cmd.extend(["--rotation", str(self._current_settings.rotation_degrees)])
                 logger.info(
-                    f"Preview: Added --rotation {self._current_settings.rotation_degrees} to command"
+                    f"Preview: Added --rotation "
+                    f"{self._current_settings.rotation_degrees} to command"
                 )
             else:
                 logger.info(
-                    f"Preview: No rotation applied (rotation={self._current_settings.rotation_degrees})"
+                    f"Preview: No rotation applied "
+                    f"(rotation={self._current_settings.rotation_degrees})"
                 )
 
             process = await asyncio.create_subprocess_exec(

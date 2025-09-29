@@ -151,12 +151,12 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
   return (
     <div className={cn('relative bg-mountain-900 rounded-lg overflow-hidden', className)}>
       {/* Preview Image */}
-      <div className="relative aspect-video bg-mountain-800">
+      <div className="relative aspect-[4/3] bg-mountain-800">
         {isStreaming ? (
           <img
             ref={imgRef}
             alt="Live Camera Preview"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             onLoad={handleImageLoad}
             onError={handleImageError}
           />
