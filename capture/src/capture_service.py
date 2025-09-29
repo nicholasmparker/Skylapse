@@ -320,9 +320,17 @@ class CaptureService:
             # Get current conditions
             conditions = await self._environmental_sensor.get_current_conditions()
 
-            # Use provided settings or get defaults
+            # Use provided settings or get current stored camera settings
             if settings is None:
-                settings = CaptureSettings()
+                try:
+                    settings = await self._camera_controller.get_current_settings()
+                    logger.info(
+                        f"Using stored camera settings for manual capture: "
+                        f"rotation={settings.rotation_degrees}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to get stored settings, using defaults: {e}")
+                    settings = CaptureSettings()
 
             # Perform capture
             result = await self._camera_controller.capture_optimized(
