@@ -475,10 +475,7 @@ export const useRealTimeData = (): UseRealTimeDataReturn => {
 // Hook for accessing only connection status (lighter alternative)
 export function useRealTimeConnectionStatus() {
   const { accessToken } = useAuth();
-  const { connectionState } = useRealTimeClient(accessToken, {
-    ...PRODUCTION_REALTIME_CONFIG,
-    autoConnect: true,
-  });
+  const { connectionState } = useSimpleRealTimeClient(accessToken, {});
 
   return connectionState;
 };

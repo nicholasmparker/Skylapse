@@ -2,16 +2,13 @@
  * Real-Time Client Hook
  * Professional Mountain Timelapse Camera System
  *
- * React hook for using the real-time client with authentication integration.
+ * Simplified real-time client using RealTimeService directly.
  */
 
-import { useEffect, useMemo, useRef } from 'react';
-import { useConnectionState, type ConnectionConfig } from './useConnectionState';
-import { createRealTimeClient, type RealTimeClient, type RealTimeClientConfig } from '../services/RealTimeClient';
-import { config } from '../config/environment';
+import { useEffect, useState, useCallback } from 'react';
+import { realTimeService, ConnectionState, EventType } from '../services/RealTimeService';
 
 export interface UseRealTimeClientReturn {
-  client: RealTimeClient;
   connectionState: {
     isConnected: boolean;
     isOnline: boolean;
@@ -21,98 +18,76 @@ export interface UseRealTimeClientReturn {
     isReconnecting: boolean;
     error: string | null;
   };
+  reconnect: () => Promise<void>;
+  sendCommand: (command: string, data: any) => Promise<void>;
 }
 
 export function useRealTimeClient(
   accessToken: string | null,
-  clientConfig: RealTimeClientConfig = {}
+  config: any = {}
 ): UseRealTimeClientReturn {
-  const connectionConfig: ConnectionConfig = useMemo(() => ({
-    serverUrl: clientConfig.wsUrl || config.WS_URL,
-    maxReconnectAttempts: 10,
-    baseReconnectDelay: 1000,
-    maxReconnectDelay: 30000,
-    connectionTimeoutMs: 60000, // Increased to 60s for debugging
-    pingIntervalMs: 30000,
-    healthCheckIntervalMs: 60000,
-    ...clientConfig
-  }), [clientConfig.wsUrl, clientConfig.maxReconnectAttempts, clientConfig.baseReconnectDelay, clientConfig.maxReconnectDelay, clientConfig.connectionTimeoutMs, clientConfig.pingIntervalMs, clientConfig.healthCheckIntervalMs]);
+  const [connectionState, setConnectionState] = useState<ConnectionState>({
+    status: 'offline',
+    transport: 'sse',
+    quality: 'excellent',
+    lastSeen: new Date(),
+    retryCount: 0,
+    latency: 0
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
-  const connectionState = useConnectionState(connectionConfig);
-  const clientRef = useRef<RealTimeClient | null>(null);
-  const hasConnectedRef = useRef(false);
-  const isConnectingRef = useRef(false);
-
-  // Create client only once
-  if (!clientRef.current) {
-    clientRef.current = createRealTimeClient(connectionState, clientConfig);
-  }
-
-  // Connection management with proper cleanup
+  // Connect to real-time service
   useEffect(() => {
-    const token = accessToken || 'dev-token-for-websocket-connection';
-    const client = clientRef.current!;
+    if (!accessToken) return;
 
-    // Skip if already connecting/connected or no token
-    if (!token || isConnectingRef.current || hasConnectedRef.current) {
-      return;
-    }
+    const unsubscribe = realTimeService.onConnectionChange((state) => {
+      setConnectionState(state);
+      setError(null);
+    });
 
-    // Development mode detection for React Strict Mode
-    const isDevelopment = import.meta.env.DEV;
-    if (isDevelopment) {
-      console.log('🔧 Development mode detected - Socket.IO configured for React Strict Mode');
-    }
+    // Connect the service
+    realTimeService.connect().catch((err) => {
+      setError(err.message);
+    });
 
-    // Connect with proper error handling
-    const connectClient = async () => {
-      isConnectingRef.current = true;
-      try {
-        await client.connect(token);
-        hasConnectedRef.current = true;
-        console.log('✅ Real-time client connected successfully');
-      } catch (error) {
-        console.error('❌ Connection failed:', error);
-        hasConnectedRef.current = false;
-      } finally {
-        isConnectingRef.current = false;
-      }
-    };
-
-    connectClient();
-
-    // Cleanup function
     return () => {
-      if (hasConnectedRef.current) {
-        console.log('🔌 Disconnecting real-time client');
-        client.disconnect();
-        hasConnectedRef.current = false;
-        isConnectingRef.current = false;
-      }
+      unsubscribe();
     };
-  }, [accessToken]); // Only depend on accessToken, not client
+  }, [accessToken]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (clientRef.current && hasConnectedRef.current) {
-        clientRef.current.disconnect();
-        hasConnectedRef.current = false;
-        isConnectingRef.current = false;
-      }
-    };
+  const reconnect = useCallback(async () => {
+    setIsReconnecting(true);
+    setError(null);
+    try {
+      await realTimeService.reconnect();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsReconnecting(false);
+    }
+  }, []);
+
+  const sendCommand = useCallback(async (command: string, data: any) => {
+    try {
+      await realTimeService.sendCommand(command, data);
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
   }, []);
 
   return {
-    client: clientRef.current!,
     connectionState: {
-      isConnected: connectionState.isWebSocketConnected,
-      isOnline: connectionState.isOnline,
-      connectionQuality: connectionState.connectionQuality,
-      lastConnected: connectionState.lastConnected,
-      reconnectAttempts: connectionState.reconnectAttempts,
-      isReconnecting: connectionState.isReconnecting,
-      error: connectionState.error,
-    }
+      isConnected: connectionState.status === 'online',
+      isOnline: connectionState.status !== 'offline',
+      connectionQuality: connectionState.quality,
+      lastConnected: connectionState.lastSeen,
+      reconnectAttempts: connectionState.retryCount,
+      isReconnecting,
+      error,
+    },
+    reconnect,
+    sendCommand,
   };
 }
