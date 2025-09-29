@@ -4,7 +4,7 @@ Temporary fix for missing config imports.
 """
 
 import os
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 def get_processing_config() -> Dict[str, Any]:

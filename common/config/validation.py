@@ -8,15 +8,15 @@ and service health across all components.
 import logging
 import os
 import socket
-from typing import Dict, List, Optional, Tuple
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 from .environment import (
-    get_shared_config,
-    get_capture_config,
-    get_processing_config,
     get_backend_config,
+    get_capture_config,
     get_frontend_config,
+    get_processing_config,
+    get_shared_config,
     is_development,
     is_production,
 )
@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 class ConfigurationError(Exception):
     """Configuration validation error."""
+
     pass
 
 
@@ -130,7 +131,7 @@ def validate_port_availability() -> Dict[str, bool]:
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.settimeout(1)
-                    result = s.connect_ex(('localhost', port))
+                    result = s.connect_ex(("localhost", port))
 
                     if result == 0:
                         # Port is in use
@@ -169,8 +170,10 @@ def validate_service_configuration_consistency() -> List[str]:
         # Check service discovery consistency
 
         # Capture -> Processing
-        if (capture_config.processing_host, capture_config.processing_port) != \
-           (processing_config.host, processing_config.port):
+        if (capture_config.processing_host, capture_config.processing_port) != (
+            processing_config.host,
+            processing_config.port,
+        ):
             issues.append(
                 f"Capture service configured to connect to processing at "
                 f"{capture_config.processing_host}:{capture_config.processing_port}, "
@@ -178,8 +181,10 @@ def validate_service_configuration_consistency() -> List[str]:
             )
 
         # Processing -> Backend
-        if (processing_config.backend_host, processing_config.backend_port) != \
-           (backend_config.host, backend_config.port):
+        if (processing_config.backend_host, processing_config.backend_port) != (
+            backend_config.host,
+            backend_config.port,
+        ):
             issues.append(
                 f"Processing service configured to connect to backend at "
                 f"{processing_config.backend_host}:{processing_config.backend_port}, "
@@ -300,7 +305,7 @@ def run_full_configuration_validation() -> Dict[str, any]:
     results["health_score"] = {
         "passed": passed_checks,
         "total": total_checks,
-        "percentage": round((passed_checks / total_checks) * 100, 1) if total_checks > 0 else 0
+        "percentage": round((passed_checks / total_checks) * 100, 1) if total_checks > 0 else 0,
     }
 
     # Summary
@@ -311,8 +316,10 @@ def run_full_configuration_validation() -> Dict[str, any]:
     else:
         results["status"] = "CRITICAL"
 
-    logger.info(f"Configuration validation complete: {results['status']} "
-                f"({results['health_score']['percentage']}% passed)")
+    logger.info(
+        f"Configuration validation complete: {results['status']} "
+        f"({results['health_score']['percentage']}% passed)"
+    )
 
     return results
 
@@ -326,13 +333,15 @@ def print_configuration_summary():
         backend = get_backend_config()
         frontend = get_frontend_config()
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("SKYLAPSE CONFIGURATION SUMMARY")
-        print("="*60)
+        print("=" * 60)
 
         print(f"\nEnvironment: {shared.environment.upper()}")
         print(f"Version: {shared.version}")
-        print(f"Location: {shared.location.latitude}, {shared.location.longitude} ({shared.location.timezone})")
+        print(
+            f"Location: {shared.location.latitude}, {shared.location.longitude} ({shared.location.timezone})"
+        )
 
         print("\nService Endpoints:")
         print(f"  Capture Service:    {capture.host}:{capture.port}")
@@ -354,7 +363,7 @@ def print_configuration_summary():
         print(f"  JWT Secret: {'✓ Configured' if backend.security.jwt_secret else '✗ Missing'}")
         print(f"  CORS Origins: {len(backend.security.cors_origins)} configured")
 
-        print("="*60 + "\n")
+        print("=" * 60 + "\n")
 
     except Exception as e:
         logger.error(f"Failed to print configuration summary: {e}")

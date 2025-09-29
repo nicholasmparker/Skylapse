@@ -11,8 +11,8 @@ This module provides:
 import logging
 import os
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ def is_production() -> bool:
 @dataclass
 class DatabaseConfig:
     """Database configuration."""
+
     url: str
     pool_size: int = 20
     pool_timeout: int = 30
@@ -46,6 +47,7 @@ class DatabaseConfig:
 @dataclass
 class RedisConfig:
     """Redis configuration."""
+
     url: str
     max_connections: int = 50
     decode_responses: bool = True
@@ -54,6 +56,7 @@ class RedisConfig:
 @dataclass
 class LocationConfig:
     """Geographic location configuration."""
+
     latitude: float
     longitude: float
     timezone: str
@@ -63,6 +66,7 @@ class LocationConfig:
 @dataclass
 class SecurityConfig:
     """Security and authentication configuration."""
+
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_expiry_hours: int = 24
@@ -76,6 +80,7 @@ class SecurityConfig:
 @dataclass
 class StorageConfig:
     """File storage configuration."""
+
     data_path: str
     temp_path: str
     backup_path: str
@@ -86,6 +91,7 @@ class StorageConfig:
 @dataclass
 class LoggingConfig:
     """Logging configuration."""
+
     level: str
     format: str
     file_path: Optional[str] = None
@@ -97,6 +103,7 @@ class LoggingConfig:
 @dataclass
 class CaptureConfig:
     """Configuration for capture service."""
+
     # Service
     host: str = "0.0.0.0"
     port: int = 8080
@@ -132,19 +139,20 @@ class CaptureConfig:
             self.storage = StorageConfig(
                 data_path=f"{base_path}/data",
                 temp_path=f"{base_path}/temp",
-                backup_path=f"{base_path}/backup"
+                backup_path=f"{base_path}/backup",
             )
 
         if self.logging is None:
             self.logging = LoggingConfig(
                 level="INFO" if is_production() else "DEBUG",
-                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             )
 
 
 @dataclass
 class ProcessingConfig:
     """Configuration for processing service."""
+
     # Service
     host: str = "0.0.0.0"
     port: int = 8081
@@ -197,19 +205,20 @@ class ProcessingConfig:
             self.storage = StorageConfig(
                 data_path=f"{base_path}/processing",
                 temp_path=f"{base_path}/temp",
-                backup_path=f"{base_path}/backup"
+                backup_path=f"{base_path}/backup",
             )
 
         if self.logging is None:
             self.logging = LoggingConfig(
                 level="INFO" if is_production() else "DEBUG",
-                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             )
 
 
 @dataclass
 class BackendConfig:
     """Configuration for backend/realtime service."""
+
     # Service
     host: str = "0.0.0.0"
     port: int = 8082
@@ -261,7 +270,9 @@ class BackendConfig:
                     )
 
             if len(jwt_secret) < 32:
-                raise ValueError(f"JWT secret must be at least 32 characters long (current: {len(jwt_secret)})")
+                raise ValueError(
+                    f"JWT secret must be at least 32 characters long (current: {len(jwt_secret)})"
+                )
 
             self.security = SecurityConfig(jwt_secret=jwt_secret)
 
@@ -270,19 +281,20 @@ class BackendConfig:
             self.storage = StorageConfig(
                 data_path=f"{base_path}/backend",
                 temp_path=f"{base_path}/temp",
-                backup_path=f"{base_path}/backup"
+                backup_path=f"{base_path}/backup",
             )
 
         if self.logging is None:
             self.logging = LoggingConfig(
                 level="INFO" if is_production() else "DEBUG",
-                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             )
 
 
 @dataclass
 class FrontendConfig:
     """Configuration for frontend service."""
+
     # Service URLs (backend services)
     api_url: str = "http://localhost:8081"
     ws_url: str = "ws://localhost:8082"
@@ -302,13 +314,14 @@ class FrontendConfig:
             self.location = LocationConfig(
                 latitude=float(os.getenv("LOCATION_LAT", "45.0")),
                 longitude=float(os.getenv("LOCATION_LON", "-110.0")),
-                timezone=os.getenv("TIMEZONE", "America/Denver")
+                timezone=os.getenv("TIMEZONE", "America/Denver"),
             )
 
 
 @dataclass
 class SharedConfig:
     """Shared configuration across all services."""
+
     # Environment
     environment: str
     version: str = "latest"
@@ -336,7 +349,7 @@ class SharedConfig:
             self.location = LocationConfig(
                 latitude=float(os.getenv("LOCATION_LAT", "45.0")),
                 longitude=float(os.getenv("LOCATION_LON", "-110.0")),
-                timezone=os.getenv("TIMEZONE", "America/Denver")
+                timezone=os.getenv("TIMEZONE", "America/Denver"),
             )
 
 
@@ -350,7 +363,7 @@ def get_shared_config() -> SharedConfig:
         version=os.getenv("VERSION", "latest"),
         data_path=os.getenv("DATA_PATH", "./data"),
         log_level=os.getenv("LOG_LEVEL", "DEBUG" if is_development() else "INFO"),
-        metrics_enabled=os.getenv("METRICS_ENABLED", "true").lower() == "true"
+        metrics_enabled=os.getenv("METRICS_ENABLED", "true").lower() == "true",
     )
 
     # Database configuration (if needed)
@@ -375,7 +388,7 @@ def get_capture_config() -> CaptureConfig:
         port=int(os.getenv("CAPTURE_PORT", "8080")),
         camera_id=os.getenv("CAMERA_ID", "camera-01"),
         processing_host=os.getenv("PROCESSING_HOST", "localhost"),
-        processing_port=int(os.getenv("PROCESSING_PORT", "8081"))
+        processing_port=int(os.getenv("PROCESSING_PORT", "8081")),
     )
 
     # Override with environment-specific values
@@ -395,7 +408,7 @@ def get_processing_config() -> ProcessingConfig:
         host=os.getenv("PROCESSING_HOST", "0.0.0.0"),
         port=int(os.getenv("PROCESSING_PORT", "8081")),
         backend_host=os.getenv("BACKEND_HOST", "localhost"),
-        backend_port=int(os.getenv("BACKEND_PORT", "8082"))
+        backend_port=int(os.getenv("BACKEND_PORT", "8082")),
     )
 
     return config
@@ -409,7 +422,7 @@ def get_backend_config() -> BackendConfig:
         host=os.getenv("REALTIME_HOST", "0.0.0.0"),
         port=int(os.getenv("REALTIME_PORT", "8082")),
         processing_host=os.getenv("PROCESSING_HOST", "localhost"),
-        processing_port=int(os.getenv("PROCESSING_PORT", "8081"))
+        processing_port=int(os.getenv("PROCESSING_PORT", "8081")),
     )
 
     return config
@@ -435,7 +448,7 @@ def get_frontend_config() -> FrontendConfig:
         ws_url=ws_url,
         capture_url=capture_url,
         node_env=os.getenv("NODE_ENV", "development"),
-        openweather_api_key=os.getenv("OPENWEATHER_API_KEY")
+        openweather_api_key=os.getenv("OPENWEATHER_API_KEY"),
     )
 
     return config
@@ -486,12 +499,12 @@ def load_environment_from_file(file_path: Optional[str] = None) -> None:
         return
 
     try:
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             for line in f:
                 line = line.strip()
-                if line and not line.startswith('#'):
-                    if '=' in line:
-                        key, value = line.split('=', 1)
+                if line and not line.startswith("#"):
+                    if "=" in line:
+                        key, value = line.split("=", 1)
                         os.environ[key.strip()] = value.strip()
 
         logger.info(f"Loaded environment from: {file_path}")

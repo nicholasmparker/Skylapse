@@ -34,17 +34,18 @@ try:
     )
 except ImportError as e:
     # Fallback for Docker environment - use simplified middleware
-    logger.warning(f"Middleware import failed: {e}, using simplified middleware")
+    logging.getLogger(__name__).warning(f"Middleware import failed: {e}, using simplified middleware")
     PROCESSING_SERVICE_CORS_CONFIG = None
 
     def create_cors_middleware(config, service_name):
         @web.middleware
         async def cors_handler(request, handler):
             response = await handler(request)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
             return response
+
         return cors_handler
 
     def create_aiohttp_error_middleware(service_name):
@@ -54,25 +55,29 @@ except ImportError as e:
                 return await handler(request)
             except Exception as e:
                 return web.json_response({"error": str(e)}, status=500)
+
         return error_handler
 
     def create_json_validation_middleware(service_name):
         @web.middleware
         async def json_validator(request, handler):
             return await handler(request)
+
         return json_validator
 
     def json_response(data, status=200):
         return web.json_response(data, status=status)
 
     def log_error(msg, exc_info=None):
-        logger.error(msg, exc_info=exc_info)
+        logging.getLogger(__name__).error(msg, exc_info=exc_info)
 
     class ProcessingError(Exception):
         pass
 
     class SkylapsError(Exception):
         pass
+
+
 from .config import get_processing_config, get_shared_config
 
 # Import camera service
@@ -80,7 +85,7 @@ try:
     from .camera_service import camera_service
 except ImportError:
     camera_service = None
-    logger.warning("Camera service not available")
+    logging.getLogger(__name__).warning("Camera service not available")
 
 logger = logging.getLogger(__name__)
 

@@ -11,9 +11,8 @@ from typing import Any, Dict, List, Optional
 # Add common directory to path for shared config
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "common"))
 
-from .config import get_processing_config, get_shared_config
-
 from .api_server import ProcessingAPIServer
+from .config import get_processing_config, get_shared_config
 from .config_manager import ProcessingConfigManager
 from .image_processor import ImageProcessor
 from .job_queue import JobQueue
@@ -30,17 +29,19 @@ class ProcessingService:
         """Initialize the processing service."""
         # Use centralized configuration
         self._config = get_processing_config()
-        self._legacy_config = ProcessingConfigManager(config_file)  # Keep for backwards compatibility
+        self._legacy_config = ProcessingConfigManager(
+            config_file
+        )  # Keep for backwards compatibility
 
         self._image_processor = ImageProcessor()
         self._timelapse_assembler = TimelapseAssembler()
         self._transfer_receiver = TransferReceiver()
         self._job_queue = JobQueue()
         # Handle both dict and object config for port
-        port = getattr(self._config, 'port', self._config.get('port', 8081)) if self._config else 8081
-        self._api_server = ProcessingAPIServer(
-            port=port, controller=self
+        port = (
+            getattr(self._config, "port", self._config.get("port", 8081)) if self._config else 8081
         )
+        self._api_server = ProcessingAPIServer(port=port, controller=self)
 
         self._is_running = False
         self._shutdown_event = asyncio.Event()
@@ -395,12 +396,12 @@ async def main():
 
     # Set up logging - handle both dict and object config
     try:
-        if hasattr(config, 'logging'):
+        if hasattr(config, "logging"):
             log_level = config.logging.level.upper()
             log_format = config.logging.format
         else:
-            log_level = 'INFO'
-            log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            log_level = "INFO"
+            log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
         logging.basicConfig(
             level=getattr(logging, log_level),
@@ -413,7 +414,7 @@ async def main():
         # Fallback logging setup
         logging.basicConfig(
             level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             handlers=[
                 logging.StreamHandler(),
             ],
@@ -421,14 +422,18 @@ async def main():
 
     # Handle version and host access for both dict and object config
     try:
-        version = getattr(shared, 'version', shared.get('version', '1.0.0')) if shared else '1.0.0'
-        environment = getattr(shared, 'environment', shared.get('environment', 'production')) if shared else 'production'
-        host = getattr(config, 'host', config.get('host', '0.0.0.0')) if config else '0.0.0.0'
-        port = getattr(config, 'port', config.get('port', 8081)) if config else 8081
+        version = getattr(shared, "version", shared.get("version", "1.0.0")) if shared else "1.0.0"
+        environment = (
+            getattr(shared, "environment", shared.get("environment", "production"))
+            if shared
+            else "production"
+        )
+        host = getattr(config, "host", config.get("host", "0.0.0.0")) if config else "0.0.0.0"
+        port = getattr(config, "port", config.get("port", 8081)) if config else 8081
     except:
-        version = '1.0.0'
-        environment = 'production'
-        host = '0.0.0.0'
+        version = "1.0.0"
+        environment = "production"
+        host = "0.0.0.0"
         port = 8081
 
     logger.info(f"Starting Skylapse Processing Service v{version}")

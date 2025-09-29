@@ -6,15 +6,15 @@ environment-specific defaults and service discovery.
 """
 
 from .environment import (
-    CaptureConfig,
-    ProcessingConfig,
     BackendConfig,
+    CaptureConfig,
     FrontendConfig,
+    ProcessingConfig,
     SharedConfig,
-    get_capture_config,
-    get_processing_config,
     get_backend_config,
+    get_capture_config,
     get_frontend_config,
+    get_processing_config,
     get_shared_config,
     validate_service_discovery,
 )

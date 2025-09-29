@@ -207,7 +207,10 @@ class ArducamIMX519Camera(CameraInterface):
 
             # Apply current rotation setting to preview - same logic as _build_capture_command
             logger.info(f"Preview: checking rotation={self._current_settings.rotation_degrees}")
-            if self._current_settings.rotation_degrees and self._current_settings.rotation_degrees in [180]:
+            if (
+                self._current_settings.rotation_degrees
+                and self._current_settings.rotation_degrees in [180]
+            ):
                 cmd.extend(["--rotation", str(self._current_settings.rotation_degrees)])
                 logger.info(
                     f"Preview: Added --rotation "
@@ -231,7 +234,9 @@ class ArducamIMX519Camera(CameraInterface):
             timeout_seconds = self._capture_timeout_ms / 1000 + 5  # Add 5s buffer for processing
 
             try:
-                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout_seconds)
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(), timeout=timeout_seconds
+                )
                 logger.info(f"Preview: Process completed with return code {process.returncode}")
 
                 # Decode and log output
@@ -245,7 +250,9 @@ class ArducamIMX519Camera(CameraInterface):
 
                 # Check for command failure using same logic as working capture method
                 if process.returncode != 0:
-                    logger.error(f"Preview: rpicam-still command failed with return code {process.returncode}")
+                    logger.error(
+                        f"Preview: rpicam-still command failed with return code {process.returncode}"
+                    )
                     logger.error(f"Preview: stderr: {stderr_text}")
                     return None
 
