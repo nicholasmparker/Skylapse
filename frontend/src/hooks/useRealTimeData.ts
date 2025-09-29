@@ -334,13 +334,14 @@ export const useRealTimeData = (): UseRealTimeDataReturn => {
 
       console.log('🌐 Fetching fresh health status from all services...');
       // Fetch health status from all services directly
-      const [captureHealth, processingHealth, backendHealth] = await Promise.allSettled([
+      const [captureHealth, processingHealth, backendHealth, cameraStatus] = await Promise.allSettled([
         fetch('http://helios.local:8080/health').then(r => r.json()),
         fetch('http://localhost:8081/health').then(r => r.json()),
-        fetch('http://localhost:8082/health').then(r => r.json())
+        fetch('http://localhost:8082/health').then(r => r.json()),
+        fetch('http://helios.local:8080/camera/status').then(r => r.json())
       ]);
 
-      console.log('📡 Health check results:', { captureHealth, processingHealth, backendHealth });
+      console.log('📡 Health check results:', { captureHealth, processingHealth, backendHealth, cameraStatus });
 
       // Convert health check responses to SystemStatus format
       const status: SystemStatus = {
@@ -373,6 +374,26 @@ export const useRealTimeData = (): UseRealTimeDataReturn => {
         networkStatus: {
           connected: backendHealth.status === 'fulfilled' && backendHealth.value?.status === 'healthy',
           signal: 85
+        },
+        camera: {
+          isConnected: cameraStatus.status === 'fulfilled' && cameraStatus.value?.initialized === true,
+          model: cameraStatus.status === 'fulfilled' ? cameraStatus.value?.camera_model || 'Unknown model' : 'Unknown model',
+          resolution: {
+            width: 4656,
+            height: 3496
+          },
+          currentSettings: {
+            iso: 100,
+            exposureTime: '1/60',
+            whiteBalance: 'auto' as const,
+            imageFormat: 'jpeg' as const,
+            quality: 95,
+            hdr: {
+              enabled: false,
+              brackets: 3,
+              evSteps: 1
+            }
+          }
         }
       };
 

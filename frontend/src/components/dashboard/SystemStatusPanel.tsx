@@ -33,7 +33,7 @@ export const SystemStatusPanel: React.FC<SystemStatusPanelProps> = ({
       case 'processing':
         return status.processingService?.status === 'healthy' ? 'active' : 'error';
       case 'camera':
-        return status.networkStatus?.connected ? 'active' : 'error';
+        return status.camera?.isConnected ? 'active' : 'error';
       default:
         return 'paused';
     }
