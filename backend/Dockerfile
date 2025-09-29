@@ -38,7 +38,8 @@ EXPOSE 8082
 ENV PYTHONPATH=/app
 ENV REALTIME_HOST=0.0.0.0
 ENV REALTIME_PORT=8082
-ENV JWT_SECRET=skylapse_jwt_secret_change_in_production
+# JWT_SECRET must be provided as an environment variable at runtime
+# Example: -e SKYLAPSE_JWT_SECRET=your_secure_secret_minimum_32_characters_long
 
 # Run the real-time server
 CMD ["python", "-m", "src.realtime_server"]

@@ -78,6 +78,17 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
         setCameraStatus(statusResponse.data);
       }
 
+      // Test if preview endpoint is available before starting stream
+      const testResponse = await fetch(`${previewURL}?test=true`);
+      if (!testResponse.ok) {
+        if (testResponse.status === 404) {
+          setError('Live preview feature not available on camera service');
+        } else {
+          setError('Camera preview service temporarily unavailable');
+        }
+        return;
+      }
+
       // Start streaming
       setIsStreaming(true);
 
@@ -95,7 +106,11 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
       }, 100); // ~10 FPS refresh rate
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start camera preview');
+      if (err instanceof Error && err.message.includes('Failed to fetch')) {
+        setError('Cannot connect to camera service - check network connection');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to start camera preview');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -139,7 +154,7 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
   };
 
   const handleImageError = () => {
-    setError('Failed to load camera preview');
+    setError('Camera preview service unavailable');
     setIsLoading(false);
   };
 
@@ -160,6 +175,28 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
             onLoad={handleImageLoad}
             onError={handleImageError}
           />
+        ) : error ? (
+          <div className="flex items-center justify-center h-full text-mountain-400">
+            <div className="text-center max-w-md p-6">
+              <div className="text-6xl mb-4">📷</div>
+              <div className="text-lg font-medium text-mountain-300 mb-2">Camera Preview Unavailable</div>
+              <div className="text-sm mb-4">{error}</div>
+              {cameraStatus ? (
+                <div className="bg-mountain-800 rounded-lg p-4 text-left">
+                  <div className="text-sm font-medium text-golden-400 mb-2">Camera Status</div>
+                  <div className="space-y-1 text-xs">
+                    <div>Model: {cameraStatus.camera_model}</div>
+                    <div>Status: {cameraStatus.running ? 'Running' : 'Stopped'}</div>
+                    <div>Captures: {cameraStatus.performance.successful_captures}/{cameraStatus.performance.total_captures}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-mountain-500">
+                  Manual capture controls are still available
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full text-mountain-400">
             <div className="text-center">

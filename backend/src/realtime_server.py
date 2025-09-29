@@ -6,21 +6,66 @@ Replaces broken Socket.IO implementation with robust, authenticated WebSocket co
 import asyncio
 import json
 import logging
+import os
 import traceback
 import uuid
-import weakref
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Set
 
-import aiohttp
 import jwt
 from aiohttp import WSMsgType, web
 from aiohttp.web_ws import WebSocketResponse
 
 logger = logging.getLogger(__name__)
 
-# JWT Configuration
-JWT_SECRET = "skylapse_jwt_secret_change_in_production"  # TODO: Move to environment
+
+# JWT Configuration with secure environment-based secret loading
+def _load_jwt_secret() -> str:
+    """
+    Load JWT secret from environment variable with security validation.
+
+    Returns:
+        str: The validated JWT secret
+
+    Raises:
+        ValueError: If JWT secret is missing or invalid
+    """
+    # Try multiple environment variable names for flexibility
+    secret = (
+        os.getenv("SKYLAPSE_JWT_SECRET")
+        or os.getenv("JWT_SECRET")
+        or os.getenv("REALTIME_JWT_SECRET")
+    )
+
+    if not secret:
+        raise ValueError(
+            "JWT secret not configured! Set one of these environment variables:\n"
+            "  - SKYLAPSE_JWT_SECRET (recommended)\n"
+            "  - JWT_SECRET\n"
+            "  - REALTIME_JWT_SECRET\n"
+            "Example: export SKYLAPSE_JWT_SECRET='your_secure_secret_minimum_32_characters_long'"
+        )
+
+    # Validate secret length for security
+    if len(secret) < 32:
+        raise ValueError(
+            f"JWT secret must be at least 32 characters long for security. "
+            f"Current length: {len(secret)} characters. "
+            f"Please use a longer, more secure secret."
+        )
+
+    # Don't log the actual secret value - just confirm it's loaded
+    logger.info(f"JWT secret loaded successfully ({len(secret)} characters)")
+    return secret
+
+
+# Load and validate JWT secret at startup
+try:
+    JWT_SECRET = _load_jwt_secret()
+except ValueError as e:
+    logger.error(f"Critical security error: {e}")
+    raise
+
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
 
@@ -47,9 +92,8 @@ class ConnectionManager:
         }
         self.connection_health[connection_id] = datetime.now()
 
-        logger.info(
-            f"WebSocket connection added: {connection_id} for user {user_info.get('user_id', 'unknown')}"
-        )
+        user_id = user_info.get("user_id", "unknown")
+        logger.info(f"WebSocket connection added: {connection_id} for user {user_id}")
 
     async def remove_connection(self, connection_id: str) -> None:
         """Remove connection and clean up subscriptions."""
@@ -58,9 +102,8 @@ class ConnectionManager:
 
         if connection_id in self.connection_metadata:
             user_info = self.connection_metadata[connection_id]["user_info"]
-            logger.info(
-                f"WebSocket connection removed: {connection_id} for user {user_info.get('user_id', 'unknown')}"
-            )
+            user_id = user_info.get("user_id", "unknown")
+            logger.info(f"WebSocket connection removed: {connection_id} for user {user_id}")
             del self.connection_metadata[connection_id]
 
         if connection_id in self.connection_health:
@@ -149,7 +192,7 @@ class ConnectionManager:
 
     async def ping_connections(self) -> None:
         """Send ping to all connections to check health."""
-        ping_message = {"type": "ping", "timestamp": datetime.now().isoformat()}
+        {"type": "ping", "timestamp": datetime.now().isoformat()}
 
         dead_connections = []
         for connection_id, ws in self.connections.items():
@@ -511,9 +554,9 @@ class SkylapsRealTimeServer:
                 await self.connection_manager.ping_connections()
 
                 stats = self.connection_manager.get_stats()
-                logger.debug(
-                    f"Connection health check: {stats['healthy_connections']}/{stats['total_connections']} healthy"
-                )
+                healthy = stats["healthy_connections"]
+                total = stats["total_connections"]
+                logger.debug(f"Connection health check: {healthy}/{total} healthy")
 
             except Exception as e:
                 logger.error(f"Health check background task error: {e}")
