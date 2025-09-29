@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY src/ ./src/
+COPY common/ ./common/
 
 # Set ownership
 RUN chown -R skylapse:skylapse /app

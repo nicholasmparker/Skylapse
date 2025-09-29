@@ -3,20 +3,32 @@
 import asyncio
 import json
 import logging
+import sys
 import traceback
 from datetime import datetime, timedelta
+from pathlib import Path
 
 try:
     import socketio
     from aiohttp import web
-    from aiohttp.web import StreamResponse, json_response
-
-    logger = logging.getLogger(__name__)
+    from aiohttp.web import StreamResponse
 except ImportError:
     web = None
-    json_response = None
     socketio = None
     StreamResponse = None
+
+# Add common directory to path for shared middleware
+sys.path.insert(0, str(Path(__file__).parent.parent / "common"))
+
+from middleware.cors_handler import PROCESSING_SERVICE_CORS_CONFIG, create_cors_middleware
+from middleware.error_handler import (
+    ProcessingError,
+    SkylapsError,
+    create_aiohttp_error_middleware,
+    create_json_validation_middleware,
+    json_response,
+    log_error,
+)
 
 # Import camera service
 try:
@@ -72,8 +84,16 @@ class ProcessingAPIServer:
             if self.sio:
                 self.sio.attach(self.app)
 
-            # Add middleware - CORS must be first to ensure headers are always added
-            self.app.middlewares.append(self._cors_middleware)
+            # Add middleware in correct order:
+            # 1. CORS (must be first to handle preflight requests)
+            # 2. JSON validation (validate JSON before processing)
+            # 3. Error handling (catch all errors and format responses)
+            # 4. Logging (log successful requests)
+            self.app.middlewares.append(
+                create_cors_middleware(PROCESSING_SERVICE_CORS_CONFIG, "processing")
+            )
+            self.app.middlewares.append(create_json_validation_middleware("processing"))
+            self.app.middlewares.append(create_aiohttp_error_middleware("processing"))
             self.app.middlewares.append(self._logging_middleware)
 
             # Start server
@@ -114,52 +134,6 @@ class ProcessingAPIServer:
 
         except Exception as e:
             logger.error(f"Error during processing API server shutdown: {e}")
-
-    @web.middleware
-    async def _cors_middleware(self, request, handler):
-        """CORS middleware for cross-origin requests."""
-        # Handle preflight OPTIONS requests immediately
-        if request.method == "OPTIONS":
-            logger.debug(f"CORS: Handling preflight OPTIONS request for {request.path}")
-            response = web.Response()
-        else:
-            try:
-                # Process the request
-                response = await handler(request)
-            except Exception as e:
-                logger.error(f"Processing API error: {e}\n{traceback.format_exc()}")
-                # Create error response with proper status
-                if hasattr(e, "status_code"):
-                    status = e.status_code
-                elif "not found" in str(e).lower():
-                    status = 404
-                elif "method not allowed" in str(e).lower():
-                    status = 405
-                else:
-                    status = 500
-
-                response = json_response(
-                    {
-                        "error": str(e),
-                        "type": type(e).__name__,
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                    status=status,
-                )
-
-        # Add CORS headers to ALL responses (success, error, and preflight)
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = (
-            "Content-Type, Authorization, X-Requested-With"
-        )
-        response.headers["Access-Control-Max-Age"] = "86400"
-        response.headers["Access-Control-Allow-Credentials"] = "false"
-
-        logger.debug(
-            f"CORS: Added headers to {request.method} {request.path} response (status: {response.status})"
-        )
-        return response
 
     def _setup_routes(self) -> None:
         """Setup API routes."""

@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code
 COPY src/ ./src/
 COPY config/ ./config/
+COPY common/ ./common/
 
 # Create necessary directories
 RUN mkdir -p /tmp/skylapse_processing \

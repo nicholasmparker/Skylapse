@@ -1,0 +1,659 @@
+{
+  "config": {
+    "configFile": "/Users/nicholasmparker/Projects/skylapse/frontend/playwright.config.ts",
+    "rootDir": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/nicholasmparker/Projects/skylapse/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.55.1",
+    "workers": 7,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:3000",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "shared-middleware-validation.spec.ts",
+      "file": "shared-middleware-validation.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Shared Error Handling Middleware Validation",
+          "file": "shared-middleware-validation.spec.ts",
+          "line": 56,
+          "column": 6,
+          "specs": [],
+          "suites": [
+            {
+              "title": "Test 5.1: Error Response Consistency Across Services",
+              "file": "shared-middleware-validation.spec.ts",
+              "line": 58,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "All services return consistent 404 error format",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "failed",
+                          "duration": 36,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m500\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m500\u001b[39m\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:73:35",
+                            "location": {
+                              "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                              "column": 35,
+                              "line": 73
+                            },
+                            "snippet": "  71 |\n  72 |         // Should return 404\n> 73 |         expect(response.status()).toBe(404);\n     |                                   ^\n  74 |       }\n  75 |\n  76 |       // Validate all services use same error response structure"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                                "column": 35,
+                                "line": 73
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m500\u001b[39m\n\n  71 |\n  72 |         // Should return 404\n> 73 |         expect(response.status()).toBe(404);\n     |                                   ^\n  74 |       }\n  75 |\n  76 |       // Validate all services use same error response structure\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:73:35"
+                            }
+                          ],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-29T17:32:23.111Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                            "column": 35,
+                            "line": 73
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "bf3cb7adeeda25cb25f9-d80afaa097af94f3b7f2",
+                  "file": "shared-middleware-validation.spec.ts",
+                  "line": 60,
+                  "column": 5
+                },
+                {
+                  "title": "All services return consistent 500 error format for invalid JSON",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 1,
+                          "parallelIndex": 0,
+                          "status": "failed",
+                          "duration": 30,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m500\u001b[39m\nReceived:   \u001b[31m500\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m500\u001b[39m\nReceived:   \u001b[31m500\u001b[39m\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:123:35",
+                            "location": {
+                              "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                              "column": 35,
+                              "line": 123
+                            },
+                            "snippet": "  121 |         // Should return 400 for bad JSON\n  122 |         expect(response.status()).toBeGreaterThanOrEqual(400);\n> 123 |         expect(response.status()).toBeLessThan(500);\n      |                                   ^\n  124 |       }\n  125 |\n  126 |       // Validate error response structure consistency"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                                "column": 35,
+                                "line": 123
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m500\u001b[39m\nReceived:   \u001b[31m500\u001b[39m\n\n  121 |         // Should return 400 for bad JSON\n  122 |         expect(response.status()).toBeGreaterThanOrEqual(400);\n> 123 |         expect(response.status()).toBeLessThan(500);\n      |                                   ^\n  124 |       }\n  125 |\n  126 |       // Validate error response structure consistency\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:123:35"
+                            }
+                          ],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-29T17:32:23.373Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                            "column": 35,
+                            "line": 123
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "bf3cb7adeeda25cb25f9-97fa122eca385e8b575e",
+                  "file": "shared-middleware-validation.spec.ts",
+                  "line": 96,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Test 5.2: CORS Headers Consistency Across Services",
+              "file": "shared-middleware-validation.spec.ts",
+              "line": 139,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "All services return identical CORS headers",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 2,
+                          "parallelIndex": 0,
+                          "status": "failed",
+                          "duration": 51,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"GET, POST, PUT, OPTIONS\"\u001b[39m\nReceived: \u001b[31m\"GET, POST, PUT,\u001b[7m DELETE,\u001b[27m OPTIONS\"\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"GET, POST, PUT, OPTIONS\"\u001b[39m\nReceived: \u001b[31m\"GET, POST, PUT,\u001b[7m DELETE,\u001b[27m OPTIONS\"\u001b[39m\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:179:57",
+                            "location": {
+                              "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                              "column": 57,
+                              "line": 179
+                            },
+                            "snippet": "  177 |       for (const [serviceName, headers] of Object.entries(corsHeaders)) {\n  178 |         // Methods and max-age should be identical\n> 179 |         expect(headers['access-control-allow-methods']).toBe(referenceHeaders['access-control-allow-methods']);\n      |                                                         ^\n  180 |         expect(headers['access-control-max-age']).toBe(referenceHeaders['access-control-max-age']);\n  181 |\n  182 |         // Origins can vary by service but should follow same pattern"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                                "column": 57,
+                                "line": 179
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"GET, POST, PUT, OPTIONS\"\u001b[39m\nReceived: \u001b[31m\"GET, POST, PUT,\u001b[7m DELETE,\u001b[27m OPTIONS\"\u001b[39m\n\n  177 |       for (const [serviceName, headers] of Object.entries(corsHeaders)) {\n  178 |         // Methods and max-age should be identical\n> 179 |         expect(headers['access-control-allow-methods']).toBe(referenceHeaders['access-control-allow-methods']);\n      |                                                         ^\n  180 |         expect(headers['access-control-max-age']).toBe(referenceHeaders['access-control-max-age']);\n  181 |\n  182 |         // Origins can vary by service but should follow same pattern\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:179:57"
+                            }
+                          ],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-29T17:32:23.630Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                            "column": 57,
+                            "line": 179
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "bf3cb7adeeda25cb25f9-80860e7bd8cbe70cb667",
+                  "file": "shared-middleware-validation.spec.ts",
+                  "line": 141,
+                  "column": 5
+                },
+                {
+                  "title": "All services handle CORS preflight OPTIONS requests consistently",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 3,
+                          "parallelIndex": 0,
+                          "status": "failed",
+                          "duration": 25,
+                          "error": {
+                            "message": "TypeError: object is not iterable (cannot read property Symbol(Symbol.iterator))",
+                            "stack": "TypeError: object is not iterable (cannot read property Symbol(Symbol.iterator))\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:203:27",
+                            "location": {
+                              "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                              "column": 27,
+                              "line": 203
+                            },
+                            "snippet": "  201 |         preflightTests[serviceName] = {\n  202 |           status: response.status(),\n> 203 |           headers: Object.fromEntries(response.headers())\n      |                           ^\n  204 |         };\n  205 |\n  206 |         // Should return 200 for valid preflight"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                                "column": 27,
+                                "line": 203
+                              },
+                              "message": "TypeError: object is not iterable (cannot read property Symbol(Symbol.iterator))\n\n  201 |         preflightTests[serviceName] = {\n  202 |           status: response.status(),\n> 203 |           headers: Object.fromEntries(response.headers())\n      |                           ^\n  204 |         };\n  205 |\n  206 |         // Should return 200 for valid preflight\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:203:27"
+                            }
+                          ],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-29T17:32:23.912Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                            "column": 27,
+                            "line": 203
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "bf3cb7adeeda25cb25f9-bc8329de91b9c0aca600",
+                  "file": "shared-middleware-validation.spec.ts",
+                  "line": 187,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Test 5.3: Security Headers Consistency",
+              "file": "shared-middleware-validation.spec.ts",
+              "line": 222,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "All services return consistent security headers",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 4,
+                          "parallelIndex": 0,
+                          "status": "failed",
+                          "duration": 41,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"x-content-type-options\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{\"access-control-allow-credentials\": \"false\", \"access-control-allow-headers\": \"Content-Type, Authorization, X-Requested-With\", \"access-control-allow-methods\": \"GET, POST, PUT, DELETE, OPTIONS\", \"access-control-allow-origin\": \"*\", \"access-control-max-age\": \"86400\", \"content-length\": \"92\", \"content-type\": \"application/json; charset=utf-8\", \"date\": \"Mon, 29 Sep 2025 17:32:24 GMT\", \"server\": \"Python/3.11 aiohttp/3.12.15\"}\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"x-content-type-options\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{\"access-control-allow-credentials\": \"false\", \"access-control-allow-headers\": \"Content-Type, Authorization, X-Requested-With\", \"access-control-allow-methods\": \"GET, POST, PUT, DELETE, OPTIONS\", \"access-control-allow-origin\": \"*\", \"access-control-max-age\": \"86400\", \"content-length\": \"92\", \"content-type\": \"application/json; charset=utf-8\", \"date\": \"Mon, 29 Sep 2025 17:32:24 GMT\", \"server\": \"Python/3.11 aiohttp/3.12.15\"}\u001b[39m\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:240:27",
+                            "location": {
+                              "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                              "column": 27,
+                              "line": 240
+                            },
+                            "snippet": "  238 |\n  239 |         for (const securityHeader of EXPECTED_SECURITY_HEADERS) {\n> 240 |           expect(headers).toHaveProperty(securityHeader);\n      |                           ^\n  241 |         }\n  242 |\n  243 |         // Validate specific security header values"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                                "column": 27,
+                                "line": 240
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"x-content-type-options\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{\"access-control-allow-credentials\": \"false\", \"access-control-allow-headers\": \"Content-Type, Authorization, X-Requested-With\", \"access-control-allow-methods\": \"GET, POST, PUT, DELETE, OPTIONS\", \"access-control-allow-origin\": \"*\", \"access-control-max-age\": \"86400\", \"content-length\": \"92\", \"content-type\": \"application/json; charset=utf-8\", \"date\": \"Mon, 29 Sep 2025 17:32:24 GMT\", \"server\": \"Python/3.11 aiohttp/3.12.15\"}\u001b[39m\n\n  238 |\n  239 |         for (const securityHeader of EXPECTED_SECURITY_HEADERS) {\n> 240 |           expect(headers).toHaveProperty(securityHeader);\n      |                           ^\n  241 |         }\n  242 |\n  243 |         // Validate specific security header values\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:240:27"
+                            }
+                          ],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-29T17:32:24.160Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                            "column": 27,
+                            "line": 240
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "bf3cb7adeeda25cb25f9-3e4d057e092d5f34d435",
+                  "file": "shared-middleware-validation.spec.ts",
+                  "line": 224,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Test 5.4: API Error Response Format Validation",
+              "file": "shared-middleware-validation.spec.ts",
+              "line": 251,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "All services return standardized error JSON structure",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "failed",
+                          "duration": 52,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"error\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{}\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"error\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{}\u001b[39m\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:299:24",
+                            "location": {
+                              "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                              "column": 24,
+                              "line": 299
+                            },
+                            "snippet": "  297 |\n  298 |           // Should have standardized error structure\n> 299 |           expect(body).toHaveProperty('error');\n      |                        ^\n  300 |           expect(body.error).toHaveProperty('code');\n  301 |           expect(body.error).toHaveProperty('message');\n  302 |           expect(body.error).toHaveProperty('details');"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                                "column": 24,
+                                "line": 299
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"error\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{}\u001b[39m\n\n  297 |\n  298 |           // Should have standardized error structure\n> 299 |           expect(body).toHaveProperty('error');\n      |                        ^\n  300 |           expect(body.error).toHaveProperty('code');\n  301 |           expect(body.error).toHaveProperty('message');\n  302 |           expect(body.error).toHaveProperty('details');\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:299:24"
+                            }
+                          ],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-29T17:32:24.419Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                            "column": 24,
+                            "line": 299
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "bf3cb7adeeda25cb25f9-ce609d7aef199fff411e",
+                  "file": "shared-middleware-validation.spec.ts",
+                  "line": 253,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Test 5.5: Service Health Checks Consistency",
+              "file": "shared-middleware-validation.spec.ts",
+              "line": 325,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "All services implement identical health check behavior",
+                  "ok": false,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 6,
+                          "parallelIndex": 0,
+                          "status": "failed",
+                          "duration": 45,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"x-content-type-options\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{\"access-control-allow-credentials\": \"false\", \"access-control-allow-headers\": \"Content-Type, Authorization, X-Requested-With\", \"access-control-allow-methods\": \"GET, POST, PUT, DELETE, OPTIONS\", \"access-control-allow-origin\": \"*\", \"access-control-max-age\": \"86400\", \"content-length\": \"92\", \"content-type\": \"application/json; charset=utf-8\", \"date\": \"Mon, 29 Sep 2025 17:32:24 GMT\", \"server\": \"Python/3.11 aiohttp/3.12.15\"}\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"x-content-type-options\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{\"access-control-allow-credentials\": \"false\", \"access-control-allow-headers\": \"Content-Type, Authorization, X-Requested-With\", \"access-control-allow-methods\": \"GET, POST, PUT, DELETE, OPTIONS\", \"access-control-allow-origin\": \"*\", \"access-control-max-age\": \"86400\", \"content-length\": \"92\", \"content-type\": \"application/json; charset=utf-8\", \"date\": \"Mon, 29 Sep 2025 17:32:24 GMT\", \"server\": \"Python/3.11 aiohttp/3.12.15\"}\u001b[39m\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:362:27",
+                            "location": {
+                              "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                              "column": 27,
+                              "line": 362
+                            },
+                            "snippet": "  360 |         // Should have security headers\n  361 |         for (const securityHeader of EXPECTED_SECURITY_HEADERS) {\n> 362 |           expect(headers).toHaveProperty(securityHeader);\n      |                           ^\n  363 |         }\n  364 |       }\n  365 |     });"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                                "column": 27,
+                                "line": 362
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveProperty\u001b[2m(\u001b[22m\u001b[32mpath\u001b[39m\u001b[2m)\u001b[22m\n\nExpected path: \u001b[32m\"x-content-type-options\"\u001b[39m\nReceived path: \u001b[31m[]\u001b[39m\n\nReceived value: \u001b[31m{\"access-control-allow-credentials\": \"false\", \"access-control-allow-headers\": \"Content-Type, Authorization, X-Requested-With\", \"access-control-allow-methods\": \"GET, POST, PUT, DELETE, OPTIONS\", \"access-control-allow-origin\": \"*\", \"access-control-max-age\": \"86400\", \"content-length\": \"92\", \"content-type\": \"application/json; charset=utf-8\", \"date\": \"Mon, 29 Sep 2025 17:32:24 GMT\", \"server\": \"Python/3.11 aiohttp/3.12.15\"}\u001b[39m\n\n  360 |         // Should have security headers\n  361 |         for (const securityHeader of EXPECTED_SECURITY_HEADERS) {\n> 362 |           expect(headers).toHaveProperty(securityHeader);\n      |                           ^\n  363 |         }\n  364 |       }\n  365 |     });\n    at /Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts:362:27"
+                            }
+                          ],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-29T17:32:24.686Z",
+                          "annotations": [],
+                          "attachments": [],
+                          "errorLocation": {
+                            "file": "/Users/nicholasmparker/Projects/skylapse/frontend/tests/e2e/shared-middleware-validation.spec.ts",
+                            "column": 27,
+                            "line": 362
+                          }
+                        }
+                      ],
+                      "status": "unexpected"
+                    }
+                  ],
+                  "id": "bf3cb7adeeda25cb25f9-a749a0bc91fbe50841b4",
+                  "file": "shared-middleware-validation.spec.ts",
+                  "line": 327,
+                  "column": 5
+                },
+                {
+                  "title": "Health checks return service-specific metadata",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 7,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 36,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-29T17:32:24.951Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bf3cb7adeeda25cb25f9-b876cf3f6c6c19c6693e",
+                  "file": "shared-middleware-validation.spec.ts",
+                  "line": 367,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Test 5.6: Error Logging Standardization Validation",
+              "file": "shared-middleware-validation.spec.ts",
+              "line": 395,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "Services handle and log errors consistently",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 7,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 14,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-29T17:32:24.994Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bf3cb7adeeda25cb25f9-bed83a162b9ef91ff121",
+                  "file": "shared-middleware-validation.spec.ts",
+                  "line": 397,
+                  "column": 5
+                }
+              ]
+            },
+            {
+              "title": "Test 5.7: Middleware Integration Validation",
+              "file": "shared-middleware-validation.spec.ts",
+              "line": 444,
+              "column": 8,
+              "specs": [
+                {
+                  "title": "No duplicate error handling code remains in services",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 30000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 7,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 39,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-29T17:32:25.012Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "bf3cb7adeeda25cb25f9-ab261d8fca397a43687c",
+                  "file": "shared-middleware-validation.spec.ts",
+                  "line": 446,
+                  "column": 5
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-09-29T17:32:22.849Z",
+    "duration": 2214.768,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 7,
+    "flaky": 0
+  }
+}

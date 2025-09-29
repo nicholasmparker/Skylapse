@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-import traceback
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
@@ -18,6 +18,20 @@ except ImportError:
     Response = None
 
 import yaml
+
+# Add common directory to path for shared middleware
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "common"))
+
+from middleware.cors_handler import CAPTURE_SERVICE_CORS_CONFIG, create_cors_middleware
+from middleware.error_handler import (
+    CameraError,
+    SkylapsError,
+    ValidationError,
+    create_aiohttp_error_middleware,
+    create_json_validation_middleware,
+    json_response,
+    log_error,
+)
 
 from .camera_types import CaptureSettings, SkylapsJSONEncoder, to_dict
 from .schedule_models import ScheduleValidationError
@@ -153,9 +167,16 @@ class CaptureAPIServer:
             # Add routes
             self._setup_routes()
 
-            # Add middleware - CORS must be first
-            self.app.middlewares.append(self._cors_middleware)
-            self.app.middlewares.append(self._error_middleware)
+            # Add middleware in correct order:
+            # 1. CORS (must be first to handle preflight requests)
+            # 2. JSON validation (validate JSON before processing)
+            # 3. Error handling (catch all errors and format responses)
+            # 4. Logging (log successful requests)
+            self.app.middlewares.append(
+                create_cors_middleware(CAPTURE_SERVICE_CORS_CONFIG, "capture")
+            )
+            self.app.middlewares.append(create_json_validation_middleware("capture"))
+            self.app.middlewares.append(create_aiohttp_error_middleware("capture"))
             self.app.middlewares.append(self._logging_middleware)
 
             # Start server
@@ -237,22 +258,6 @@ class CaptureAPIServer:
         self.app.router.add_get("/api/schedule/{id}", self._get_schedule)
         self.app.router.add_put("/api/schedule/{id}", self._update_schedule)
         self.app.router.add_delete("/api/schedule/{id}", self._delete_schedule)
-
-    @web.middleware
-    async def _error_middleware(self, request, handler):
-        """Error handling middleware."""
-        try:
-            return await handler(request)
-        except Exception as e:
-            logger.error(f"API error: {e}\n{traceback.format_exc()}")
-            return json_response(
-                {
-                    "error": str(e),
-                    "type": type(e).__name__,
-                    "timestamp": datetime.now().isoformat(),
-                },
-                status=500,
-            )
 
     @web.middleware
     async def _logging_middleware(self, request, handler):
@@ -339,6 +344,8 @@ class CaptureAPIServer:
 
         try:
             data = await request.json()
+            if not isinstance(data, dict):
+                raise ValueError(f"Invalid JSON data: expected object, got {type(data).__name__}")
             settings = self._parse_capture_settings(data)
 
             # Save settings persistently first
@@ -373,6 +380,10 @@ class CaptureAPIServer:
             settings = None
             if request.content_type == "application/json":
                 data = await request.json()
+                if not isinstance(data, dict):
+                    raise ValueError(
+                        f"Invalid JSON data: expected object, got {type(data).__name__}"
+                    )
                 settings = self._parse_capture_settings(data.get("settings", {}))
 
             result = await self.controller.manual_capture(settings)
@@ -404,6 +415,10 @@ class CaptureAPIServer:
             iterations = 10  # default
             if request.content_type == "application/json":
                 data = await request.json()
+                if not isinstance(data, dict):
+                    raise ValueError(
+                        f"Invalid JSON data: expected object, got {type(data).__name__}"
+                    )
                 iterations = data.get("iterations", 10)
 
             result = await self.controller._camera_controller.run_performance_baseline(iterations)
@@ -454,6 +469,8 @@ class CaptureAPIServer:
 
         try:
             data = await request.json()
+            if not isinstance(data, dict):
+                raise ValueError(f"Invalid JSON data: expected object, got {type(data).__name__}")
             success = await self.controller.update_configuration(data)
 
             if success:
@@ -580,33 +597,6 @@ class CaptureAPIServer:
             processing_hints=data.get("processing_hints", {}),
         )
 
-    @web.middleware
-    async def _cors_middleware(self, request, handler):
-        """CORS middleware to allow cross-origin requests from frontend."""
-        try:
-            # Handle preflight OPTIONS requests
-            if request.method == "OPTIONS":
-                response = web.Response()
-            else:
-                response = await handler(request)
-
-            # Add CORS headers
-            response.headers["Access-Control-Allow-Origin"] = "*"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-            response.headers["Access-Control-Allow-Headers"] = (
-                "Content-Type, Authorization, X-Requested-With"
-            )
-            response.headers["Access-Control-Max-Age"] = "86400"  # 24 hours
-
-            return response
-
-        except Exception as e:
-            logger.error(f"CORS middleware error: {e}")
-            # Even on error, return response with CORS headers
-            error_response = web.Response(status=500, text=str(e))
-            error_response.headers["Access-Control-Allow-Origin"] = "*"
-            return error_response
-
     # Schedule Management API Handlers
 
     async def _get_schedules(self, request) -> web.Response:
@@ -632,6 +622,8 @@ class CaptureAPIServer:
         """Create a new schedule rule."""
         try:
             data = await request.json()
+            if not isinstance(data, dict):
+                raise ValueError(f"Invalid JSON data: expected object, got {type(data).__name__}")
 
             # Create schedule
             schedule = await self.schedule_storage.create_schedule(data)
@@ -680,6 +672,8 @@ class CaptureAPIServer:
         try:
             schedule_id = request.match_info["id"]
             data = await request.json()
+            if not isinstance(data, dict):
+                raise ValueError(f"Invalid JSON data: expected object, got {type(data).__name__}")
 
             # Update schedule
             updated_schedule = await self.schedule_storage.update_schedule(schedule_id, data)

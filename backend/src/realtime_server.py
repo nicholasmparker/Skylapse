@@ -7,14 +7,29 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import traceback
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 import jwt
 from aiohttp import WSMsgType, web
 from aiohttp.web_ws import WebSocketResponse
+
+# Add common directory to path for shared middleware
+sys.path.insert(0, str(Path(__file__).parent.parent / "common"))
+
+from middleware.cors_handler import BACKEND_SERVICE_CORS_CONFIG, create_cors_middleware
+from middleware.error_handler import (
+    AuthenticationError,
+    SkylapsError,
+    create_aiohttp_error_middleware,
+    create_json_validation_middleware,
+    json_response,
+    log_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -305,38 +320,13 @@ class SkylapsRealTimeServer:
 
     def _setup_middleware(self) -> None:
         """Setup middleware."""
-
-        @web.middleware
-        async def cors_middleware(request, handler):
-            """CORS middleware for cross-origin requests."""
-            if request.method == "OPTIONS":
-                response = web.Response()
-            else:
-                response = await handler(request)
-
-            response.headers["Access-Control-Allow-Origin"] = "*"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-            return response
-
-        @web.middleware
-        async def error_middleware(request, handler):
-            """Error handling middleware."""
-            try:
-                return await handler(request)
-            except Exception as e:
-                logger.error(f"Request error: {e}\n{traceback.format_exc()}")
-                return web.json_response(
-                    {
-                        "error": str(e),
-                        "type": type(e).__name__,
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                    status=500,
-                )
-
-        self.app.middlewares.append(cors_middleware)
-        self.app.middlewares.append(error_middleware)
+        # Add middleware in correct order:
+        # 1. CORS (must be first to handle preflight requests)
+        # 2. JSON validation (validate JSON before processing)
+        # 3. Error handling (catch all errors and format responses)
+        self.app.middlewares.append(create_cors_middleware(BACKEND_SERVICE_CORS_CONFIG, "backend"))
+        self.app.middlewares.append(create_json_validation_middleware("backend"))
+        self.app.middlewares.append(create_aiohttp_error_middleware("backend"))
 
     async def _websocket_handler(self, request) -> WebSocketResponse:
         """Handle WebSocket connections with authentication."""

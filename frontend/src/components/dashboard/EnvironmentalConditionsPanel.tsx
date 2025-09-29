@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { Card } from '../../design-system/components';
+import { LOCATION } from '../../config/environment';
 import {
   SunIcon,
   MoonIcon,
@@ -101,6 +102,7 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
       title="Environmental Conditions"
       subtitle="Astronomical events and weather data"
       className="h-full"
+      data-testid="environmental-conditions-panel"
     >
       <div className="space-y-6">
 
@@ -135,7 +137,7 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
           <div className="grid grid-cols-2 gap-4">
 
             {/* Sun Position */}
-            <div className="p-3 bg-white border border-mountain-200 rounded-lg">
+            <div className="p-3 bg-white border border-mountain-200 rounded-lg" data-testid="sun-position">
               <div className="flex items-center space-x-2 mb-2">
                 <SunIcon className="w-4 h-4 text-golden-500" />
                 <span className="text-sm font-medium text-mountain-700">Sun Position</span>
@@ -143,11 +145,11 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
               <div className="space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-mountain-600">Elevation:</span>
-                  <span className="font-medium">{data.sunElevation.toFixed(1)}°</span>
+                  <span className="font-medium" data-testid="sun-elevation">{data.sunElevation.toFixed(1)}°</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-mountain-600">Azimuth:</span>
-                  <span className="font-medium">{data.sunAzimuth.toFixed(1)}°</span>
+                  <span className="font-medium" data-testid="sun-azimuth">{data.sunAzimuth.toFixed(1)}°</span>
                 </div>
               </div>
             </div>
@@ -159,11 +161,14 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
                 <span className="text-sm font-medium text-mountain-700">Next Golden Hour</span>
               </div>
               <div className="text-center">
-                <div className="text-lg font-semibold text-golden-600">
+                <div className="text-lg font-semibold text-golden-600" data-testid="next-golden-hour">
                   {formatNextGoldenHour(data.nextGoldenHour)}
                 </div>
-                <div className="text-xs text-mountain-500">
+                <div className="text-xs text-mountain-500" data-testid="golden-hour-status">
                   {data.isGoldenHour ? 'Currently active' : 'Time remaining'}
+                </div>
+                <div className="hidden" data-testid="blue-hour-status">
+                  {data.isBluHour ? 'Blue hour active' : 'Blue hour inactive'}
                 </div>
               </div>
             </div>
@@ -172,7 +177,7 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
 
         {/* Weather Conditions */}
         {data && (
-          <div className="space-y-3">
+          <div className="space-y-3" data-testid="weather-data">
             <h4 className="font-medium text-mountain-900 flex items-center space-x-2">
               <CloudIcon className="w-4 h-4" />
               <span>Weather Conditions</span>
@@ -183,12 +188,12 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
               {/* Temperature & Humidity */}
               <div className="p-3 bg-mountain-50 rounded-lg">
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-mountain-900">
+                  <div className="text-lg font-semibold text-mountain-900" data-testid="temperature">
                     {data.temperature.toFixed(1)}°C
                   </div>
                   <div className="text-sm text-mountain-600">Temperature</div>
-                  <div className="text-xs text-mountain-500 mt-1">
-                    {data.humidity.toFixed(0)}% humidity
+                  <div className="text-xs text-mountain-500 mt-1" data-testid="humidity">
+                    {data.humidity.toFixed(0)}%
                   </div>
                 </div>
               </div>
@@ -196,7 +201,7 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
               {/* Wind & Visibility */}
               <div className="p-3 bg-mountain-50 rounded-lg">
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-mountain-900">
+                  <div className="text-lg font-semibold text-mountain-900" data-testid="wind-speed">
                     {data.windSpeed.toFixed(1)} m/s
                   </div>
                   <div className="text-sm text-mountain-600">Wind Speed</div>
@@ -211,7 +216,7 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-mountain-600">Cloud Cover</span>
-                <span className="font-medium">{data.cloudCover.toFixed(0)}%</span>
+                <span className="font-medium" data-testid="cloud-cover">{data.cloudCover.toFixed(0)}%</span>
               </div>
               <div className="w-full bg-mountain-200 rounded-full h-2">
                 <div
@@ -225,9 +230,9 @@ export const EnvironmentalConditionsPanel: React.FC<EnvironmentalConditionsPanel
 
         {/* Location Info */}
         <div className="pt-4 border-t border-mountain-200">
-          <div className="flex items-center space-x-2 text-sm text-mountain-600">
+          <div className="flex items-center space-x-2 text-sm text-mountain-600" data-testid="location-info">
             <MapPinIcon className="w-4 h-4" />
-            <span>Park City, UT (40.76°N, 111.89°W)</span>
+            <span>{LOCATION.name} ({Math.abs(LOCATION.latitude).toFixed(2)}°{LOCATION.latitude >= 0 ? 'N' : 'S'}, {Math.abs(LOCATION.longitude).toFixed(2)}°{LOCATION.longitude >= 0 ? 'E' : 'W'})</span>
           </div>
         </div>
 

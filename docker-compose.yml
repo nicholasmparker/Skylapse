@@ -6,6 +6,18 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
 
+  backend:
+    build: ./backend
+    ports:
+      - "8082:8082"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SKYLAPSE_JWT_SECRET=your_development_secret_minimum_32_characters_long
+      - REALTIME_HOST=0.0.0.0
+      - REALTIME_PORT=8082
+    depends_on:
+      - processing
+
   frontend-dev:
     build:
       context: ./frontend
@@ -15,10 +27,11 @@ services:
     environment:
       - NODE_ENV=development
       - VITE_API_URL=http://localhost:8081
-      - VITE_WS_URL=http://localhost:8081
+      - VITE_WS_URL=ws://localhost:8082
       - VITE_CAPTURE_URL=http://helios.local:8080
     volumes:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
       - processing
+      - backend

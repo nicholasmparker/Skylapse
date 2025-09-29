@@ -141,7 +141,7 @@ copy_files() {
         echo "  To: $TARGET_HOST:$destination"
     else
         print_status "$description"
-        if ! rsync -avz --progress -e "ssh $SSH_OPTS" "$source" "$TARGET_HOST:$destination"; then
+        if ! rsync -avz --checksum --progress -e "ssh $SSH_OPTS" "$source" "$TARGET_HOST:$destination"; then
             print_error "Failed to copy: $description"
             # Close SSH master connection on error
             ssh $SSH_OPTS -O exit "$TARGET_HOST" 2>/dev/null || true
@@ -198,6 +198,9 @@ print_status "Copying source code"
 copy_files "capture/" "$INSTALL_DIR/capture/" \
     "Copy capture service source code"
 
+copy_files "common/" "$INSTALL_DIR/common/" \
+    "Copy shared middleware and utilities"
+
 # Step 4: Set proper ownership and permissions
 print_status "Setting final ownership and permissions"
 
@@ -246,6 +249,10 @@ if [[ "$DRY_RUN" != "true" ]]; then
 
     # Stop service if it's running
     ssh $SSH_OPTS "$TARGET_HOST" "sudo systemctl stop $SERVICE_NAME || true"
+
+    # Clear Python cache files to ensure fresh imports
+    execute_remote "find $INSTALL_DIR -name '*.pyc' -delete -o -name '__pycache__' -type d -exec rm -rf {} + || true" \
+        "Clear Python cache files"
 
     # Reload systemd to pick up any service file changes
     execute_remote "sudo systemctl daemon-reload" \

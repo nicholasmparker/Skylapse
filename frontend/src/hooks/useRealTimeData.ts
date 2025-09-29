@@ -10,6 +10,9 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSimpleRealTimeClient } from './useSimpleRealTimeClient';
 import { apiClient } from '../api/client';
+import { WeatherService } from '../services/WeatherService';
+import { AstronomicalService } from '../services/AstronomicalService';
+import { LOCATION } from '../config/environment';
 import type {
   SystemStatus,
   ResourceMetrics,
@@ -269,22 +272,36 @@ export const useRealTimeData = (): UseRealTimeDataReturn => {
         }
       }
 
-      // Mock environmental data for now - replace with actual API call
-      const mockData: EnvironmentalData = {
-        sunElevation: 45,
-        sunAzimuth: 180,
-        isGoldenHour: false,
-        isBluHour: false,
-        nextGoldenHour: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-        temperature: 18,
-        humidity: 65,
-        cloudCover: 30,
-        windSpeed: 8,
+      // Fetch real weather and astronomical data in parallel
+      const [weatherData, astronomicalData] = await Promise.all([
+        WeatherService.getCurrentWeather(LOCATION.latitude, LOCATION.longitude),
+        Promise.resolve(AstronomicalService.getAstronomicalData(LOCATION.latitude, LOCATION.longitude))
+      ]);
+
+      // Combine weather and astronomical data
+      const environmentalData: EnvironmentalData = {
+        sunElevation: astronomicalData.elevation,
+        sunAzimuth: astronomicalData.azimuth,
+        isGoldenHour: astronomicalData.isGoldenHour,
+        isBluHour: astronomicalData.isBluHour,
+        nextGoldenHour: astronomicalData.nextGoldenHour,
+        temperature: weatherData.temperature,
+        humidity: weatherData.humidity,
+        cloudCover: weatherData.cloudCover,
+        windSpeed: weatherData.windSpeed,
       };
 
-      setEnvironmentalData(mockData);
-      updateCache('environmentalData', mockData);
+      setEnvironmentalData(environmentalData);
+      updateCache('environmentalData', environmentalData);
       setHasDataError(false);
+
+      console.log('✅ Environmental data updated:', {
+        location: `${LOCATION.name} (${LOCATION.latitude}, ${LOCATION.longitude})`,
+        sun: `${astronomicalData.elevation.toFixed(1)}° elevation`,
+        weather: `${weatherData.temperature}°C, ${weatherData.cloudCover}% clouds`,
+        phase: astronomicalData.isGoldenHour ? 'Golden Hour' : astronomicalData.isBluHour ? 'Blue Hour' : 'Normal'
+      });
+
     } catch (error) {
       console.error('Failed to fetch environmental data:', error);
       setHasDataError(true);
@@ -293,6 +310,10 @@ export const useRealTimeData = (): UseRealTimeDataReturn => {
       const cachedData = getCachedData<EnvironmentalData>('environmentalData');
       if (cachedData) {
         setEnvironmentalData(cachedData);
+        console.warn('Using cached environmental data due to API error');
+      } else {
+        // Final fallback - keep last known data or show error
+        console.error('No cached environmental data available');
       }
     }
   }, [isCacheValid, getCachedData, updateCache]);
