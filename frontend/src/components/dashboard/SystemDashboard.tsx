@@ -111,21 +111,25 @@ export const SystemDashboard: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <CameraPreview
-                  showControls={true}
-                  showOverlay={true}
-                  autoStart={true}
-                />
+                <RealTimeErrorBoundary>
+                  <CameraPreview
+                    showControls={true}
+                    showOverlay={true}
+                    autoStart={true}
+                  />
+                </RealTimeErrorBoundary>
               </div>
             </Card>
           </div>
 
           {/* Resource Monitoring - Full width on mobile, 12 cols on desktop */}
           <div className="lg:col-span-12">
-            <ResourceMonitoringChart
-              metrics={resourceMetrics}
-              isConnected={isConnected}
-            />
+            <RealTimeErrorBoundary>
+              <ResourceMonitoringChart
+                metrics={resourceMetrics}
+                isConnected={isConnected}
+              />
+            </RealTimeErrorBoundary>
           </div>
 
           {/* Environmental Conditions - Full width on mobile, 6 cols on desktop */}
@@ -138,10 +142,12 @@ export const SystemDashboard: React.FC = () => {
 
           {/* Capture Progress - Full width on mobile, 6 cols on desktop */}
           <div className="lg:col-span-6">
-            <CaptureProgressPanel
-              progress={captureProgress}
-              isConnected={isConnected}
-            />
+            <RealTimeErrorBoundary>
+              <CaptureProgressPanel
+                progress={captureProgress}
+                isConnected={isConnected}
+              />
+            </RealTimeErrorBoundary>
           </div>
 
           {/* Recent Captures - Full width */}
