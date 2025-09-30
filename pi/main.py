@@ -299,8 +299,22 @@ async def get_latest_image(profile: str):
     if not images:
         raise HTTPException(status_code=404, detail=f"No images found in profile {profile}")
 
-    # Return the most recent image
-    return FileResponse(images[0], media_type="image/jpeg")
+    # For bracketed captures, find the middle exposure (bracket1)
+    # Bracket files are named: capture_TIMESTAMP_bracket0.jpg, capture_TIMESTAMP_bracket1.jpg, etc.
+    latest_image = images[0]
+
+    # Check if this is a bracketed image
+    if "_bracket" in latest_image.name:
+        # Extract the timestamp and find bracket1 (middle exposure)
+        base_name = latest_image.name.split("_bracket")[0]
+        middle_bracket = profile_dir / f"{base_name}_bracket1.jpg"
+
+        if middle_bracket.exists():
+            latest_image = middle_bracket
+            logger.info(f"Serving middle bracket exposure for {profile}: {middle_bracket.name}")
+
+    # Return the most recent non-bracketed image, or middle bracket if bracketed
+    return FileResponse(latest_image, media_type="image/jpeg")
 
 
 @app.get("/images/profile-{profile}/list")
