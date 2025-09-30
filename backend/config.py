@@ -75,7 +75,7 @@ class Config:
                 },
             },
             "pi": {
-                "host": os.getenv("PI_HOST", "helios.local"),
+                "host": os.getenv("PI_HOST"),  # REQUIRED - no default
                 "port": int(os.getenv("PI_PORT", "8080")),
                 "timeout_seconds": 10,
             },

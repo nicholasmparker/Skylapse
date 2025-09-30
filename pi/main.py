@@ -2,6 +2,9 @@
 Skylapse Pi - Simple Capture Server
 
 ONE JOB: Take photos when commanded to by the backend.
+
+IMPORTANT: Camera implementation details are in CAMERA_IMPLEMENTATION.md
+Current camera: ArduCam IMX519 (requires system-level picamera2)
 """
 
 import logging
@@ -107,16 +110,20 @@ class CaptureSettings(BaseModel):
     shutter_speed: str  # e.g., "1/1000"
     exposure_compensation: float  # e.g., +0.7
     profile: str = "default"  # Profile name for folder organization (a, b, c, d, e, f)
-    awb_mode: int = 1  # White balance mode (0=auto, 1=daylight)
+    awb_mode: int = 1  # White balance mode (0=auto, 1=daylight, 2=cloudy, 6=custom)
+    wb_temp: Optional[int] = None  # Color temperature in Kelvin (for awb_mode=6 custom)
     hdr_mode: int = 0  # HDR mode (0=off, 1=single exposure)
     bracket_count: int = 1  # Number of shots for bracketing (1=single, 3=bracket)
     bracket_ev: Optional[list] = None  # EV offsets for bracketing (e.g., [-1.0, 0.0, 1.0])
 
     @validator("iso")
     def validate_iso(cls, v):
+        # ISO=0 means full auto mode
+        if v == 0:
+            return v
         valid_isos = [100, 200, 400, 800, 1600, 3200]
         if v not in valid_isos:
-            raise ValueError(f"ISO must be one of {valid_isos}")
+            raise ValueError(f"ISO must be 0 (auto) or one of {valid_isos}")
         return v
 
     @validator("exposure_compensation")
@@ -197,6 +204,80 @@ def parse_shutter_speed(shutter_str: str) -> int:
     return int(seconds * 1_000_000)  # Convert to microseconds
 
 
+class MeterResponse(BaseModel):
+    """Metering data from camera auto-exposure"""
+
+    lux: float  # Scene brightness
+    exposure_time_us: int  # Auto-calculated exposure time (microseconds)
+    analogue_gain: float  # Auto-calculated ISO gain (ISO = gain * 100)
+    suggested_iso: int  # ISO value (100, 200, 400, etc)
+    suggested_shutter: str  # Human-readable shutter (e.g., "1/500")
+
+
+@app.get("/meter", response_model=MeterResponse)
+async def meter_scene():
+    """
+    Meter the scene using camera's auto-exposure.
+
+    Returns suggested exposure settings based on current scene brightness.
+    Backend can use these as a starting point for profile-specific adjustments.
+    """
+    if not camera_ready:
+        raise HTTPException(status_code=503, detail="Camera not ready")
+
+    if USE_MOCK_CAMERA:
+        # Mock metering data
+        return MeterResponse(
+            lux=800.0,
+            exposure_time_us=2000,
+            analogue_gain=4.0,
+            suggested_iso=400,
+            suggested_shutter="1/500",
+        )
+
+    try:
+        # Capture metadata with camera in auto mode
+        # The camera will meter the scene and tell us what exposure it would use
+        metadata = camera.capture_metadata()
+
+        # Extract metering values
+        lux = metadata.get("Lux", 0.0)
+        exposure_time = metadata.get("ExposureTime", 0)  # microseconds
+        analogue_gain = metadata.get("AnalogueGain", 1.0)
+
+        # Convert to readable ISO (gain * 100)
+        raw_iso = int(analogue_gain * 100)
+
+        # Round to nearest valid ISO
+        valid_isos = [100, 200, 400, 800, 1600, 3200]
+        suggested_iso = min(valid_isos, key=lambda x: abs(x - raw_iso))
+
+        # Convert exposure time to shutter speed string
+        if exposure_time > 0:
+            # Calculate fraction (e.g., 2000μs = 1/500s)
+            shutter_seconds = exposure_time / 1_000_000
+            shutter_fraction = int(1 / shutter_seconds)
+            suggested_shutter = f"1/{shutter_fraction}"
+        else:
+            suggested_shutter = "1/500"  # fallback
+
+        logger.info(
+            f"📊 Scene metered: Lux={lux:.1f}, " f"ISO={suggested_iso}, Shutter={suggested_shutter}"
+        )
+
+        return MeterResponse(
+            lux=lux,
+            exposure_time_us=exposure_time,
+            analogue_gain=analogue_gain,
+            suggested_iso=suggested_iso,
+            suggested_shutter=suggested_shutter,
+        )
+
+    except Exception as e:
+        logger.error(f"Metering failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Metering failed: {str(e)}")
+
+
 @app.post("/capture", response_model=CaptureResponse)
 async def capture_photo(settings: CaptureSettings):
     """
@@ -268,21 +349,36 @@ async def capture_photo(settings: CaptureSettings):
             else:
                 # Single shot capture
                 image_path = str(output_dir / f"capture_{timestamp}.jpg")
-                shutter_us = parse_shutter_speed(settings.shutter_speed)
 
-                controls = {
-                    "ExposureTime": shutter_us,
-                    "AnalogueGain": settings.iso / 100.0,
-                    "AwbMode": settings.awb_mode,
-                }
+                # Check if using auto mode (ISO=0 means full auto)
+                if settings.iso == 0:
+                    # Full auto mode - let camera decide everything
+                    controls = {
+                        "AwbMode": settings.awb_mode,  # Still respect WB setting
+                        "AeEnable": True,  # Enable auto-exposure
+                    }
+                    logger.info("📸 Using full auto-exposure mode")
+                else:
+                    # Manual exposure mode
+                    shutter_us = parse_shutter_speed(settings.shutter_speed)
+                    controls = {
+                        "ExposureTime": shutter_us,
+                        "AnalogueGain": settings.iso / 100.0,
+                        "AwbMode": settings.awb_mode,
+                    }
 
-                # Add HDR mode if requested
-                if settings.hdr_mode > 0:
-                    controls["HdrMode"] = settings.hdr_mode
+                    # Add custom WB temperature if using custom mode (awb_mode=6)
+                    if settings.awb_mode == 6 and settings.wb_temp:
+                        controls["ColourTemperature"] = settings.wb_temp
+                        logger.info(f"🎨 Using custom WB: {settings.wb_temp}K")
 
-                # IMX519 supports ExposureValue for fine-tuning (±8 stops)
-                if settings.exposure_compensation != 0.0:
-                    controls["ExposureValue"] = settings.exposure_compensation
+                    # Add HDR mode if requested
+                    if settings.hdr_mode > 0:
+                        controls["HdrMode"] = settings.hdr_mode
+
+                    # IMX519 supports ExposureValue for fine-tuning (±8 stops)
+                    if settings.exposure_compensation != 0.0:
+                        controls["ExposureValue"] = settings.exposure_compensation
 
                 camera.set_controls(controls)
                 camera.capture_file(image_path)
