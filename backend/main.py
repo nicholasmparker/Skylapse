@@ -48,8 +48,11 @@ async def lifespan(app: FastAPI):
         timezone=location["timezone"],
     )
 
-    # Initialize exposure calculator
-    exposure_calc = ExposureCalculator(solar_calc)
+    # Initialize exposure calculator with Pi metering
+    pi_config = config.get("pi", {})
+    pi_host = pi_config.get("host", "192.168.0.124")
+    pi_port = pi_config.get("port", 8080)
+    exposure_calc = ExposureCalculator(solar_calc, pi_host=pi_host, pi_port=pi_port)
 
     # Store in app state (no more globals!)
     app.state.config = config
