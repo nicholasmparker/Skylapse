@@ -1,30 +1,67 @@
 # Claude Code Memory - Skylapse Project
 
-## CRITICAL REMINDERS
+## 🚨 CRITICAL: THIS IS A DOCKER APPLICATION 🚨
 
-### 🐳 THIS IS A DOCKER APPLICATION
-- **ALWAYS use Docker commands for development**
-- **Frontend runs in Docker**: `docker-compose up frontend-dev`
-- **Backend services run in Docker**: `docker-compose up processing backend`
-- **DO NOT use npm/node commands directly** - use Docker containers
-- **Tests run against Docker containers at localhost:3000**
+**READ THIS FIRST. EVERY TIME.**
 
-### Service Architecture
-- **Capture Service**: Runs on Raspberry Pi (helios.local:8080)
-- **Processing Service**: Docker container (localhost:8081)
-- **Backend Service**: Docker container (localhost:8082)
-- **Frontend**: Docker container (localhost:3000)
+### Never Do These Things
+- ❌ `npm install` or `npm run dev` on host
+- ❌ `node` or `python` commands on host (except Pi deployment)
+- ❌ Install packages locally
+- ❌ Test against local servers
 
-### Development Workflow
-1. Make code changes
-2. Use `docker-compose up service-name` to test
-3. Run Playwright tests against Docker containers
-4. Use deployment scripts for Pi updates
+### Always Do These Things
+- ✅ `docker-compose up frontend` → http://localhost:3000
+- ✅ `docker-compose up backend` → http://localhost:8082
+- ✅ `docker-compose up processing` → http://localhost:8081
+- ✅ `docker-compose exec frontend npm install <package>` to add deps
+- ✅ `docker-compose up --build` after dependency changes
+- ✅ Run Playwright tests against Docker containers
 
-### QA Validation Process
-- **MANDATORY for every task**
-- Run Playwright tests with Docker services running
-- Validate all functionality before marking tasks complete
+### Three Environments
+1. **Your Laptop (Dev)**: Everything in Docker except Pi code
+2. **Raspberry Pi (Prod)**: Capture service runs directly (NOT Docker)
+3. **Server (Prod)**: Backend/Frontend/Processing in Docker
+
+### Deployment
+```bash
+# Deploy to Pi (capture service)
+./scripts/deploy-pi.sh
+
+# Deploy to server (backend/frontend)
+./scripts/deploy-server.sh
+```
+
+### Quick Commands
+```bash
+# Development
+docker-compose up                    # Start all services
+docker-compose up --build frontend   # Rebuild frontend
+docker-compose logs -f backend       # View logs
+docker-compose exec backend bash     # Shell into container
+
+# Testing
+docker-compose up -d                 # Start in background
+npx playwright test                  # Run tests against Docker
+
+# Deployment
+./scripts/deploy-pi.sh              # Deploy capture to Pi
+ssh pi@helios.local                 # Access Pi
+```
+
+### Why Docker?
+- **Consistency**: Same environment everywhere
+- **Isolation**: No dependency conflicts
+- **Hot reload**: Code changes auto-update in containers
+- **Easy deployment**: Build once, run anywhere
+
+### The One Exception
+**Raspberry Pi capture service runs directly** (not Docker) because:
+- Direct hardware access to camera is simpler
+- Lower resource usage on Pi
+- System service integration
+
+See `DEPLOYMENT_AND_DOCKER.md` for complete details.
 
 ---
-*Stop forgetting this is Docker! 🐳*
+**🐳 DOCKER ALWAYS. NO EXCEPTIONS (except Pi). 🐳**

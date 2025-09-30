@@ -1,1 +1,0 @@
-"""Skylapse capture module."""
