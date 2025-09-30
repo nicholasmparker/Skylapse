@@ -1,1 +1,0 @@
-"""Skylapse Processing Service Package."""
