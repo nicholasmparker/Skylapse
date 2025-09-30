@@ -1,0 +1,7 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+astral==3.2  # For sunrise/sunset calculations
+httpx==0.25.2  # For calling Pi
+opencv-python==4.8.1.78  # For image stacking
+pillow==10.1.0
