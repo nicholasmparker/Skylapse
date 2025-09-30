@@ -100,9 +100,11 @@ class CaptureSettings(BaseModel):
     iso: int
     shutter_speed: str  # e.g., "1/1000"
     exposure_compensation: float  # e.g., +0.7
-    profile: str = "default"  # Profile name for folder organization (a, b, c, d)
+    profile: str = "default"  # Profile name for folder organization (a, b, c, d, e, f)
     awb_mode: int = 1  # White balance mode (0=auto, 1=daylight)
     hdr_mode: int = 0  # HDR mode (0=off, 1=single exposure)
+    bracket_count: int = 1  # Number of shots for bracketing (1=single, 3=bracket)
+    bracket_ev: Optional[list] = None  # EV offsets for bracketing (e.g., [-1.0, 0.0, 1.0])
 
     @validator("iso")
     def validate_iso(cls, v):
@@ -119,9 +121,15 @@ class CaptureSettings(BaseModel):
 
     @validator("profile")
     def validate_profile(cls, v):
-        valid_profiles = ["default", "a", "b", "c", "d"]
+        valid_profiles = ["default", "a", "b", "c", "d", "e", "f"]
         if v not in valid_profiles:
             raise ValueError(f"Profile must be one of {valid_profiles}")
+        return v
+
+    @validator("bracket_count")
+    def validate_bracket(cls, v):
+        if v not in [1, 3, 5]:
+            raise ValueError("bracket_count must be 1, 3, or 5")
         return v
 
 
@@ -193,35 +201,57 @@ async def capture_photo(settings: CaptureSettings):
                 output_dir = home_dir / "skylapse-images" / f"profile-{settings.profile}"
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Generate filename with timestamp
+            # Generate base timestamp for this capture sequence
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            image_path = str(output_dir / f"capture_{timestamp}.jpg")
 
-            # Set camera controls for this capture
-            # Note: Setting ExposureTime + AnalogueGain automatically disables auto-exposure
-            shutter_us = parse_shutter_speed(settings.shutter_speed)
+            # Handle bracketing (multiple exposures)
+            if settings.bracket_count > 1 and settings.bracket_ev:
+                # HDR Bracketing: capture multiple shots at different exposures
+                bracket_paths = []
+                shutter_us = parse_shutter_speed(settings.shutter_speed)
 
-            controls = {
-                "ExposureTime": shutter_us,
-                "AnalogueGain": settings.iso / 100.0,  # ISO 100 = gain 1.0
-                "AwbMode": settings.awb_mode,  # White balance mode
-            }
+                for i, ev_offset in enumerate(settings.bracket_ev[:settings.bracket_count]):
+                    image_path = str(output_dir / f"capture_{timestamp}_bracket{i}.jpg")
 
-            # Add HDR mode if requested
-            if settings.hdr_mode > 0:
-                controls["HdrMode"] = settings.hdr_mode
+                    controls = {
+                        "ExposureTime": shutter_us,
+                        "AnalogueGain": settings.iso / 100.0,
+                        "AwbMode": settings.awb_mode,
+                        "ExposureValue": settings.exposure_compensation + ev_offset,
+                    }
 
-            # IMX519 supports ExposureValue for fine-tuning (±8 stops)
-            # This allows micro-adjustments without changing ISO/shutter
-            if settings.exposure_compensation != 0.0:
-                controls["ExposureValue"] = settings.exposure_compensation
+                    camera.set_controls(controls)
+                    camera.capture_file(image_path)
+                    bracket_paths.append(image_path)
+                    logger.info(f"✓ Bracket {i+1}/{settings.bracket_count} (EV{ev_offset:+.1f}): {image_path}")
 
-            camera.set_controls(controls)
+                # Return path to the middle (properly exposed) image
+                middle_idx = settings.bracket_count // 2
+                image_path = bracket_paths[middle_idx]
+                logger.info(f"✓ Bracketed capture complete: {settings.bracket_count} shots")
 
-            # Capture image (camera should already be started at app startup)
-            camera.capture_file(image_path)
+            else:
+                # Single shot capture
+                image_path = str(output_dir / f"capture_{timestamp}.jpg")
+                shutter_us = parse_shutter_speed(settings.shutter_speed)
 
-            logger.info(f"✓ Capture complete: {image_path}")
+                controls = {
+                    "ExposureTime": shutter_us,
+                    "AnalogueGain": settings.iso / 100.0,
+                    "AwbMode": settings.awb_mode,
+                }
+
+                # Add HDR mode if requested
+                if settings.hdr_mode > 0:
+                    controls["HdrMode"] = settings.hdr_mode
+
+                # IMX519 supports ExposureValue for fine-tuning (±8 stops)
+                if settings.exposure_compensation != 0.0:
+                    controls["ExposureValue"] = settings.exposure_compensation
+
+                camera.set_controls(controls)
+                camera.capture_file(image_path)
+                logger.info(f"✓ Capture complete: {image_path}")
 
             return CaptureResponse(
                 status="success",

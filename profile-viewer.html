@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skylapse Profile Comparison</title>
+    <title>Skylapse Profile Comparison (6 Profiles)</title>
     <style>
         * {
             margin: 0;
@@ -26,29 +26,29 @@
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 20px;
-            max-width: 1800px;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 15px;
+            max-width: 2200px;
             margin: 0 auto;
         }
 
         .profile-card {
             background: #2a2a2a;
             border-radius: 8px;
-            padding: 15px;
+            padding: 12px;
             border: 2px solid #3a3a3a;
         }
 
         .profile-card h2 {
-            margin-bottom: 10px;
-            font-size: 1.3em;
+            margin-bottom: 8px;
+            font-size: 1.1em;
         }
 
         .profile-card p {
             color: #aaa;
-            font-size: 0.9em;
-            margin-bottom: 15px;
-            line-height: 1.5;
+            font-size: 0.85em;
+            margin-bottom: 12px;
+            line-height: 1.4;
         }
 
         .image-container {
@@ -56,7 +56,7 @@
             background: #000;
             border-radius: 4px;
             overflow: hidden;
-            min-height: 300px;
+            min-height: 250px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -107,7 +107,7 @@
     </style>
 </head>
 <body>
-    <h1>📸 Skylapse Profile Comparison</h1>
+    <h1>📸 Skylapse 6-Profile Comparison</h1>
 
     <div class="controls">
         <button onclick="refreshImages()">🔄 Refresh Images</button>
@@ -118,15 +118,15 @@
 
     <div class="grid">
         <div class="profile-card">
-            <h2>Profile A: Auto Everything</h2>
+            <h2>Profile A: Auto WB Baseline</h2>
             <p>
-                • Auto white balance (AwbMode=0)<br>
+                • Auto white balance<br>
                 • No HDR<br>
-                • Baseline - what camera thinks is best
+                • Baseline comparison
             </p>
-            <div class="image-container" id="profile-a">
+            <div class="image-container">
                 <img src="http://helios.local:8080/images/profile-a/latest.jpg"
-                     onerror="this.parentElement.innerHTML='<div class=error>No image available yet</div>'"
+                     onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
                      alt="Profile A">
             </div>
         </div>
@@ -134,13 +134,13 @@
         <div class="profile-card">
             <h2>Profile B: Daylight WB</h2>
             <p>
-                • Fixed daylight white balance (AwbMode=1)<br>
+                • Fixed daylight WB<br>
                 • No HDR<br>
-                • Consistent color across timelapse
+                • Consistent color
             </p>
-            <div class="image-container" id="profile-b">
+            <div class="image-container">
                 <img src="http://helios.local:8080/images/profile-b/latest.jpg"
-                     onerror="this.parentElement.innerHTML='<div class=error>No image available yet</div>'"
+                     onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
                      alt="Profile B">
             </div>
         </div>
@@ -148,28 +148,56 @@
         <div class="profile-card">
             <h2>Profile C: Manual Ramping</h2>
             <p>
-                • Daylight white balance (AwbMode=1)<br>
+                • Daylight WB<br>
                 • Manual exposure ramping<br>
-                • Smart time-based adjustments
+                • Time-based adjustments
             </p>
-            <div class="image-container" id="profile-c">
+            <div class="image-container">
                 <img src="http://helios.local:8080/images/profile-c/latest.jpg"
-                     onerror="this.parentElement.innerHTML='<div class=error>No image available yet</div>'"
+                     onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
                      alt="Profile C">
             </div>
         </div>
 
         <div class="profile-card">
-            <h2>Profile D: HDR Mode</h2>
+            <h2>Profile D: Daylight + HDR</h2>
             <p>
-                • Daylight white balance (AwbMode=1)<br>
-                • HDR Mode 1 (single exposure)<br>
-                • Enhanced dynamic range
+                • Daylight WB<br>
+                • HDR Mode 1<br>
+                • Single exposure HDR
             </p>
-            <div class="image-container" id="profile-d">
+            <div class="image-container">
                 <img src="http://helios.local:8080/images/profile-d/latest.jpg"
-                     onerror="this.parentElement.innerHTML='<div class=error>No image available yet</div>'"
+                     onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
                      alt="Profile D">
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <h2>Profile E: Auto + HDR</h2>
+            <p>
+                • Auto WB<br>
+                • HDR Mode 1<br>
+                • Best of both?
+            </p>
+            <div class="image-container">
+                <img src="http://helios.local:8080/images/profile-e/latest.jpg"
+                     onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
+                     alt="Profile E">
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <h2>Profile F: Auto + 3-Shot Bracket</h2>
+            <p>
+                • Auto WB<br>
+                • 3-shot HDR bracket<br>
+                • -1 EV, 0, +1 EV
+            </p>
+            <div class="image-container">
+                <img src="http://helios.local:8080/images/profile-f/latest.jpg"
+                     onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
+                     alt="Profile F">
             </div>
         </div>
     </div>
@@ -182,12 +210,11 @@
             document.getElementById('timestamp').textContent = `Last updated: ${timestamp}`;
 
             // Reload all images by updating their src with cache-busting timestamp
-            const profiles = ['a', 'b', 'c', 'd'];
+            const profiles = ['a', 'b', 'c', 'd', 'e', 'f'];
             const cacheBust = Date.now();
 
             profiles.forEach(profile => {
-                const container = document.getElementById(`profile-${profile}`);
-                const img = container.querySelector('img');
+                const img = document.querySelector(`img[alt="Profile ${profile.toUpperCase()}"]`);
                 if (img) {
                     img.src = `http://helios.local:8080/images/profile-${profile}/latest.jpg?t=${cacheBust}`;
                 }

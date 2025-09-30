@@ -176,13 +176,15 @@ class ExposureCalculator:
         Profile B: Daylight WB (AwbMode=1), no HDR
         Profile C: Daylight WB (AwbMode=1), manual ramping, no HDR
         Profile D: Daylight WB (AwbMode=1), HDR Mode 1
+        Profile E: Auto WB (AwbMode=0), HDR Mode 1
+        Profile F: Auto WB (AwbMode=0), 3-shot HDR bracket
 
         Args:
             base_settings: Base ISO/shutter/EV settings
-            profile: Profile identifier (a/b/c/d)
+            profile: Profile identifier (a/b/c/d/e/f)
 
         Returns:
-            Complete settings dict with profile, awb_mode, hdr_mode
+            Complete settings dict with profile, awb_mode, hdr_mode, bracket_count
         """
         settings = base_settings.copy()
         settings["profile"] = profile
@@ -191,30 +193,50 @@ class ExposureCalculator:
             # Profile A: Auto Everything (Baseline)
             settings["awb_mode"] = 0  # Auto white balance
             settings["hdr_mode"] = 0  # No HDR
+            settings["bracket_count"] = 1  # Single shot
             logger.debug(f"Profile A (Auto WB): {settings}")
 
         elif profile == "b":
             # Profile B: Fixed Daylight WB
             settings["awb_mode"] = 1  # Daylight white balance
             settings["hdr_mode"] = 0  # No HDR
+            settings["bracket_count"] = 1  # Single shot
             logger.debug(f"Profile B (Daylight WB): {settings}")
 
         elif profile == "c":
             # Profile C: Manual Ramping (same as B for now)
             settings["awb_mode"] = 1  # Daylight white balance
             settings["hdr_mode"] = 0  # No HDR
+            settings["bracket_count"] = 1  # Single shot
             logger.debug(f"Profile C (Manual Ramp): {settings}")
 
         elif profile == "d":
-            # Profile D: HDR Mode
+            # Profile D: Daylight WB + HDR
             settings["awb_mode"] = 1  # Daylight white balance
             settings["hdr_mode"] = 1  # Single exposure HDR
-            logger.debug(f"Profile D (HDR): {settings}")
+            settings["bracket_count"] = 1  # Single shot
+            logger.debug(f"Profile D (Daylight HDR): {settings}")
+
+        elif profile == "e":
+            # Profile E: Auto WB + HDR
+            settings["awb_mode"] = 0  # Auto white balance
+            settings["hdr_mode"] = 1  # Single exposure HDR
+            settings["bracket_count"] = 1  # Single shot
+            logger.debug(f"Profile E (Auto HDR): {settings}")
+
+        elif profile == "f":
+            # Profile F: Auto WB + 3-shot HDR bracket
+            settings["awb_mode"] = 0  # Auto white balance
+            settings["hdr_mode"] = 0  # No HDR (we'll bracket manually)
+            settings["bracket_count"] = 3  # 3-shot bracket
+            settings["bracket_ev"] = [-1.0, 0.0, 1.0]  # EV offsets
+            logger.debug(f"Profile F (Auto 3-shot bracket): {settings}")
 
         else:
             # Default fallback
             settings["awb_mode"] = 1
             settings["hdr_mode"] = 0
+            settings["bracket_count"] = 1
             logger.warning(f"Unknown profile '{profile}', using defaults")
 
         return settings

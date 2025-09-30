@@ -96,9 +96,9 @@ async def scheduler_loop():
     # Track last capture times per schedule to avoid duplicates
     last_captures = {}
 
-    # Profile rotation counter (A → B → C → D → A...)
+    # Profile rotation counter (A → B → C → D → E → F → A...)
     profile_counter = 0
-    profiles = ["a", "b", "c", "d"]
+    profiles = ["a", "b", "c", "d", "e", "f"]
 
     while True:
         try:
