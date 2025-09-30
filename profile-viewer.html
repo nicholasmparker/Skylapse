@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skylapse Profile Comparison</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .profile-card {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+            border: 2px solid #3a3a3a;
+        }
+
+        .profile-card h2 {
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        .profile-card p {
+            color: #aaa;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .image-container {
+            position: relative;
+            background: #000;
+            border-radius: 4px;
+            overflow: hidden;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .error {
+            color: #ff6b6b;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+
+        button:hover {
+            background: #3a8eef;
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .timestamp {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>📸 Skylapse Profile Comparison</h1>
+
+    <div class="controls">
+        <button onclick="refreshImages()">🔄 Refresh Images</button>
+        <button onclick="toggleAutoRefresh()">⏱️ <span id="auto-status">Enable</span> Auto-Refresh (5s)</button>
+    </div>
+
+    <div class="timestamp" id="timestamp"></div>
+
+    <div class="grid">
+        <div class="profile-card">
+            <h2>Profile A: Auto Everything</h2>
+            <p>
+                • Auto white balance (AwbMode=0)<br>
+                • No HDR<br>
+                • Baseline - what camera thinks is best
+            </p>
+            <div class="image-container" id="profile-a">
+                <img src="http://helios.local:8080/images/profile-a/latest.jpg"
+                     onerror="this.parentElement.innerHTML='<div class=error>No image available yet</div>'"
+                     alt="Profile A">
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <h2>Profile B: Daylight WB</h2>
+            <p>
+                • Fixed daylight white balance (AwbMode=1)<br>
+                • No HDR<br>
+                • Consistent color across timelapse
+            </p>
+            <div class="image-container" id="profile-b">
+                <img src="http://helios.local:8080/images/profile-b/latest.jpg"
+                     onerror="this.parentElement.innerHTML='<div class=error>No image available yet</div>'"
+                     alt="Profile B">
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <h2>Profile C: Manual Ramping</h2>
+            <p>
+                • Daylight white balance (AwbMode=1)<br>
+                • Manual exposure ramping<br>
+                • Smart time-based adjustments
+            </p>
+            <div class="image-container" id="profile-c">
+                <img src="http://helios.local:8080/images/profile-c/latest.jpg"
+                     onerror="this.parentElement.innerHTML='<div class=error>No image available yet</div>'"
+                     alt="Profile C">
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <h2>Profile D: HDR Mode</h2>
+            <p>
+                • Daylight white balance (AwbMode=1)<br>
+                • HDR Mode 1 (single exposure)<br>
+                • Enhanced dynamic range
+            </p>
+            <div class="image-container" id="profile-d">
+                <img src="http://helios.local:8080/images/profile-d/latest.jpg"
+                     onerror="this.parentElement.innerHTML='<div class=error>No image available yet</div>'"
+                     alt="Profile D">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+
+        function refreshImages() {
+            const timestamp = new Date().toLocaleString();
+            document.getElementById('timestamp').textContent = `Last updated: ${timestamp}`;
+
+            // Reload all images by updating their src with cache-busting timestamp
+            const profiles = ['a', 'b', 'c', 'd'];
+            const cacheBust = Date.now();
+
+            profiles.forEach(profile => {
+                const container = document.getElementById(`profile-${profile}`);
+                const img = container.querySelector('img');
+                if (img) {
+                    img.src = `http://helios.local:8080/images/profile-${profile}/latest.jpg?t=${cacheBust}`;
+                }
+            });
+        }
+
+        function toggleAutoRefresh() {
+            const statusEl = document.getElementById('auto-status');
+
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                statusEl.textContent = 'Enable';
+            } else {
+                refreshImages(); // Load immediately
+                autoRefreshInterval = setInterval(refreshImages, 5000);
+                statusEl.textContent = 'Disable';
+            }
+        }
+
+        // Update timestamp on load
+        document.getElementById('timestamp').textContent = `Last updated: ${new Date().toLocaleString()}`;
+    </script>
+</body>
+</html>

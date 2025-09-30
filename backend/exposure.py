@@ -7,6 +7,7 @@ Calculates optimal camera settings based on time of day and schedule type.
 from datetime import datetime, timedelta
 from typing import Dict
 import logging
+from schedule_types import ScheduleType
 
 logger = logging.getLogger(__name__)
 
@@ -24,29 +25,37 @@ class ExposureCalculator:
         self.solar_calculator = solar_calculator
 
     def calculate_settings(
-        self, schedule_type: str, current_time: datetime = None
+        self, schedule_type: str, current_time: datetime = None, profile: str = "a"
     ) -> Dict[str, any]:
         """
-        Calculate camera settings for current conditions.
+        Calculate camera settings for current conditions and profile.
 
         Args:
             schedule_type: "sunrise", "daytime", or "sunset"
-            current_time: Current time (defaults to now)
+            current_time: Current time (defaults to now in solar calculator's timezone)
+            profile: Profile identifier (a/b/c/d) - determines WB and exposure strategy
 
         Returns:
-            Dictionary with ISO, shutter_speed, and exposure_compensation
+            Dictionary with ISO, shutter_speed, exposure_compensation, profile, awb_mode, hdr_mode
         """
         if current_time is None:
-            current_time = datetime.now()
+            if self.solar_calculator:
+                current_time = datetime.now(self.solar_calculator.timezone)
+            else:
+                current_time = datetime.now()
 
-        if schedule_type == "sunrise":
-            return self._calculate_sunrise_settings(current_time)
-        elif schedule_type == "daytime":
-            return self._calculate_daytime_settings()
-        elif schedule_type == "sunset":
-            return self._calculate_sunset_settings(current_time)
+        # Calculate base settings based on schedule type
+        if schedule_type == ScheduleType.SUNRISE:
+            base_settings = self._calculate_sunrise_settings(current_time)
+        elif schedule_type == ScheduleType.DAYTIME:
+            base_settings = self._calculate_daytime_settings()
+        elif schedule_type == ScheduleType.SUNSET:
+            base_settings = self._calculate_sunset_settings(current_time)
         else:
             raise ValueError(f"Unknown schedule type: {schedule_type}")
+
+        # Apply profile-specific modifications
+        return self._apply_profile_settings(base_settings, profile)
 
     def _calculate_sunrise_settings(self, current_time: datetime) -> Dict[str, any]:
         """
@@ -159,6 +168,57 @@ class ExposureCalculator:
         logger.debug(f"Sunset settings at {current_time}: {settings}")
         return settings
 
+    def _apply_profile_settings(self, base_settings: Dict[str, any], profile: str) -> Dict[str, any]:
+        """
+        Apply profile-specific modifications to base settings.
+
+        Profile A: Auto WB (AwbMode=0), no HDR
+        Profile B: Daylight WB (AwbMode=1), no HDR
+        Profile C: Daylight WB (AwbMode=1), manual ramping, no HDR
+        Profile D: Daylight WB (AwbMode=1), HDR Mode 1
+
+        Args:
+            base_settings: Base ISO/shutter/EV settings
+            profile: Profile identifier (a/b/c/d)
+
+        Returns:
+            Complete settings dict with profile, awb_mode, hdr_mode
+        """
+        settings = base_settings.copy()
+        settings["profile"] = profile
+
+        if profile == "a":
+            # Profile A: Auto Everything (Baseline)
+            settings["awb_mode"] = 0  # Auto white balance
+            settings["hdr_mode"] = 0  # No HDR
+            logger.debug(f"Profile A (Auto WB): {settings}")
+
+        elif profile == "b":
+            # Profile B: Fixed Daylight WB
+            settings["awb_mode"] = 1  # Daylight white balance
+            settings["hdr_mode"] = 0  # No HDR
+            logger.debug(f"Profile B (Daylight WB): {settings}")
+
+        elif profile == "c":
+            # Profile C: Manual Ramping (same as B for now)
+            settings["awb_mode"] = 1  # Daylight white balance
+            settings["hdr_mode"] = 0  # No HDR
+            logger.debug(f"Profile C (Manual Ramp): {settings}")
+
+        elif profile == "d":
+            # Profile D: HDR Mode
+            settings["awb_mode"] = 1  # Daylight white balance
+            settings["hdr_mode"] = 1  # Single exposure HDR
+            logger.debug(f"Profile D (HDR): {settings}")
+
+        else:
+            # Default fallback
+            settings["awb_mode"] = 1
+            settings["hdr_mode"] = 0
+            logger.warning(f"Unknown profile '{profile}', using defaults")
+
+        return settings
+
     def format_for_pi(self, settings: Dict[str, any]) -> Dict[str, any]:
         """
         Format settings for Pi API request.
@@ -167,52 +227,7 @@ class ExposureCalculator:
             settings: Settings from calculate_settings()
 
         Returns:
-            Dictionary ready to send to Pi /capture endpoint
+            Dictionary ready for Pi capture API
         """
-        return {
-            "iso": settings["iso"],
-            "shutter_speed": settings["shutter_speed"],
-            "exposure_compensation": settings["exposure_compensation"],
-        }
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-
-    calc = ExposureCalculator()
-
-    print("\n=== Exposure Calculator Test ===")
-
-    # Test each schedule type
-    for schedule_type in ["sunrise", "daytime", "sunset"]:
-        print(f"\n{schedule_type.upper()} Settings:")
-        settings = calc.calculate_settings(schedule_type)
-        for key, value in settings.items():
-            print(f"  {key}: {value}")
-
-    # Test with solar calculator
-    print("\n=== With Solar Calculator ===")
-    from solar import SolarCalculator
-
-    solar_calc = SolarCalculator(40.7128, -74.0060, "America/New_York")
-    calc_with_solar = ExposureCalculator(solar_calc)
-
-    # Simulate different times relative to sunrise
-    sunrise_time = solar_calc.get_sunrise()
-
-    print(f"\nSunrise time: {sunrise_time.strftime('%I:%M %p')}")
-
-    test_times = [
-        ("30 min before", sunrise_time - timedelta(minutes=30)),
-        ("15 min before", sunrise_time - timedelta(minutes=15)),
-        ("At sunrise", sunrise_time),
-        ("15 min after", sunrise_time + timedelta(minutes=15)),
-    ]
-
-    for label, test_time in test_times:
-        print(f"\n{label}:")
-        settings = calc_with_solar.calculate_settings("sunrise", test_time)
-        print(f"  ISO: {settings['iso']}")
-        print(f"  Shutter: {settings['shutter_speed']}")
-        print(f"  EV: {settings['exposure_compensation']:+.1f}")
+        # Settings already in correct format for Pi
+        return settings

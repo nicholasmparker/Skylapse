@@ -21,6 +21,7 @@ from contextlib import asynccontextmanager
 from config import Config
 from solar import SolarCalculator
 from exposure import ExposureCalculator
+from schedule_types import ScheduleType
 
 # Set up logging
 logging.basicConfig(
@@ -87,13 +88,17 @@ async def scheduler_loop():
     1. Get current time
     2. Check each enabled schedule
     3. Determine if we should capture now
-    4. Calculate optimal camera settings
+    4. Calculate optimal camera settings (rotating through profiles A/B/C/D)
     5. Send capture command to Pi
     """
     logger.info("Scheduler loop running...")
 
     # Track last capture times per schedule to avoid duplicates
     last_captures = {}
+
+    # Profile rotation counter (A → B → C → D → A...)
+    profile_counter = 0
+    profiles = ["a", "b", "c", "d"]
 
     while True:
         try:
@@ -112,11 +117,14 @@ async def scheduler_loop():
                 )
 
                 if should_capture:
-                    logger.info(f"📸 Triggering capture for {schedule_name}")
+                    # Get current profile for this capture
+                    current_profile = profiles[profile_counter % len(profiles)]
 
-                    # Calculate exposure settings
+                    logger.info(f"📸 Triggering capture for {schedule_name} [Profile {current_profile.upper()}]")
+
+                    # Calculate exposure settings for current profile
                     settings = exposure_calc.calculate_settings(
-                        schedule_name, current_time
+                        schedule_name, current_time, profile=current_profile
                     )
 
                     # Send capture command to Pi
@@ -124,8 +132,9 @@ async def scheduler_loop():
 
                     if success:
                         last_captures[schedule_name] = current_time
+                        profile_counter += 1  # Rotate to next profile
                         logger.info(
-                            f"✓ {schedule_name} capture successful (ISO {settings['iso']}, {settings['shutter_speed']}, EV{settings['exposure_compensation']:+.1f})"
+                            f"✓ {schedule_name} capture successful [Profile {current_profile.upper()}] (ISO {settings['iso']}, {settings['shutter_speed']}, EV{settings['exposure_compensation']:+.1f})"
                         )
                     else:
                         logger.error(f"✗ {schedule_name} capture failed")
@@ -166,18 +175,24 @@ async def should_capture_now(
             return False  # Too soon since last capture
 
     # Check schedule type and time window
-    if schedule_name in ["sunrise", "sunset"]:
+    if ScheduleType.is_solar(schedule_name):
         # Solar-based schedule
         window = solar_calc.get_schedule_window(schedule_name, current_time)
         return window["start"] <= current_time <= window["end"]
 
-    elif schedule_name == "daytime":
+    elif schedule_name == ScheduleType.DAYTIME:
         # Time-of-day schedule
         start_time_str = schedule_config.get("start_time", "09:00")
         end_time_str = schedule_config.get("end_time", "15:00")
 
-        start_time = time.fromisoformat(start_time_str)
-        end_time = time.fromisoformat(end_time_str)
+        try:
+            start_time = time.fromisoformat(start_time_str)
+            end_time = time.fromisoformat(end_time_str)
+        except ValueError as e:
+            logger.error(
+                f"Invalid time format for {schedule_name}: start={start_time_str}, end={end_time_str}. Error: {e}"
+            )
+            return False  # Skip this schedule if times are invalid
 
         current_time_only = current_time.time()
         return start_time <= current_time_only <= end_time
@@ -245,7 +260,8 @@ async def get_schedules():
     schedules = config.config["schedules"]
 
     # Add calculated time windows for solar schedules
-    for schedule_name in ["sunrise", "sunset"]:
+    for schedule_type in ScheduleType.solar_schedules():
+        schedule_name = schedule_type.value
         if schedule_name in schedules:
             window = solar_calc.get_schedule_window(schedule_name)
             schedules[schedule_name]["calculated_window"] = {
@@ -268,15 +284,26 @@ async def get_status():
         if not schedule_config.get("enabled", True):
             continue
 
-        if schedule_name in ["sunrise", "sunset"]:
+        if ScheduleType.is_solar(schedule_name):
             window = solar_calc.get_schedule_window(schedule_name)
             if window["start"] <= current_time <= window["end"]:
                 active_schedules.append(schedule_name)
-        elif schedule_name == "daytime":
-            start_time = time.fromisoformat(schedule_config.get("start_time", "09:00"))
-            end_time = time.fromisoformat(schedule_config.get("end_time", "15:00"))
-            if start_time <= current_time.time() <= end_time:
-                active_schedules.append(schedule_name)
+        elif schedule_name == ScheduleType.DAYTIME:
+            start_time_str = schedule_config.get("start_time", "09:00")
+            end_time_str = schedule_config.get("end_time", "15:00")
+
+            try:
+                start_time = time.fromisoformat(start_time_str)
+                end_time = time.fromisoformat(end_time_str)
+
+                if start_time <= current_time.time() <= end_time:
+                    active_schedules.append(schedule_name)
+            except ValueError as e:
+                logger.error(
+                    f"Invalid time format in /status for {schedule_name}: "
+                    f"start={start_time_str}, end={end_time_str}. Error: {e}"
+                )
+                # Skip this schedule if times are invalid
 
     return {
         "current_time": current_time.isoformat(),
