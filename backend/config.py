@@ -5,10 +5,12 @@ Simple JSON-based configuration for Skylapse.
 """
 
 import json
-import os
-from pathlib import Path
-from typing import Dict, Any
 import logging
+import os
+import shutil
+import tempfile
+from pathlib import Path
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +35,7 @@ class Config:
             with open(self.config_path, "r") as f:
                 return json.load(f)
         else:
-            logger.warning(
-                f"Config file not found at {self.config_path}, creating default"
-            )
+            logger.warning(f"Config file not found at {self.config_path}, creating default")
             default_config = self._get_default_config()
             self.save(default_config)
             return default_config
@@ -93,7 +93,9 @@ class Config:
 
     def save(self, config: Dict[str, Any] = None):
         """
-        Save configuration to file.
+        Save configuration to file atomically.
+
+        Uses temp file + rename pattern to prevent corruption if process crashes.
 
         Args:
             config: Config dict to save (defaults to current config)
@@ -103,10 +105,28 @@ class Config:
 
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(self.config_path, "w") as f:
-            json.dump(self.config, f, indent=2)
+        # Write to temp file in same directory (atomic rename requires same filesystem)
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=self.config_path.parent, prefix=".config_", suffix=".tmp"
+        )
 
-        logger.info(f"Configuration saved to {self.config_path}")
+        try:
+            # Write JSON to temp file
+            with os.fdopen(temp_fd, "w") as f:
+                json.dump(self.config, f, indent=2)
+
+            # Atomically replace config file (rename is atomic on POSIX)
+            shutil.move(temp_path, self.config_path)
+            logger.info(f"Configuration saved to {self.config_path}")
+
+        except Exception as e:
+            # Clean up temp file on error
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+            logger.error(f"Failed to save config: {e}")
+            raise
 
     def get(self, key: str, default: Any = None) -> Any:
         """

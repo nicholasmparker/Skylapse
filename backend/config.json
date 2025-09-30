@@ -1,9 +1,9 @@
 {
   "location": {
-    "latitude": 40.7128,
-    "longitude": -74.006,
-    "timezone": "America/New_York",
-    "name": "New York"
+    "latitude": 39.609573,
+    "longitude": -105.314163,
+    "timezone": "America/Denver",
+    "name": "Colorado"
   },
   "schedules": {
     "sunrise": {
@@ -17,8 +17,8 @@
     "daytime": {
       "enabled": true,
       "start_time": "09:00",
-      "end_time": "15:00",
-      "interval_seconds": 300,
+      "end_time": "18:00",
+      "interval_seconds": 30,
       "stack_images": false
     },
     "sunset": {
@@ -31,7 +31,7 @@
     }
   },
   "pi": {
-    "host": "helios.local",
+    "host": "192.168.0.124",
     "port": 8080,
     "timeout_seconds": 10
   },

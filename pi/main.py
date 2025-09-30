@@ -4,21 +4,21 @@ Skylapse Pi - Simple Capture Server
 ONE JOB: Take photos when commanded to by the backend.
 """
 
+import logging
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, validator
-from typing import Optional
-from datetime import datetime
-from pathlib import Path
-import logging
-import os
-import uvicorn
 
 # Set up logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ camera = None
 camera_model = "Unknown"
 camera_ready = False
 
+
 def initialize_camera():
     """Initialize and start the camera once at application startup."""
     global camera, camera_model, camera_ready, USE_MOCK_CAMERA
@@ -55,19 +56,22 @@ def initialize_camera():
             # Configure camera for FULL RESOLUTION still images
             # IMX519: 4656x3496 (16MP) - requires gpu_mem=256 in /boot/firmware/config.txt
             # This Pi is dedicated to photography - maximum quality
-            config = camera.create_still_configuration()
-            camera.configure(config)
+            still_config = camera.create_still_configuration()
+            camera.configure(still_config)
 
             # Set autofocus and white balance for best quality
             # AfMode: 2 = Continuous autofocus (keeps focus sharp)
             # AwbMode: 1 = Daylight white balance (consistent color across timelapse)
-            camera.set_controls({
-                "AfMode": 2,  # Continuous autofocus (0=manual, 1=auto, 2=continuous)
-                "AwbMode": 1,  # Daylight white balance (1 = daylight, 0 = auto)
-            })
+            camera.set_controls(
+                {
+                    "AfMode": 2,  # Continuous autofocus (0=manual, 1=auto, 2=continuous)
+                    "AwbMode": 1,  # Daylight white balance (1 = daylight, 0 = auto)
+                }
+            )
 
             # Let autofocus settle before starting
             import time
+
             time.sleep(2)
 
             # Start camera once - it stays running
@@ -91,12 +95,14 @@ def initialize_camera():
         camera_ready = False
         camera_model = "Mock Camera (Error)"
 
+
 # Initialize at module load
 initialize_camera()
 
 
 class CaptureSettings(BaseModel):
     """Camera settings for a single capture"""
+
     iso: int
     shutter_speed: str  # e.g., "1/1000"
     exposure_compensation: float  # e.g., +0.7
@@ -132,9 +138,41 @@ class CaptureSettings(BaseModel):
             raise ValueError("bracket_count must be 1, 3, or 5")
         return v
 
+    @validator("bracket_ev", always=True)
+    def validate_bracket_ev(cls, v, values):
+        """
+        Validate bracket_ev list has correct length and values.
+
+        Checks:
+        - If bracket_count > 1, bracket_ev must exist
+        - bracket_ev must have at least bracket_count values
+        - All EV values must be floats in range -2.0 to +2.0
+        """
+        bracket_count = values.get("bracket_count", 1)
+
+        # If bracketing is enabled, bracket_ev must be provided
+        if bracket_count > 1:
+            if v is None:
+                raise ValueError(f"bracket_ev required when bracket_count={bracket_count}")
+
+            if len(v) < bracket_count:
+                raise ValueError(
+                    f"bracket_ev must have at least {bracket_count} values, got {len(v)}"
+                )
+
+            # Validate each EV value is in valid range
+            for ev in v:
+                if not isinstance(ev, (int, float)):
+                    raise ValueError(f"bracket_ev values must be numbers, got {type(ev)}")
+                if not -2.0 <= ev <= 2.0:
+                    raise ValueError(f"bracket_ev values must be in range -2.0 to +2.0, got {ev}")
+
+        return v
+
 
 class CaptureResponse(BaseModel):
     """Response from a capture request"""
+
     status: str
     image_path: Optional[str] = None
     message: Optional[str] = None
@@ -169,10 +207,7 @@ async def capture_photo(settings: CaptureSettings):
     """
     # Check if camera is ready
     if not camera_ready:
-        raise HTTPException(
-            status_code=503,
-            detail="Camera not ready - check service logs"
-        )
+        raise HTTPException(status_code=503, detail="Camera not ready - check service logs")
 
     try:
         logger.info(
@@ -186,9 +221,7 @@ async def capture_photo(settings: CaptureSettings):
             logger.info(f"Mock capture complete: {image_path}")
 
             return CaptureResponse(
-                status="success",
-                image_path=image_path,
-                message="Capture successful (mock mode)"
+                status="success", image_path=image_path, message="Capture successful (mock mode)"
             )
 
         else:
@@ -210,7 +243,7 @@ async def capture_photo(settings: CaptureSettings):
                 bracket_paths = []
                 shutter_us = parse_shutter_speed(settings.shutter_speed)
 
-                for i, ev_offset in enumerate(settings.bracket_ev[:settings.bracket_count]):
+                for i, ev_offset in enumerate(settings.bracket_ev[: settings.bracket_count]):
                     image_path = str(output_dir / f"capture_{timestamp}_bracket{i}.jpg")
 
                     controls = {
@@ -223,7 +256,9 @@ async def capture_photo(settings: CaptureSettings):
                     camera.set_controls(controls)
                     camera.capture_file(image_path)
                     bracket_paths.append(image_path)
-                    logger.info(f"✓ Bracket {i+1}/{settings.bracket_count} (EV{ev_offset:+.1f}): {image_path}")
+                    logger.info(
+                        f"✓ Bracket {i+1}/{settings.bracket_count} (EV{ev_offset:+.1f}): {image_path}"
+                    )
 
                 # Return path to the middle (properly exposed) image
                 middle_idx = settings.bracket_count // 2
@@ -254,9 +289,7 @@ async def capture_photo(settings: CaptureSettings):
                 logger.info(f"✓ Capture complete: {image_path}")
 
             return CaptureResponse(
-                status="success",
-                image_path=image_path,
-                message="Capture successful"
+                status="success", image_path=image_path, message="Capture successful"
             )
 
     except ValueError as e:
@@ -274,7 +307,7 @@ async def get_status():
         "status": "online",
         "camera_model": camera_model,
         "camera_ready": camera_ready,
-        "mock_mode": USE_MOCK_CAMERA
+        "mock_mode": USE_MOCK_CAMERA,
     }
 
 
@@ -317,6 +350,40 @@ async def get_latest_image(profile: str):
     return FileResponse(latest_image, media_type="image/jpeg")
 
 
+@app.get("/images/profile-{profile}/info")
+async def get_latest_image_info(profile: str):
+    """Get metadata about the latest image in a profile folder"""
+    home_dir = Path.home()
+    profile_dir = home_dir / "skylapse-images" / f"profile-{profile}"
+
+    if not profile_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Profile {profile} folder not found")
+
+    # Get all jpg files sorted by modification time
+    images = sorted(profile_dir.glob("*.jpg"), key=lambda p: p.stat().st_mtime, reverse=True)
+
+    if not images:
+        raise HTTPException(status_code=404, detail=f"No images found in profile {profile}")
+
+    latest_image = images[0]
+
+    # Check if this is a bracketed image - if so, use middle bracket
+    if "_bracket" in latest_image.name:
+        base_name = latest_image.name.split("_bracket")[0]
+        middle_bracket = profile_dir / f"{base_name}_bracket1.jpg"
+        if middle_bracket.exists():
+            latest_image = middle_bracket
+
+    stat = latest_image.stat()
+
+    return {
+        "filename": latest_image.name,
+        "size": stat.st_size,
+        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+        "profile": profile,
+    }
+
+
 @app.get("/images/profile-{profile}/list")
 async def list_profile_images(profile: str):
     """List all images in a profile folder"""
@@ -336,10 +403,10 @@ async def list_profile_images(profile: str):
             {
                 "filename": img.name,
                 "size_bytes": img.stat().st_size,
-                "modified": datetime.fromtimestamp(img.stat().st_mtime).isoformat()
+                "modified": datetime.fromtimestamp(img.stat().st_mtime).isoformat(),
             }
             for img in images
-        ]
+        ],
     }
 
 

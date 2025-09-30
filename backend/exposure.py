@@ -4,9 +4,10 @@ Smart Exposure Calculator
 Calculates optimal camera settings based on time of day and schedule type.
 """
 
-from datetime import datetime, timedelta
-from typing import Dict
 import logging
+from datetime import datetime, timedelta
+from typing import Any, Dict
+
 from schedule_types import ScheduleType
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ class ExposureCalculator:
 
     def calculate_settings(
         self, schedule_type: str, current_time: datetime = None, profile: str = "a"
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Calculate camera settings for current conditions and profile.
 
@@ -57,7 +58,7 @@ class ExposureCalculator:
         # Apply profile-specific modifications
         return self._apply_profile_settings(base_settings, profile)
 
-    def _calculate_sunrise_settings(self, current_time: datetime) -> Dict[str, any]:
+    def _calculate_sunrise_settings(self, current_time: datetime) -> Dict[str, Any]:
         """
         Calculate settings for sunrise capture.
 
@@ -69,9 +70,7 @@ class ExposureCalculator:
         """
         if self.solar_calculator:
             sunrise_time = self.solar_calculator.get_sunrise(current_time)
-            minutes_from_sunrise = (
-                current_time - sunrise_time
-            ).total_seconds() / 60
+            minutes_from_sunrise = (current_time - sunrise_time).total_seconds() / 60
 
             # Before sunrise: Higher ISO, slightly slower shutter
             if minutes_from_sunrise < -15:
@@ -103,7 +102,7 @@ class ExposureCalculator:
         logger.debug(f"Sunrise settings at {current_time}: {settings}")
         return settings
 
-    def _calculate_daytime_settings(self) -> Dict[str, any]:
+    def _calculate_daytime_settings(self) -> Dict[str, Any]:
         """
         Calculate settings for daytime capture.
 
@@ -122,7 +121,7 @@ class ExposureCalculator:
         logger.debug(f"Daytime settings: {settings}")
         return settings
 
-    def _calculate_sunset_settings(self, current_time: datetime) -> Dict[str, any]:
+    def _calculate_sunset_settings(self, current_time: datetime) -> Dict[str, Any]:
         """
         Calculate settings for sunset capture.
 
@@ -134,9 +133,7 @@ class ExposureCalculator:
         """
         if self.solar_calculator:
             sunset_time = self.solar_calculator.get_sunset(current_time)
-            minutes_from_sunset = (
-                current_time - sunset_time
-            ).total_seconds() / 60
+            minutes_from_sunset = (current_time - sunset_time).total_seconds() / 60
 
             # Before sunset: Standard settings
             if minutes_from_sunset < -15:
@@ -168,7 +165,9 @@ class ExposureCalculator:
         logger.debug(f"Sunset settings at {current_time}: {settings}")
         return settings
 
-    def _apply_profile_settings(self, base_settings: Dict[str, any], profile: str) -> Dict[str, any]:
+    def _apply_profile_settings(
+        self, base_settings: Dict[str, Any], profile: str
+    ) -> Dict[str, Any]:
         """
         Apply profile-specific modifications to base settings.
 
@@ -241,7 +240,7 @@ class ExposureCalculator:
 
         return settings
 
-    def format_for_pi(self, settings: Dict[str, any]) -> Dict[str, any]:
+    def format_for_pi(self, settings: Dict[str, Any]) -> Dict[str, Any]:
         """
         Format settings for Pi API request.
 

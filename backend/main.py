@@ -10,38 +10,29 @@ Responsibilities:
 6. Process and stack images
 """
 
-from fastapi import FastAPI
-import uvicorn
-from datetime import datetime, time
 import asyncio
-import httpx
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, time
 
+import httpx
+import uvicorn
 from config import Config
-from solar import SolarCalculator
 from exposure import ExposureCalculator
+from fastapi import FastAPI, Request
 from schedule_types import ScheduleType
+from solar import SolarCalculator
 
 # Set up logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
-
-# Global instances (initialized in lifespan)
-config: Config = None
-solar_calc: SolarCalculator = None
-exposure_calc: ExposureCalculator = None
-scheduler_task = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle manager for startup and shutdown"""
-    global config, solar_calc, exposure_calc, scheduler_task
-
     # Startup
     logger.info("Starting Skylapse Backend...")
 
@@ -60,18 +51,24 @@ async def lifespan(app: FastAPI):
     # Initialize exposure calculator
     exposure_calc = ExposureCalculator(solar_calc)
 
+    # Store in app state (no more globals!)
+    app.state.config = config
+    app.state.solar_calc = solar_calc
+    app.state.exposure_calc = exposure_calc
+
     # Start scheduler loop
-    scheduler_task = asyncio.create_task(scheduler_loop())
+    scheduler_task = asyncio.create_task(scheduler_loop(app))
+    app.state.scheduler_task = scheduler_task
     logger.info("Scheduler loop started")
 
     yield
 
     # Shutdown
     logger.info("Shutting down Skylapse Backend...")
-    if scheduler_task:
-        scheduler_task.cancel()
+    if app.state.scheduler_task:
+        app.state.scheduler_task.cancel()
         try:
-            await scheduler_task
+            await app.state.scheduler_task
         except asyncio.CancelledError:
             pass
     logger.info("Scheduler loop stopped")
@@ -80,7 +77,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Skylapse Backend", lifespan=lifespan)
 
 
-async def scheduler_loop():
+async def scheduler_loop(app: FastAPI):
     """
     Main scheduler loop - checks every 30 seconds if capture is needed.
 
@@ -92,6 +89,11 @@ async def scheduler_loop():
     5. Send capture command to Pi
     """
     logger.info("Scheduler loop running...")
+
+    # Get references from app state
+    config = app.state.config
+    solar_calc = app.state.solar_calc
+    exposure_calc = app.state.exposure_calc
 
     # Track last capture times per schedule to avoid duplicates
     last_captures = {}
@@ -113,14 +115,16 @@ async def scheduler_loop():
                     continue
 
                 should_capture = await should_capture_now(
-                    schedule_name, schedule_config, current_time, last_captures
+                    schedule_name, schedule_config, current_time, last_captures, solar_calc
                 )
 
                 if should_capture:
                     # Get current profile for this capture
                     current_profile = profiles[profile_counter % len(profiles)]
 
-                    logger.info(f"📸 Triggering capture for {schedule_name} [Profile {current_profile.upper()}]")
+                    logger.info(
+                        f"📸 Triggering capture for {schedule_name} [Profile {current_profile.upper()}]"
+                    )
 
                     # Calculate exposure settings for current profile
                     settings = exposure_calc.calculate_settings(
@@ -128,7 +132,7 @@ async def scheduler_loop():
                     )
 
                     # Send capture command to Pi
-                    success = await trigger_capture(schedule_name, settings)
+                    success = await trigger_capture(schedule_name, settings, config)
 
                     if success:
                         last_captures[schedule_name] = current_time
@@ -147,11 +151,38 @@ async def scheduler_loop():
             await asyncio.sleep(30)  # Continue even if there was an error
 
 
+def parse_time_range(schedule_config: dict, schedule_name: str) -> tuple:
+    """
+    Parse start_time and end_time from schedule config.
+
+    Args:
+        schedule_config: Schedule configuration dict
+        schedule_name: Name of schedule (for error logging)
+
+    Returns:
+        Tuple of (start_time, end_time) as time objects, or (None, None) if invalid
+    """
+    start_time_str = schedule_config.get("start_time", "09:00")
+    end_time_str = schedule_config.get("end_time", "15:00")
+
+    try:
+        start_time = time.fromisoformat(start_time_str)
+        end_time = time.fromisoformat(end_time_str)
+        return (start_time, end_time)
+    except ValueError as e:
+        logger.error(
+            f"Invalid time format for {schedule_name}: "
+            f"start={start_time_str}, end={end_time_str}. Error: {e}"
+        )
+        return (None, None)
+
+
 async def should_capture_now(
     schedule_name: str,
     schedule_config: dict,
     current_time: datetime,
     last_captures: dict,
+    solar_calc: SolarCalculator,
 ) -> bool:
     """
     Determine if we should capture for this schedule right now.
@@ -161,6 +192,7 @@ async def should_capture_now(
         schedule_config: Schedule configuration
         current_time: Current time
         last_captures: Dictionary of last capture times per schedule
+        solar_calc: Solar calculator instance
 
     Returns:
         True if we should capture now, False otherwise
@@ -182,16 +214,9 @@ async def should_capture_now(
 
     elif schedule_name == ScheduleType.DAYTIME:
         # Time-of-day schedule
-        start_time_str = schedule_config.get("start_time", "09:00")
-        end_time_str = schedule_config.get("end_time", "15:00")
+        start_time, end_time = parse_time_range(schedule_config, schedule_name)
 
-        try:
-            start_time = time.fromisoformat(start_time_str)
-            end_time = time.fromisoformat(end_time_str)
-        except ValueError as e:
-            logger.error(
-                f"Invalid time format for {schedule_name}: start={start_time_str}, end={end_time_str}. Error: {e}"
-            )
+        if start_time is None or end_time is None:
             return False  # Skip this schedule if times are invalid
 
         current_time_only = current_time.time()
@@ -200,7 +225,7 @@ async def should_capture_now(
     return False
 
 
-async def trigger_capture(schedule_name: str, settings: dict) -> bool:
+async def trigger_capture(schedule_name: str, settings: dict, config: Config) -> bool:
     """
     Send capture command to Raspberry Pi.
 
@@ -237,9 +262,13 @@ async def trigger_capture(schedule_name: str, settings: dict) -> bool:
 
 # API Endpoints
 
+
 @app.get("/")
-async def root():
+async def root(request: Request):
     """Root endpoint with system info"""
+    config = request.app.state.config
+    solar_calc = request.app.state.solar_calc
+
     sun_times = solar_calc.get_sun_times()
 
     return {
@@ -255,8 +284,11 @@ async def root():
 
 
 @app.get("/schedules")
-async def get_schedules():
+async def get_schedules(request: Request):
     """Get all schedule configurations"""
+    config = request.app.state.config
+    solar_calc = request.app.state.solar_calc
+
     schedules = config.config["schedules"]
 
     # Add calculated time windows for solar schedules
@@ -273,8 +305,11 @@ async def get_schedules():
 
 
 @app.get("/status")
-async def get_status():
+async def get_status(request: Request):
     """Get current system status"""
+    config = request.app.state.config
+    solar_calc = request.app.state.solar_calc
+
     current_time = datetime.now(solar_calc.timezone)
     sun_times = solar_calc.get_sun_times()
 
@@ -289,21 +324,11 @@ async def get_status():
             if window["start"] <= current_time <= window["end"]:
                 active_schedules.append(schedule_name)
         elif schedule_name == ScheduleType.DAYTIME:
-            start_time_str = schedule_config.get("start_time", "09:00")
-            end_time_str = schedule_config.get("end_time", "15:00")
+            start_time, end_time = parse_time_range(schedule_config, schedule_name)
 
-            try:
-                start_time = time.fromisoformat(start_time_str)
-                end_time = time.fromisoformat(end_time_str)
-
+            if start_time is not None and end_time is not None:
                 if start_time <= current_time.time() <= end_time:
                     active_schedules.append(schedule_name)
-            except ValueError as e:
-                logger.error(
-                    f"Invalid time format in /status for {schedule_name}: "
-                    f"start={start_time_str}, end={end_time_str}. Error: {e}"
-                )
-                # Skip this schedule if times are invalid
 
     return {
         "current_time": current_time.isoformat(),

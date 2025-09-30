@@ -1,0 +1,14 @@
+{
+  "timestamp": "20250930_131830",
+  "name": "test_20250930_131830_baseline",
+  "settings": {
+    "iso": 400,
+    "shutter_speed": "1/500",
+    "exposure_value": 0.0
+  },
+  "result": {
+    "status": "success",
+    "image_path": "/home/nicholasmparker/skylapse-images/capture_20250930_131830.jpg",
+    "message": "Capture successful"
+  }
+}

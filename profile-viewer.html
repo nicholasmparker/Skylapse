@@ -44,6 +44,13 @@
             font-size: 1.1em;
         }
 
+        .image-timestamp {
+            color: #888;
+            font-size: 0.75em;
+            margin-top: 8px;
+            text-align: center;
+        }
+
         .profile-card p {
             color: #aaa;
             font-size: 0.85em;
@@ -129,6 +136,7 @@
                      onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
                      alt="Profile A">
             </div>
+            <div class="image-timestamp" id="timestamp-a"></div>
         </div>
 
         <div class="profile-card">
@@ -143,6 +151,7 @@
                      onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
                      alt="Profile B">
             </div>
+            <div class="image-timestamp" id="timestamp-b"></div>
         </div>
 
         <div class="profile-card">
@@ -157,6 +166,7 @@
                      onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
                      alt="Profile C">
             </div>
+            <div class="image-timestamp" id="timestamp-c"></div>
         </div>
 
         <div class="profile-card">
@@ -171,6 +181,7 @@
                      onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
                      alt="Profile D">
             </div>
+            <div class="image-timestamp" id="timestamp-d"></div>
         </div>
 
         <div class="profile-card">
@@ -185,6 +196,7 @@
                      onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
                      alt="Profile E">
             </div>
+            <div class="image-timestamp" id="timestamp-e"></div>
         </div>
 
         <div class="profile-card">
@@ -199,13 +211,28 @@
                      onerror="this.parentElement.innerHTML='<div class=error>No image yet</div>'"
                      alt="Profile F">
             </div>
+            <div class="image-timestamp" id="timestamp-f"></div>
         </div>
     </div>
 
     <script>
         let autoRefreshInterval = null;
 
-        function refreshImages() {
+        async function fetchImageTimestamp(profile) {
+            try {
+                const response = await fetch(`http://helios.local:8080/images/profile-${profile}/info`);
+                const data = await response.json();
+                if (data.modified) {
+                    const date = new Date(data.modified);
+                    return date.toLocaleString();
+                }
+            } catch (e) {
+                return 'Unknown';
+            }
+            return 'Unknown';
+        }
+
+        async function refreshImages() {
             const timestamp = new Date().toLocaleString();
             document.getElementById('timestamp').textContent = `Last updated: ${timestamp}`;
 
@@ -213,12 +240,19 @@
             const profiles = ['a', 'b', 'c', 'd', 'e', 'f'];
             const cacheBust = Date.now();
 
-            profiles.forEach(profile => {
+            for (const profile of profiles) {
                 const img = document.querySelector(`img[alt="Profile ${profile.toUpperCase()}"]`);
                 if (img) {
                     img.src = `http://helios.local:8080/images/profile-${profile}/latest.jpg?t=${cacheBust}`;
                 }
-            });
+
+                // Fetch and display image timestamp
+                const timestampEl = document.getElementById(`timestamp-${profile}`);
+                if (timestampEl) {
+                    const imageTime = await fetchImageTimestamp(profile);
+                    timestampEl.textContent = `📅 ${imageTime}`;
+                }
+            }
         }
 
         function toggleAutoRefresh() {
