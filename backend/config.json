@@ -1,0 +1,48 @@
+{
+  "location": {
+    "latitude": 40.7128,
+    "longitude": -74.006,
+    "timezone": "America/New_York",
+    "name": "New York"
+  },
+  "schedules": {
+    "sunrise": {
+      "enabled": true,
+      "offset_minutes": -30,
+      "duration_minutes": 60,
+      "interval_seconds": 30,
+      "stack_images": true,
+      "stack_count": 5
+    },
+    "daytime": {
+      "enabled": true,
+      "start_time": "09:00",
+      "end_time": "15:00",
+      "interval_seconds": 300,
+      "stack_images": false
+    },
+    "sunset": {
+      "enabled": true,
+      "offset_minutes": -30,
+      "duration_minutes": 60,
+      "interval_seconds": 30,
+      "stack_images": true,
+      "stack_count": 5
+    }
+  },
+  "pi": {
+    "host": "helios.local",
+    "port": 8080,
+    "timeout_seconds": 10
+  },
+  "storage": {
+    "images_dir": "data/images",
+    "videos_dir": "data/videos",
+    "max_days_to_keep": 7
+  },
+  "processing": {
+    "video_fps": 24,
+    "video_codec": "libx264",
+    "video_quality": "23"
+  }
+}
