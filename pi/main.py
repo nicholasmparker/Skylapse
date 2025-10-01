@@ -18,6 +18,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from profile_executor import ProfileExecutor
 from pydantic import BaseModel, validator
 
@@ -37,6 +38,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for serving images
+images_dir = Path(os.path.expanduser("~/skylapse-images"))
+if images_dir.exists():
+    app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
 
 # Determine if we're running on real hardware or in mock mode
 USE_MOCK_CAMERA = os.getenv("MOCK_CAMERA", "false").lower() == "true"
@@ -496,6 +502,52 @@ async def get_status():
 async def health_check():
     """Simple health check for monitoring"""
     return {"status": "ok"}
+
+
+@app.get("/latest-image")
+async def get_latest_image(profile: Optional[str] = None):
+    """Get the most recent captured image info, optionally filtered by profile"""
+    import os
+    from pathlib import Path
+
+    # Check all profile directories for the latest image
+    base_dir = Path(os.path.expanduser("~/skylapse-images"))
+
+    if not base_dir.exists():
+        return {"image_url": None}
+
+    latest_file = None
+    latest_time = 0
+    latest_profile = None
+
+    # Filter by profile if specified
+    if profile:
+        profile_dirs = [base_dir / f"profile-{profile}"]
+    else:
+        profile_dirs = list(base_dir.glob("profile-*"))
+
+    image_count = 0
+    for profile_dir in profile_dirs:
+        if not profile_dir.exists():
+            continue
+        for img_file in profile_dir.glob("capture_*.jpg"):
+            image_count += 1
+            mtime = img_file.stat().st_mtime
+            if mtime > latest_time:
+                latest_time = mtime
+                latest_file = img_file
+                latest_profile = profile_dir.name.replace("profile-", "")
+
+    if latest_file:
+        # Return relative URL that can be accessed via Pi's HTTP server
+        return {
+            "image_url": f"/images/{latest_file.parent.name}/{latest_file.name}",
+            "profile": latest_profile,
+            "timestamp": latest_time * 1000,  # Convert to milliseconds
+            "image_count": image_count,
+        }
+
+    return {"image_url": None, "image_count": 0}
 
 
 # ===== Profile Deployment Endpoints =====

@@ -4,12 +4,13 @@ Solar Time Calculations
 Uses astral library to calculate sunrise and sunset times for scheduling.
 """
 
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 from zoneinfo import ZoneInfo
+
 from astral import LocationInfo
 from astral.sun import sun
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +62,12 @@ class SolarCalculator:
         if date_key not in self._cache:
             sun_times = sun(self.location.observer, date=date.date())
 
+            # Convert UTC times to local timezone
             self._cache[date_key] = {
-                "sunrise": sun_times["sunrise"],
-                "sunset": sun_times["sunset"],
-                "dawn": sun_times["dawn"],
-                "dusk": sun_times["dusk"],
+                "sunrise": sun_times["sunrise"].astimezone(self.timezone),
+                "sunset": sun_times["sunset"].astimezone(self.timezone),
+                "dawn": sun_times["dawn"].astimezone(self.timezone),
+                "dusk": sun_times["dusk"].astimezone(self.timezone),
             }
 
             logger.info(
@@ -100,7 +102,19 @@ class SolarCalculator:
             time = time.replace(tzinfo=self.timezone)
 
         sun_times = self.get_sun_times(time)
-        return sun_times["sunrise"] <= time <= sun_times["sunset"]
+        sunrise = sun_times["sunrise"]
+        sunset = sun_times["sunset"]
+
+        # Handle timezone rollover: if sunset is before sunrise in local time,
+        # it means sunset happened on the previous day in UTC but rolls to previous
+        # day when converted to local timezone. In this case, we need today's sunset.
+        if sunset < sunrise:
+            # Get tomorrow's sun times which will have tonight's sunset
+            tomorrow = time + timedelta(days=1)
+            tomorrow_times = self.get_sun_times(tomorrow)
+            sunset = tomorrow_times["sunset"]
+
+        return sunrise <= time <= sunset
 
     def get_schedule_window(
         self, schedule_type: str, date: Optional[datetime] = None
@@ -141,9 +155,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # Example: New York City
-    calc = SolarCalculator(
-        latitude=40.7128, longitude=-74.0060, timezone="America/New_York"
-    )
+    calc = SolarCalculator(latitude=40.7128, longitude=-74.0060, timezone="America/New_York")
 
     print("\n=== Solar Calculator Test ===")
     print(f"Location: {calc.location.latitude}, {calc.location.longitude}")

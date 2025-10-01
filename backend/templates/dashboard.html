@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skylapse Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: white;
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            color: #333;
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .status-item:last-child { border-bottom: none; }
+        .status-label {
+            color: #666;
+            font-weight: 500;
+        }
+        .status-value {
+            color: #333;
+            font-weight: 600;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .badge-active {
+            background: #10b981;
+            color: white;
+        }
+        .badge-inactive {
+            background: #ef4444;
+            color: white;
+        }
+        .badge-pending {
+            background: #f59e0b;
+            color: white;
+        }
+        .schedule-list {
+            list-style: none;
+        }
+        .schedule-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: #f9fafb;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .schedule-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .schedule-time {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .timelapse-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        .timelapse-card {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .timelapse-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .timelapse-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .timelapse-info {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: background 0.2s;
+        }
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+        .camera-card {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+        .camera-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .camera-detail {
+            font-size: 0.9rem;
+            color: #666;
+            margin: 4px 0;
+        }
+        .camera-preview {
+            margin-top: 12px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .camera-preview img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .preview-label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 12px;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📸 Skylapse Dashboard</h1>
+
+        <button class="refresh-btn" onclick="location.reload()">🔄 Refresh</button>
+
+        <div class="grid">
+            <!-- System Status -->
+            <div class="card">
+                <h2>🌅 System Status</h2>
+                <div class="status-item">
+                    <span class="status-label">Current Time</span>
+                    <span class="status-value" id="current-time">Loading...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Sunrise</span>
+                    <span class="status-value" id="sunrise">Loading...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Sunset</span>
+                    <span class="status-value" id="sunset">Loading...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Daytime</span>
+                    <span class="status-value" id="is-daytime">Loading...</span>
+                </div>
+            </div>
+
+            <!-- Active Schedules -->
+            <div class="card">
+                <h2>📅 Active Schedules</h2>
+                <ul class="schedule-list" id="active-schedules">
+                    <li>Loading...</li>
+                </ul>
+            </div>
+
+            <!-- Camera Status -->
+            <div class="card">
+                <h2>📷 Camera Status</h2>
+                <div id="cameras">
+                    Loading...
+                </div>
+            </div>
+        </div>
+
+        <!-- All 6 Profiles -->
+        <div class="card">
+            <h2>🎨 All Profiles (A-F)</h2>
+            <div class="timelapse-grid" id="profiles-grid">
+                Loading...
+            </div>
+        </div>
+
+        <!-- Timelapses -->
+        <div class="card">
+            <h2>🎬 Recent Timelapses</h2>
+            <div class="timelapse-grid" id="timelapses">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadDashboard() {
+            try {
+                // Load system status
+                const statusRes = await fetch('/status');
+                const status = await statusRes.json();
+
+                document.getElementById('current-time').textContent = new Date(status.current_time).toLocaleString();
+                document.getElementById('sunrise').textContent = new Date(status.sun_times.sunrise).toLocaleTimeString();
+                document.getElementById('sunset').textContent = new Date(status.sun_times.sunset).toLocaleTimeString();
+                document.getElementById('is-daytime').innerHTML = status.is_daytime
+                    ? '<span class="badge badge-active">Day</span>'
+                    : '<span class="badge badge-inactive">Night</span>';
+
+                // Active schedules
+                const schedulesList = document.getElementById('active-schedules');
+                if (status.active_schedules.length > 0) {
+                    schedulesList.innerHTML = status.active_schedules.map(s => `
+                        <li class="schedule-item">
+                            <div class="schedule-name">${s.toUpperCase()}</div>
+                            <span class="badge badge-active">ACTIVE</span>
+                        </li>
+                    `).join('');
+                } else {
+                    schedulesList.innerHTML = '<li class="schedule-item">No active schedules</li>';
+                }
+
+                // Camera status and latest image
+                const camerasDiv = document.getElementById('cameras');
+
+                // Fetch latest image
+                let latestImageHtml = '';
+                try {
+                    const imagesRes = await fetch(`http://${status.pi_host}:8080/latest-image`);
+                    if (imagesRes.ok) {
+                        const imageData = await imagesRes.json();
+                        if (imageData.image_url) {
+                            latestImageHtml = `
+                                <div class="preview-label">Latest Capture</div>
+                                <div class="camera-preview">
+                                    <img src="http://${status.pi_host}:8080${imageData.image_url}" alt="Latest capture">
+                                </div>
+                                <div class="camera-detail" style="margin-top: 8px;">
+                                    ${imageData.profile ? `Profile ${imageData.profile.toUpperCase()}` : ''} -
+                                    ${new Date(imageData.timestamp).toLocaleTimeString()}
+                                </div>
+                            `;
+                        }
+                    }
+                } catch (err) {
+                    console.log('Could not load latest image:', err);
+                }
+
+                camerasDiv.innerHTML = `
+                    <div class="camera-card">
+                        <div class="camera-name">Mountain View Pi</div>
+                        <div class="camera-detail">Host: ${status.pi_host || 'Not configured'}</div>
+                        <div class="camera-detail">Profile: <span class="badge badge-pending">Live Orchestration</span></div>
+                        ${latestImageHtml}
+                    </div>
+                `;
+
+                // Load all 6 profiles
+                const profilesRes = await fetch('/profiles');
+                const profiles = await profilesRes.json();
+
+                const profilesGrid = document.getElementById('profiles-grid');
+                if (profiles.length > 0) {
+                    profilesGrid.innerHTML = profiles.map(p => `
+                        <div class="timelapse-card">
+                            <div class="timelapse-name">Profile ${p.profile.toUpperCase()}</div>
+                            <div class="timelapse-info" style="font-size:0.8rem; color:#888; margin-bottom:4px;">${p.description}</div>
+                            <div class="timelapse-info" style="font-size:0.75rem; color:#667eea; font-weight:600; margin-bottom:4px;">${p.image_count} images</div>
+                            <img src="${p.image_url}" style="width:100%; border-radius:4px; margin-top:4px;" alt="Profile ${p.profile}">
+                            <div class="timelapse-info" style="margin-top:6px;">${new Date(p.timestamp).toLocaleTimeString()}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    profilesGrid.innerHTML = '<p>No profiles captured yet</p>';
+                }
+
+                // Load timelapses
+                const timelapsesRes = await fetch('/timelapses');
+                const timelapses = await timelapsesRes.json();
+
+                const timelapsesDiv = document.getElementById('timelapses');
+                if (timelapses.length > 0) {
+                    timelapsesDiv.innerHTML = timelapses.map(t => `
+                        <div class="timelapse-card" onclick="window.open('${t.url}', '_blank')">
+                            <div class="timelapse-name">${t.name}</div>
+                            <div class="timelapse-info">${t.size}</div>
+                            <div class="timelapse-info">${new Date(t.created).toLocaleDateString()}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    timelapsesDiv.innerHTML = '<p>No timelapses yet</p>';
+                }
+
+            } catch (err) {
+                console.error('Failed to load dashboard:', err);
+            }
+        }
+
+        loadDashboard();
+        setInterval(loadDashboard, 30000); // Refresh every 30 seconds
+    </script>
+</body>
+</html>

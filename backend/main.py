@@ -12,14 +12,18 @@ Responsibilities:
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, time
+from pathlib import Path
 
 import httpx
 import uvicorn
 from config import Config
 from exposure import ExposureCalculator
 from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from schedule_types import ScheduleType
 from solar import SolarCalculator
 
@@ -78,6 +82,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Skylapse Backend", lifespan=lifespan)
+
+# Set up templates
+templates = Jinja2Templates(directory="templates")
 
 
 async def scheduler_loop(app: FastAPI):
@@ -359,6 +366,160 @@ async def get_status(request: Request):
 async def health_check():
     """Health check endpoint"""
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    """Web dashboard for monitoring"""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
+
+@app.get("/timelapses")
+async def list_timelapses():
+    """List available timelapse videos"""
+    video_dir = Path("/tmp/skylapse/processing")
+
+    if not video_dir.exists():
+        return []
+
+    timelapses = []
+    for video_file in video_dir.glob("*.mp4"):
+        stat = video_file.stat()
+        timelapses.append(
+            {
+                "name": video_file.stem,
+                "url": f"/timelapses/{video_file.name}",
+                "size": f"{stat.st_size / 1024 / 1024:.1f} MB",
+                "created": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            }
+        )
+
+    # Sort by creation time, newest first
+    timelapses.sort(key=lambda x: x["created"], reverse=True)
+
+    return timelapses
+
+
+@app.get("/profiles")
+async def get_all_profiles(request: Request):
+    """Get latest images for all 6 profiles with descriptions and image counts"""
+    config = request.app.state.config
+    pi_host = config.get("pi.host")
+
+    # Profile descriptions
+    descriptions = {
+        "a": "Auto + Center-Weighted",
+        "b": "Daylight WB Fixed",
+        "c": "Conservative Adaptive",
+        "d": "Warm Dramatic",
+        "e": "Balanced Adaptive",
+        "f": "Spot Metering (Mountains)",
+    }
+
+    profiles = []
+
+    # Fetch latest image for each profile
+    for profile in ["a", "b", "c", "d", "e", "f"]:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                response = await client.get(f"http://{pi_host}:8080/latest-image?profile={profile}")
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("image_url"):
+                        profiles.append(
+                            {
+                                "profile": profile,
+                                "description": descriptions[profile],
+                                "image_url": f"http://{pi_host}:8080{data['image_url']}",
+                                "timestamp": data.get("timestamp"),
+                                "image_count": data.get("image_count", 0),
+                            }
+                        )
+        except Exception as e:
+            logger.debug(f"Could not fetch profile {profile}: {e}")
+
+    return profiles
+
+
+@app.get("/system")
+async def get_system_info(request: Request):
+    """Comprehensive system status - everything you need to know at a glance"""
+    config = request.app.state.config
+    solar_calc = request.app.state.solar_calc
+
+    current_time = datetime.now(solar_calc.timezone)
+    sun_times = solar_calc.get_sun_times(current_time)
+
+    # Get all schedule configurations
+    schedules_config = config.config.get("schedules", {})
+
+    # Determine active schedules
+    active_schedules = []
+    for schedule_name, schedule_config in schedules_config.items():
+        if not schedule_config.get("enabled", True):
+            continue
+
+        if ScheduleType.is_solar(schedule_name):
+            window = solar_calc.get_schedule_window(schedule_name, current_time)
+            is_active = window["start"] <= current_time <= window["end"]
+            if is_active:
+                active_schedules.append(
+                    {
+                        "name": schedule_name,
+                        "type": "solar",
+                        "window": {
+                            "start": window["start"].isoformat(),
+                            "end": window["end"].isoformat(),
+                        },
+                        "interval_seconds": schedule_config.get("interval_seconds", 30),
+                    }
+                )
+        elif schedule_name == ScheduleType.DAYTIME:
+            start_time, end_time = parse_time_range(schedule_config, schedule_name)
+            if start_time and end_time:
+                if start_time <= current_time.time() <= end_time:
+                    active_schedules.append(
+                        {
+                            "name": schedule_name,
+                            "type": "time_of_day",
+                            "window": {"start": f"{start_time}", "end": f"{end_time}"},
+                            "interval_seconds": schedule_config.get("interval_seconds", 30),
+                        }
+                    )
+
+    # Get Pi status
+    pi_config = config.get_pi_config()
+    pi_status = "unknown"
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get(f"http://{pi_config['host']}:{pi_config['port']}/health")
+            pi_status = "online" if response.status_code == 200 else "offline"
+    except:
+        pi_status = "offline"
+
+    return {
+        "timestamp": current_time.isoformat(),
+        "timezone": str(solar_calc.timezone),
+        "sun": {
+            "sunrise": sun_times["sunrise"].isoformat(),
+            "sunset": sun_times["sunset"].isoformat(),
+            "is_daytime": solar_calc.is_daytime(current_time),
+            "current_phase": "day" if solar_calc.is_daytime(current_time) else "night",
+        },
+        "location": config.get_location(),
+        "schedules": {
+            "active": active_schedules,
+            "configured": list(schedules_config.keys()),
+            "enabled_count": sum(1 for s in schedules_config.values() if s.get("enabled", True)),
+        },
+        "camera": {
+            "host": pi_config["host"],
+            "port": pi_config["port"],
+            "status": pi_status,
+            "profiles_configured": ["a", "b", "c", "d", "e", "f"],
+        },
+        "system": {"backend_version": "2.0.0", "mode": "development", "scheduler_running": True},
+    }
 
 
 if __name__ == "__main__":
