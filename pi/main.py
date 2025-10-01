@@ -151,7 +151,7 @@ class CaptureSettings(BaseModel):
 
     @validator("profile")
     def validate_profile(cls, v):
-        valid_profiles = ["default", "a", "b", "c", "d", "e", "f"]
+        valid_profiles = ["default", "a", "b", "c", "d", "e", "f", "g"]
         if v not in valid_profiles:
             raise ValueError(f"Profile must be one of {valid_profiles}")
         return v

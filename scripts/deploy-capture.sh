@@ -32,12 +32,19 @@ ssh "${PI_USER}@${PI_HOST}" "mkdir -p ${REMOTE_DIR}"
 
 # Copy files
 echo "📦 Copying files..."
+# Copy pi/ files to remote directory
 rsync -av --delete \
     --exclude '__pycache__' \
     --exclude '*.pyc' \
     --exclude 'test_*.py' \
     --exclude 'data/' \
     pi/ "${PI_USER}@${PI_HOST}:${REMOTE_DIR}/"
+
+# Copy shared/ module to remote directory
+rsync -av --delete \
+    --exclude '__pycache__' \
+    --exclude '*.pyc' \
+    shared/ "${PI_USER}@${PI_HOST}:${REMOTE_DIR}/shared/"
 
 # Install system dependencies
 echo "📥 Installing system dependencies..."

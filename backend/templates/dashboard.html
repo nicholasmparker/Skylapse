@@ -166,6 +166,43 @@
             margin-top: 12px;
             margin-bottom: 4px;
         }
+        .profile-image {
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .profile-image:hover {
+            opacity: 0.8;
+        }
+        .fullscreen-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.95);
+            cursor: pointer;
+        }
+        .fullscreen-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .fullscreen-modal img {
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
+        }
+        .fullscreen-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -230,7 +267,30 @@
         </div>
     </div>
 
+    <!-- Fullscreen Modal -->
+    <div class="fullscreen-modal" id="fullscreen-modal" onclick="closeFullscreen()">
+        <span class="fullscreen-close">&times;</span>
+        <img id="fullscreen-image" src="" alt="Fullscreen view">
+    </div>
+
     <script>
+        function openFullscreen(imageUrl, event) {
+            event.stopPropagation();
+            document.getElementById('fullscreen-image').src = imageUrl;
+            document.getElementById('fullscreen-modal').classList.add('active');
+        }
+
+        function closeFullscreen() {
+            document.getElementById('fullscreen-modal').classList.remove('active');
+        }
+
+        // Close on ESC key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeFullscreen();
+            }
+        });
+
         async function loadDashboard() {
             try {
                 // Load system status
@@ -303,7 +363,7 @@
                             <div class="timelapse-name">Profile ${p.profile.toUpperCase()}</div>
                             <div class="timelapse-info" style="font-size:0.8rem; color:#888; margin-bottom:4px;">${p.description}</div>
                             <div class="timelapse-info" style="font-size:0.75rem; color:#667eea; font-weight:600; margin-bottom:4px;">${p.image_count} images</div>
-                            <img src="${p.image_url}" style="width:100%; border-radius:4px; margin-top:4px;" alt="Profile ${p.profile}">
+                            <img src="${p.image_url}" class="profile-image" onclick="openFullscreen('${p.image_url}', event)" style="width:100%; border-radius:4px; margin-top:4px;" alt="Profile ${p.profile}">
                             <div class="timelapse-info" style="margin-top:6px;">${new Date(p.timestamp).toLocaleTimeString()}</div>
                         </div>
                     `).join('');

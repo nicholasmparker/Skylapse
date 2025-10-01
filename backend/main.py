@@ -102,7 +102,7 @@ async def scheduler_loop(app: FastAPI):
     1. Get current time
     2. Check each enabled schedule
     3. Determine if we should capture now
-    4. Capture ALL 6 profiles rapidly in sequence (within ~10 seconds)
+    4. Capture ALL 7 profiles rapidly in sequence (within ~15 seconds)
     5. Wait for next 30-second interval
     """
     logger.info("Scheduler loop running...")
@@ -116,7 +116,7 @@ async def scheduler_loop(app: FastAPI):
     last_captures = {}
 
     # All profiles to capture each cycle
-    profiles = ["a", "b", "c", "d", "e", "f"]
+    profiles = ["a", "b", "c", "d", "e", "f", "g"]
 
     while True:
         try:
@@ -409,18 +409,19 @@ async def list_timelapses():
 
 @app.get("/profiles")
 async def get_all_profiles(request: Request):
-    """Get latest images for all 6 profiles with descriptions and image counts"""
+    """Get latest images for all 7 profiles with descriptions and image counts"""
     config = request.app.state.config
     pi_host = config.get("pi.host")
 
     # Profile descriptions
     descriptions = {
-        "a": "Auto + Center-Weighted",
+        "a": "Pure Auto (No Bias)",
         "b": "Daylight WB Fixed",
         "c": "Conservative Adaptive",
         "d": "Warm Dramatic",
         "e": "Balanced Adaptive",
         "f": "Spot Metering (Mountains)",
+        "g": "Adaptive EV + Balanced WB",
     }
 
     profiles = []
@@ -428,7 +429,7 @@ async def get_all_profiles(request: Request):
     url_builder = get_url_builder()
 
     # Check local images first, fallback to Pi
-    for profile in ["a", "b", "c", "d", "e", "f"]:
+    for profile in ["a", "b", "c", "d", "e", "f", "g"]:
         profile_dir = local_images_dir / f"profile-{profile}"
 
         # Try local images first
@@ -546,7 +547,7 @@ async def get_system_info(request: Request):
             "host": pi_config["host"],
             "port": pi_config["port"],
             "status": pi_status,
-            "profiles_configured": ["a", "b", "c", "d", "e", "f"],
+            "profiles_configured": ["a", "b", "c", "d", "e", "f", "g"],
         },
         "system": {"backend_version": "2.0.0", "mode": "development", "scheduler_running": True},
     }

@@ -1,8 +1,8 @@
 """
 White Balance Curve Definitions and Interpolation
 
-Shared WB curves for both backend (profile creation) and Pi (profile execution).
-Eliminates duplication and ensures consistency.
+Shared WB curves and EV compensation curves for both backend (profile creation)
+and Pi (profile execution). Eliminates duplication and ensures consistency.
 """
 
 from typing import Dict, List, Tuple
@@ -57,6 +57,25 @@ WB_CURVES: Dict[str, List[Tuple[float, int]]] = {
     ],
 }
 
+# EV Compensation Curves
+# Each curve is a list of (lux, ev_compensation) control points in descending lux order
+# Negative EV = darker (protects highlights), Positive EV = brighter (lifts shadows)
+EV_CURVES: Dict[str, List[Tuple[float, float]]] = {
+    "adaptive": [
+        # Adaptive EV - protects highlights in bright conditions, lifts shadows in low light
+        (40000, -0.7),  # Very bright/cloudy - strong highlight protection
+        (30000, -0.5),  # Bright clouds - moderate protection
+        (20000, -0.3),  # Bright day - mild protection
+        (10000, 0.0),  # Normal bright - neutral
+        (6000, 0.0),  # Softening - neutral
+        (3000, +0.3),  # Golden hour starting - lift shadows slightly
+        (1500, +0.5),  # Golden hour - boost exposure
+        (1000, +0.7),  # Dusk - strong boost
+        (500, +1.0),  # Twilight - maximum boost
+        (100, +1.0),  # Very dark - maximum boost
+    ],
+}
+
 
 def interpolate_wb_from_lux(lux: float, lux_table: List[Tuple[float, int]]) -> int:
     """
@@ -97,6 +116,45 @@ def interpolate_wb_from_lux(lux: float, lux_table: List[Tuple[float, int]]) -> i
     return 5500
 
 
+def interpolate_ev_from_lux(lux: float, lux_table: List[Tuple[float, float]]) -> float:
+    """
+    Linear interpolation of EV compensation from lux value.
+
+    This is the SINGLE SOURCE OF TRUTH for EV interpolation.
+    Used by both backend (profile creation) and Pi (profile execution).
+
+    Args:
+        lux: Current light level
+        lux_table: List of (lux, ev_compensation) control points in descending lux order
+
+    Returns:
+        Interpolated EV compensation value (-2.0 to +2.0)
+    """
+    if not lux_table:
+        return 0.0  # Default neutral
+
+    # Handle edge cases
+    if lux >= lux_table[0][0]:
+        return lux_table[0][1]
+
+    if lux <= lux_table[-1][0]:
+        return lux_table[-1][1]
+
+    # Find bracketing points and interpolate
+    for i in range(len(lux_table) - 1):
+        lux_high, ev_high = lux_table[i]
+        lux_low, ev_low = lux_table[i + 1]
+
+        if lux_low <= lux <= lux_high:
+            # Linear interpolation
+            progress = (lux_high - lux) / (lux_high - lux_low)
+            ev_comp = ev_high - (progress * (ev_high - ev_low))
+            return round(ev_comp, 2)
+
+    # Fallback
+    return 0.0
+
+
 def get_wb_curve(curve_name: str) -> List[Tuple[float, int]]:
     """
     Get WB curve by name.
@@ -115,3 +173,23 @@ def get_wb_curve(curve_name: str) -> List[Tuple[float, int]]:
             f"Invalid curve name: {curve_name}. Valid options: {list(WB_CURVES.keys())}"
         )
     return WB_CURVES[curve_name]
+
+
+def get_ev_curve(curve_name: str) -> List[Tuple[float, float]]:
+    """
+    Get EV curve by name.
+
+    Args:
+        curve_name: Name of curve ("adaptive")
+
+    Returns:
+        List of (lux, ev_compensation) control points
+
+    Raises:
+        ValueError: If curve name is invalid
+    """
+    if curve_name not in EV_CURVES:
+        raise ValueError(
+            f"Invalid curve name: {curve_name}. Valid options: {list(EV_CURVES.keys())}"
+        )
+    return EV_CURVES[curve_name]

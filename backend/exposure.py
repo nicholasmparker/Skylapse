@@ -16,7 +16,7 @@ from schedule_types import ScheduleType
 # Add parent directory to path for shared module access
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from shared.wb_curves import WB_CURVES, interpolate_wb_from_lux
+from shared.wb_curves import EV_CURVES, WB_CURVES, interpolate_ev_from_lux, interpolate_wb_from_lux
 
 logger = logging.getLogger(__name__)
 
@@ -311,18 +311,16 @@ class ExposureCalculator:
         lux = settings.pop("lux", None)
 
         if profile == "a":
-            # Profile A: Full Auto with Center-Weighted Metering
-            # General purpose auto-exposure, biased toward center of frame
+            # Profile A: Pure Full Auto
+            # Fully automatic exposure and white balance with no bias
             settings["iso"] = 0  # ISO=0 signals full auto mode to Pi
             settings["shutter_speed"] = "auto"  # Placeholder (not used in auto mode)
-            settings["exposure_compensation"] = +0.3  # Slight positive bias for foreground
+            settings["exposure_compensation"] = 0.0  # Pure auto, no bias
             settings["awb_mode"] = 0  # Auto white balance
             settings["hdr_mode"] = 0  # No HDR
             settings["bracket_count"] = 1  # Single shot
             settings["ae_metering_mode"] = 0  # Center-weighted metering
-            logger.debug(
-                f"Profile A (Auto + Center-Weighted): EV{settings['exposure_compensation']:+.1f}"
-            )
+            logger.debug(f"Profile A (Pure Auto): EV{settings['exposure_compensation']:+.1f}")
 
         elif profile == "b":
             # Profile B: Fixed Daylight WB
@@ -371,6 +369,28 @@ class ExposureCalculator:
             settings["ae_metering_mode"] = 1  # Spot metering (center of frame)
             logger.debug(
                 f"Profile F (Auto + Spot Metering for Mountains): EV{settings['exposure_compensation']:+.1f}"
+            )
+
+        elif profile == "g":
+            # Profile G: EXPERIMENTAL Adaptive EV + Balanced WB
+            # Protects highlights in bright conditions, lifts shadows in low light
+            # Uses lux-based EV curve: negative EV when bright, positive when dark
+            wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="balanced")
+
+            # Calculate adaptive EV compensation based on lux
+            if lux is not None:
+                ev_curve = EV_CURVES["adaptive"]
+                ev_comp = interpolate_ev_from_lux(lux, ev_curve)
+            else:
+                ev_comp = 0.0  # Fallback to neutral if no lux data
+
+            settings["awb_mode"] = 6  # Custom WB
+            settings["wb_temp"] = wb_temp  # Adaptive color temperature
+            settings["exposure_compensation"] = ev_comp  # Adaptive EV
+            settings["hdr_mode"] = 0  # No HDR
+            settings["bracket_count"] = 1  # Single shot
+            logger.info(
+                f"🎯 Profile G (Adaptive EV): lux={lux:.0f} → EV{ev_comp:+.1f}, WB={wb_temp}K"
             )
 
         else:
