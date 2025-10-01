@@ -2,17 +2,20 @@ version: "3.8"
 
 services:
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
     ports:
-      - "8082:8082"
+      - "${BACKEND_PORT:-8082}:8082"
     volumes:
       - ./backend:/app
       - ./backend/data:/app/data
       - skylapse-images:/data/images # Transferred images from Pi
       - skylapse-timelapses:/data/timelapses # Generated timelapse videos
     environment:
-      - PI_HOST=helios.local
-      - PI_PORT=8080
+      - PI_HOST=${PI_HOST:-192.168.0.124}
+      - PI_PORT=${PI_PORT:-8080}
+      - BACKEND_URL=${BACKEND_URL:-http://localhost:8082}
 
   transfer:
     build: ./backend
@@ -22,12 +25,12 @@ services:
       - skylapse-images:/data/images
       - ~/.ssh:/root/.ssh:ro # SSH keys for Pi access
     environment:
-      - PI_HOST=192.168.0.124 # Use IP instead of hostname
-      - PI_USER=nicholasmparker
-      - PI_SOURCE=~/skylapse-images/
-      - LOCAL_DEST=/data/images
-      - TRANSFER_INTERVAL_MINUTES=5 # Transfer every 5 minutes (real-time)
-      - DELETE_AFTER_DAYS=1 # Keep only 1 day on Pi (images are backed up)
+      - PI_HOST=${PI_HOST:-192.168.0.124}
+      - PI_USER=${PI_USER:-nicholasmparker}
+      - PI_SOURCE=${PI_SOURCE:-~/skylapse-images/}
+      - LOCAL_DEST=${LOCAL_DEST:-/data/images}
+      - TRANSFER_INTERVAL_MINUTES=${TRANSFER_INTERVAL_MINUTES:-5}
+      - DELETE_AFTER_DAYS=${DELETE_AFTER_DAYS:-1}
     restart: unless-stopped
 
   processing:
@@ -43,11 +46,11 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     volumes:
       - ./frontend/src:/app/src
     environment:
-      - VITE_BACKEND_URL=http://localhost:8082
+      - VITE_BACKEND_URL=${VITE_BACKEND_URL:-http://localhost:8082}
     depends_on:
       - backend
 

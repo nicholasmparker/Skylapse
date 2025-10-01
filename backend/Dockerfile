@@ -9,11 +9,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source
-COPY . .
+# Copy shared utilities
+COPY shared /shared
+
+# Copy backend source
+COPY backend .
 
 # Expose port
 EXPOSE 8082

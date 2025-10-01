@@ -7,8 +7,15 @@ Profiles contain pre-compiled settings and lux lookup tables for autonomous oper
 
 import json
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+# Add parent directory to path for shared module access
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from shared.wb_curves import interpolate_wb_from_lux
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +23,10 @@ logger = logging.getLogger(__name__)
 class ProfileExecutor:
     """Manages deployed profiles and calculates settings locally"""
 
-    def __init__(self, profile_path: str = "/home/pi/.skylapse/current_profile.json"):
+    def __init__(self, profile_path: str = None):
+        if profile_path is None:
+            home = Path.home()
+            profile_path = str(home / ".skylapse" / "current_profile.json")
         self.profile_path = Path(profile_path)
         self.profile = self._load_profile()
 
@@ -119,7 +129,7 @@ class ProfileExecutor:
 
         # Apply adaptive WB if enabled
         if self.profile["settings"].get("adaptive_wb", {}).get("enabled"):
-            wb_temp = self._interpolate_wb_from_lux(
+            wb_temp = interpolate_wb_from_lux(
                 lux, self.profile["settings"]["adaptive_wb"]["lux_table"]
             )
             settings["awb_mode"] = 6  # Custom WB
@@ -143,45 +153,3 @@ class ProfileExecutor:
         )
 
         return settings
-
-    def _interpolate_wb_from_lux(self, lux: float, lux_table: List[Tuple[float, int]]) -> int:
-        """
-        Linear interpolation of WB temp from lux value.
-
-        This is the same logic as backend/exposure.py but uses
-        pre-compiled lux_table from deployed profile.
-
-        Args:
-            lux: Current light level
-            lux_table: List of [lux, wb_temp] control points
-
-        Returns:
-            Interpolated white balance temperature in Kelvin
-        """
-        if not lux_table:
-            return 5500  # Default daylight
-
-        # Handle edge cases
-        if lux >= lux_table[0][0]:
-            return lux_table[0][1]
-
-        if lux <= lux_table[-1][0]:
-            return lux_table[-1][1]
-
-        # Find bracketing points and interpolate
-        for i in range(len(lux_table) - 1):
-            lux_high, temp_high = lux_table[i]
-            lux_low, temp_low = lux_table[i + 1]
-
-            if lux_low <= lux <= lux_high:
-                # Linear interpolation
-                progress = (lux_high - lux) / (lux_high - lux_low)
-                wb_temp = int(temp_high - (progress * (temp_high - temp_low)))
-                logger.debug(
-                    f"WB interpolation: lux={lux:.0f} → {wb_temp}K "
-                    f"(between {lux_high}→{temp_high}K and {lux_low}→{temp_low}K)"
-                )
-                return wb_temp
-
-        # Fallback
-        return 5500

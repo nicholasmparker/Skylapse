@@ -27,6 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from schedule_types import ScheduleType
 from solar import SolarCalculator
+from url_builder import get_url_builder
 
 # Set up logging
 logging.basicConfig(
@@ -424,6 +425,7 @@ async def get_all_profiles(request: Request):
 
     profiles = []
     local_images_dir = Path("/data/images")
+    url_builder = get_url_builder()
 
     # Check local images first, fallback to Pi
     for profile in ["a", "b", "c", "d", "e", "f"]:
@@ -440,7 +442,7 @@ async def get_all_profiles(request: Request):
                     {
                         "profile": profile,
                         "description": descriptions[profile],
-                        "image_url": f"http://localhost:8082/images/profile-{profile}/{latest_file.name}",
+                        "image_url": url_builder.image(profile, latest_file.name, source="backend"),
                         "timestamp": latest_file.stat().st_mtime * 1000,
                         "image_count": len(image_files),
                     }
@@ -450,7 +452,7 @@ async def get_all_profiles(request: Request):
         # Fallback to Pi if no local images
         try:
             async with httpx.AsyncClient(timeout=3.0) as client:
-                response = await client.get(f"http://{pi_host}:8080/latest-image?profile={profile}")
+                response = await client.get(url_builder.pi(f"/latest-image?profile={profile}"))
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("image_url"):
@@ -458,7 +460,7 @@ async def get_all_profiles(request: Request):
                             {
                                 "profile": profile,
                                 "description": descriptions[profile],
-                                "image_url": f"http://{pi_host}:8080{data['image_url']}",
+                                "image_url": url_builder.pi(data["image_url"]),
                                 "timestamp": data.get("timestamp"),
                                 "image_count": data.get("image_count", 0),
                             }

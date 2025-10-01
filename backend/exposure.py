@@ -5,11 +5,18 @@ Calculates optimal camera settings based on camera metering + profile adjustment
 """
 
 import logging
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import httpx
 from schedule_types import ScheduleType
+
+# Add parent directory to path for shared module access
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from shared.wb_curves import WB_CURVES, interpolate_wb_from_lux
 
 logger = logging.getLogger(__name__)
 
@@ -237,89 +244,11 @@ class ExposureCalculator:
             # No lux data: fallback to daylight
             return 5500
 
-        # Define different curve strategies
-        if curve == "balanced":
-            # Profile E: Balanced - matches B when bright, gradual warmth as dims
-            control_points = [
-                (10000, 5500),  # Very bright daylight
-                (8000, 5500),  # Bright (matches Profile B)
-                (6000, 5450),  # Still bright, barely warmer
-                (4000, 5300),  # Softening light
-                (3000, 5100),  # Transitioning
-                (2000, 4800),  # Golden hour starting
-                (1500, 4600),  # Golden hour
-                (1000, 4300),  # Dusk
-                (700, 4100),  # Deep dusk
-                (500, 3900),  # Twilight
-                (300, 3700),  # Deep twilight
-                (100, 3500),  # Very dark
-            ]
-        elif curve == "conservative":
-            # Profile C: Conservative - cooler overall, protects highlights
-            control_points = [
-                (10000, 5600),  # Slightly cooler than B
-                (8000, 5600),  # Cooler baseline
-                (6000, 5550),  # Very subtle warmth
-                (4000, 5400),  # Still conservative
-                (3000, 5250),  # Modest warmth
-                (2000, 5000),  # Golden hour but restrained
-                (1500, 4800),  #
-                (1000, 4500),  # Dusk but not too warm
-                (700, 4300),  #
-                (500, 4100),  # Twilight
-                (300, 3900),  #
-                (100, 3700),  # Dark but not too warm
-            ]
-        elif curve == "warm":
-            # Profile D: Warm/dramatic - embraces golden tones earlier
-            control_points = [
-                (10000, 5500),  # Same bright baseline
-                (8000, 5500),  # Match B when bright
-                (6000, 5350),  # Warmer sooner
-                (4000, 5100),  # More aggressive warmth
-                (3000, 4800),  # Golden earlier
-                (2000, 4500),  # Rich golden
-                (1500, 4300),  # Dramatic sunset
-                (1000, 4000),  # Deep warm dusk
-                (700, 3800),  # Very warm
-                (500, 3600),  # Rich twilight
-                (300, 3500),  # Maximum warmth
-                (100, 3400),  # Very dark/warm
-            ]
-        else:
-            # Fallback to balanced
-            control_points = [
-                (10000, 5500),
-                (8000, 5500),
-                (6000, 5450),
-                (4000, 5300),
-                (3000, 5100),
-                (2000, 4800),
-                (1500, 4600),
-                (1000, 4300),
-                (700, 4100),
-                (500, 3900),
-                (300, 3700),
-                (100, 3500),
-            ]
+        # Get control points from shared curve definitions
+        control_points = WB_CURVES.get(curve, WB_CURVES["balanced"])
 
-        # Linear interpolation between control points
-        # Find the two points that bracket the current lux value
-        if lux >= control_points[0][0]:
-            wb_temp = control_points[0][1]
-        elif lux <= control_points[-1][0]:
-            wb_temp = control_points[-1][1]
-        else:
-            # Find bracketing points
-            for i in range(len(control_points) - 1):
-                lux_high, temp_high = control_points[i]
-                lux_low, temp_low = control_points[i + 1]
-
-                if lux_low <= lux <= lux_high:
-                    # Linear interpolation
-                    progress = (lux_high - lux) / (lux_high - lux_low)
-                    wb_temp = int(temp_high - (progress * (temp_high - temp_low)))
-                    break
+        # Use shared interpolation function
+        wb_temp = interpolate_wb_from_lux(lux, control_points)
 
         # Determine phase for logging
         if lux >= 6000:
