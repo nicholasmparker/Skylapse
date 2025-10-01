@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-import requests
+import httpx
 from schedule_types import ScheduleType
 
 logger = logging.getLogger(__name__)
@@ -31,9 +31,9 @@ class ExposureCalculator:
         self.pi_port = pi_port
         self.meter_url = f"http://{pi_host}:{pi_port}/meter" if pi_host else None
 
-    def get_metered_exposure(self) -> Optional[Dict[str, Any]]:
+    async def get_metered_exposure(self) -> Optional[Dict[str, Any]]:
         """
-        Get camera-metered exposure settings from Pi.
+        Get camera-metered exposure settings from Pi (async).
 
         Returns:
             Dict with suggested_iso, suggested_shutter, lux, or None if metering fails
@@ -43,26 +43,27 @@ class ExposureCalculator:
             return None
 
         try:
-            response = requests.get(self.meter_url, timeout=5)
-            response.raise_for_status()
-            meter_data = response.json()
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(self.meter_url)
+                response.raise_for_status()
+                meter_data = response.json()
 
-            logger.info(
-                f"📊 Metered: ISO {meter_data['suggested_iso']}, "
-                f"Shutter {meter_data['suggested_shutter']}, Lux {meter_data['lux']:.1f}"
-            )
+                logger.info(
+                    f"📊 Metered: ISO {meter_data['suggested_iso']}, "
+                    f"Shutter {meter_data['suggested_shutter']}, Lux {meter_data['lux']:.1f}"
+                )
 
-            return meter_data
+                return meter_data
 
         except Exception as e:
             logger.error(f"Metering failed: {e}")
             return None
 
-    def calculate_settings(
+    async def calculate_settings(
         self, schedule_type: str, current_time: datetime = None, profile: str = "a"
     ) -> Dict[str, Any]:
         """
-        Calculate camera settings using camera metering + profile adjustments.
+        Calculate camera settings using camera metering + profile adjustments (async).
 
         Args:
             schedule_type: "sunrise", "daytime", or "sunset"
@@ -79,7 +80,7 @@ class ExposureCalculator:
                 current_time = datetime.now()
 
         # Try to get camera-metered exposure first
-        meter_data = self.get_metered_exposure()
+        meter_data = await self.get_metered_exposure()
 
         if meter_data:
             # Use camera's metered values as base
@@ -381,14 +382,18 @@ class ExposureCalculator:
         lux = settings.pop("lux", None)
 
         if profile == "a":
-            # Profile A: Full Auto (Baseline) - camera decides ISO/shutter/WB
+            # Profile A: Full Auto with Center-Weighted Metering
+            # General purpose auto-exposure, biased toward center of frame
             settings["iso"] = 0  # ISO=0 signals full auto mode to Pi
             settings["shutter_speed"] = "auto"  # Placeholder (not used in auto mode)
-            settings["exposure_compensation"] = 0.0  # Neutral
+            settings["exposure_compensation"] = +0.3  # Slight positive bias for foreground
             settings["awb_mode"] = 0  # Auto white balance
             settings["hdr_mode"] = 0  # No HDR
             settings["bracket_count"] = 1  # Single shot
-            logger.debug(f"Profile A (Full Auto): {settings}")
+            settings["ae_metering_mode"] = 0  # Center-weighted metering
+            logger.debug(
+                f"Profile A (Auto + Center-Weighted): EV{settings['exposure_compensation']:+.1f}"
+            )
 
         elif profile == "b":
             # Profile B: Fixed Daylight WB
@@ -426,12 +431,18 @@ class ExposureCalculator:
             settings["bracket_count"] = 1  # Single shot
 
         elif profile == "f":
-            # Profile F: Daylight WB + 3-shot HDR bracket (FIXED: was Auto WB)
-            settings["awb_mode"] = 1  # Daylight white balance (FIXED: was 0/Auto)
-            settings["hdr_mode"] = 0  # No HDR (we'll bracket manually)
-            settings["bracket_count"] = 3  # 3-shot bracket
-            settings["bracket_ev"] = [-1.0, 0.0, 1.0]  # EV offsets
-            logger.debug(f"Profile F (Daylight WB + 3-shot bracket): {settings}")
+            # Profile F: Auto-Exposure with Spot Metering for Mountains
+            # Meters lower-center region (where mountains are), ignores bright sky
+            settings["iso"] = 0  # ISO=0 signals full auto mode to Pi
+            settings["shutter_speed"] = "auto"  # Placeholder (not used in auto mode)
+            settings["exposure_compensation"] = +0.7  # Strong positive bias for darker mountains
+            settings["awb_mode"] = 1  # Daylight white balance for consistency
+            settings["hdr_mode"] = 0  # No HDR
+            settings["bracket_count"] = 1  # Single shot
+            settings["ae_metering_mode"] = 1  # Spot metering (center of frame)
+            logger.debug(
+                f"Profile F (Auto + Spot Metering for Mountains): EV{settings['exposure_compensation']:+.1f}"
+            )
 
         else:
             # Default fallback

@@ -2,7 +2,6 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
 astral==3.2  # For sunrise/sunset calculations
-httpx==0.25.2  # For calling Pi
-requests==2.31.0  # For Pi metering endpoint
+httpx==0.25.2  # For async HTTP calls to Pi
 opencv-python==4.8.1.78  # For image stacking (future)
 pillow==10.1.0  # For image processing (future)

@@ -115,6 +115,7 @@ class CaptureSettings(BaseModel):
     hdr_mode: int = 0  # HDR mode (0=off, 1=single exposure)
     bracket_count: int = 1  # Number of shots for bracketing (1=single, 3=bracket)
     bracket_ev: Optional[list] = None  # EV offsets for bracketing (e.g., [-1.0, 0.0, 1.0])
+    ae_metering_mode: Optional[int] = None  # Metering mode (0=CentreWeighted, 1=Spot, 2=Matrix)
 
     @validator("iso")
     def validate_iso(cls, v):
@@ -356,8 +357,20 @@ async def capture_photo(settings: CaptureSettings):
                     controls = {
                         "AwbMode": settings.awb_mode,  # Still respect WB setting
                         "AeEnable": True,  # Enable auto-exposure
+                        "ExposureValue": settings.exposure_compensation,  # EV comp even in auto
                     }
-                    logger.info("📸 Using full auto-exposure mode")
+
+                    # Add metering mode if specified
+                    if settings.ae_metering_mode is not None:
+                        controls["AeMeteringMode"] = settings.ae_metering_mode
+                        metering_names = {0: "CentreWeighted", 1: "Spot", 2: "Matrix"}
+                        logger.info(
+                            f"📸 Auto-exposure: {metering_names.get(settings.ae_metering_mode, 'Unknown')} metering, EV{settings.exposure_compensation:+.1f}"
+                        )
+                    else:
+                        logger.info(
+                            f"📸 Auto-exposure: Default metering, EV{settings.exposure_compensation:+.1f}"
+                        )
                 else:
                     # Manual exposure mode
                     shutter_us = parse_shutter_speed(settings.shutter_speed)

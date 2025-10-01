@@ -10,14 +10,14 @@
       "enabled": true,
       "offset_minutes": -30,
       "duration_minutes": 60,
-      "interval_seconds": 30,
+      "interval_seconds": 15,
       "stack_images": true,
       "stack_count": 5
     },
     "daytime": {
       "enabled": true,
-      "start_time": "09:00",
-      "end_time": "18:00",
+      "start_time": "07:30",
+      "end_time": "17:45",
       "interval_seconds": 30,
       "stack_images": false
     },
@@ -25,7 +25,7 @@
       "enabled": true,
       "offset_minutes": -30,
       "duration_minutes": 60,
-      "interval_seconds": 30,
+      "interval_seconds": 15,
       "stack_images": true,
       "stack_count": 5
     }

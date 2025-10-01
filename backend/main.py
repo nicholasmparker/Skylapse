@@ -88,8 +88,8 @@ async def scheduler_loop(app: FastAPI):
     1. Get current time
     2. Check each enabled schedule
     3. Determine if we should capture now
-    4. Calculate optimal camera settings (rotating through profiles A/B/C/D)
-    5. Send capture command to Pi
+    4. Capture ALL 6 profiles rapidly in sequence (within ~10 seconds)
+    5. Wait for next 30-second interval
     """
     logger.info("Scheduler loop running...")
 
@@ -101,8 +101,7 @@ async def scheduler_loop(app: FastAPI):
     # Track last capture times per schedule to avoid duplicates
     last_captures = {}
 
-    # Profile rotation counter (A → B → C → D → E → F → A...)
-    profile_counter = 0
+    # All profiles to capture each cycle
     profiles = ["a", "b", "c", "d", "e", "f"]
 
     while True:
@@ -122,32 +121,43 @@ async def scheduler_loop(app: FastAPI):
                 )
 
                 if should_capture:
-                    # Get current profile for this capture
-                    current_profile = profiles[profile_counter % len(profiles)]
+                    # Capture ALL profiles in rapid sequence
+                    logger.info(f"📸 Triggering capture burst for {schedule_name} - all 6 profiles")
 
-                    logger.info(
-                        f"📸 Triggering capture for {schedule_name} [Profile {current_profile.upper()}]"
-                    )
-
-                    # Calculate exposure settings for current profile
-                    settings = exposure_calc.calculate_settings(
-                        schedule_name, current_time, profile=current_profile
-                    )
-
-                    # Send capture command to Pi
-                    success = await trigger_capture(schedule_name, settings, config)
-
-                    if success:
-                        last_captures[schedule_name] = current_time
-                        profile_counter += 1  # Rotate to next profile
-                        logger.info(
-                            f"✓ {schedule_name} capture successful [Profile {current_profile.upper()}] (ISO {settings['iso']}, {settings['shutter_speed']}, EV{settings['exposure_compensation']:+.1f})"
+                    for profile in profiles:
+                        # Calculate exposure settings for this profile
+                        settings = await exposure_calc.calculate_settings(
+                            schedule_name, current_time, profile=profile
                         )
-                    else:
-                        logger.error(f"✗ {schedule_name} capture failed")
 
-            # Sleep for 30 seconds before next check
-            await asyncio.sleep(30)
+                        # Send capture command to Pi
+                        success = await trigger_capture(schedule_name, settings, config)
+
+                        if success:
+                            logger.info(
+                                f"✓ Profile {profile.upper()}: ISO {settings['iso']}, {settings['shutter_speed']}, EV{settings['exposure_compensation']:+.1f}"
+                            )
+                        else:
+                            logger.error(f"✗ Profile {profile.upper()} failed")
+
+                        # Small delay between profiles to let camera settle
+                        await asyncio.sleep(0.5)
+
+                    # Update last capture time after all profiles complete
+                    last_captures[schedule_name] = current_time
+                    logger.info(f"✓ Capture burst complete for {schedule_name}")
+
+            # Find minimum interval from all enabled schedules
+            min_interval = min(
+                (
+                    sch.get("interval_seconds", 30)
+                    for sch in schedules.values()
+                    if sch.get("enabled", True)
+                ),
+                default=30,
+            )
+            # Sleep for the minimum interval before next check
+            await asyncio.sleep(min_interval)
 
         except Exception as e:
             logger.error(f"Error in scheduler loop: {e}", exc_info=True)
