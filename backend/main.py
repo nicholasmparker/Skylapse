@@ -23,6 +23,7 @@ from config import Config
 from exposure import ExposureCalculator
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from schedule_types import ScheduleType
 from solar import SolarCalculator
@@ -85,6 +86,11 @@ app = FastAPI(title="Skylapse Backend", lifespan=lifespan)
 
 # Set up templates
 templates = Jinja2Templates(directory="templates")
+
+# Mount static files for serving local images
+images_dir = Path("/data/images")
+if images_dir.exists():
+    app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
 
 
 async def scheduler_loop(app: FastAPI):
@@ -377,7 +383,7 @@ async def dashboard(request: Request):
 @app.get("/timelapses")
 async def list_timelapses():
     """List available timelapse videos"""
-    video_dir = Path("/tmp/skylapse/processing")
+    video_dir = Path("/data/timelapses")
 
     if not video_dir.exists():
         return []
@@ -417,9 +423,31 @@ async def get_all_profiles(request: Request):
     }
 
     profiles = []
+    local_images_dir = Path("/data/images")
 
-    # Fetch latest image for each profile
+    # Check local images first, fallback to Pi
     for profile in ["a", "b", "c", "d", "e", "f"]:
+        profile_dir = local_images_dir / f"profile-{profile}"
+
+        # Try local images first
+        if profile_dir.exists():
+            image_files = sorted(
+                profile_dir.glob("capture_*.jpg"), key=lambda p: p.stat().st_mtime, reverse=True
+            )
+            if image_files:
+                latest_file = image_files[0]
+                profiles.append(
+                    {
+                        "profile": profile,
+                        "description": descriptions[profile],
+                        "image_url": f"http://localhost:8082/images/profile-{profile}/{latest_file.name}",
+                        "timestamp": latest_file.stat().st_mtime * 1000,
+                        "image_count": len(image_files),
+                    }
+                )
+                continue
+
+        # Fallback to Pi if no local images
         try:
             async with httpx.AsyncClient(timeout=3.0) as client:
                 response = await client.get(f"http://{pi_host}:8080/latest-image?profile={profile}")

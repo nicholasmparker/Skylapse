@@ -300,3 +300,7 @@ docker-compose.local.yml
 # === SKYLAPSE PATHS ===
 # Production paths (should not be in development)
 /opt/skylapse/
+
+# Image and timelapse data
+data/images/
+data/timelapses/

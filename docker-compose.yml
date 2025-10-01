@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   backend:
@@ -8,9 +8,37 @@ services:
     volumes:
       - ./backend:/app
       - ./backend/data:/app/data
+      - skylapse-images:/data/images # Transferred images from Pi
+      - skylapse-timelapses:/data/timelapses # Generated timelapse videos
     environment:
       - PI_HOST=helios.local
       - PI_PORT=8080
+
+  transfer:
+    build: ./backend
+    command: python3 services/transfer.py
+    network_mode: host # Use host network for DNS resolution
+    volumes:
+      - skylapse-images:/data/images
+      - ~/.ssh:/root/.ssh:ro # SSH keys for Pi access
+    environment:
+      - PI_HOST=192.168.0.124 # Use IP instead of hostname
+      - PI_USER=nicholasmparker
+      - PI_SOURCE=~/skylapse-images/
+      - LOCAL_DEST=/data/images
+      - TRANSFER_INTERVAL_MINUTES=5 # Transfer every 5 minutes (real-time)
+      - DELETE_AFTER_DAYS=1 # Keep only 1 day on Pi (images are backed up)
+    restart: unless-stopped
+
+  processing:
+    build: ./backend
+    command: python3 -m processing.timelapse_generator
+    volumes:
+      - skylapse-images:/data/images
+      - skylapse-timelapses:/data/timelapses
+    depends_on:
+      - backend
+      - transfer
 
   frontend:
     build: ./frontend
@@ -22,3 +50,17 @@ services:
       - VITE_BACKEND_URL=http://localhost:8082
     depends_on:
       - backend
+
+volumes:
+  skylapse-images:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${SKYLAPSE_IMAGES_PATH:-./data/images}
+  skylapse-timelapses:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${SKYLAPSE_TIMELAPSES_PATH:-./data/timelapses}
