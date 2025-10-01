@@ -25,6 +25,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from redis import Redis
+from rq import Queue
 from schedule_types import ScheduleType
 from solar import SolarCalculator
 from url_builder import get_url_builder
@@ -60,10 +62,17 @@ async def lifespan(app: FastAPI):
     pi_port = pi_config.get("port", 8080)
     exposure_calc = ExposureCalculator(solar_calc, pi_host=pi_host, pi_port=pi_port)
 
+    # Initialize Redis Queue for timelapse generation
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+    redis_conn = Redis.from_url(redis_url)
+    timelapse_queue = Queue("timelapse", connection=redis_conn)
+    logger.info(f"Connected to Redis at {redis_url}")
+
     # Store in app state (no more globals!)
     app.state.config = config
     app.state.solar_calc = solar_calc
     app.state.exposure_calc = exposure_calc
+    app.state.timelapse_queue = timelapse_queue
 
     # Start scheduler loop
     scheduler_task = asyncio.create_task(scheduler_loop(app))
@@ -111,9 +120,14 @@ async def scheduler_loop(app: FastAPI):
     config = app.state.config
     solar_calc = app.state.solar_calc
     exposure_calc = app.state.exposure_calc
+    timelapse_queue = app.state.timelapse_queue
 
     # Track last capture times per schedule to avoid duplicates
     last_captures = {}
+
+    # Track schedule windows to detect when they end
+    schedule_windows = {}
+    last_timelapse_dates = {}  # Track last timelapse generation per schedule
 
     # All profiles to capture each cycle
     profiles = ["a", "b", "c", "d", "e", "f", "g"]
@@ -130,13 +144,51 @@ async def scheduler_loop(app: FastAPI):
                 if not schedule_config.get("enabled", True):
                     continue
 
+                # Get current schedule window (for solar schedules)
+                current_window = None
+                if ScheduleType.is_solar(schedule_name):
+                    current_window = solar_calc.get_schedule_window(schedule_name, current_time)
+
+                # Check if schedule just ended (trigger timelapse generation)
+                if current_window and schedule_name in schedule_windows:
+                    prev_window = schedule_windows[schedule_name]
+                    # Schedule ended if we were in window but now we're past it
+                    if prev_window["end"] >= current_time > current_window["end"]:
+                        # Schedule ended - enqueue timelapse jobs for all profiles
+                        date_str = current_time.strftime("%Y-%m-%d")
+
+                        # Only generate once per day per schedule
+                        last_date = last_timelapse_dates.get(schedule_name)
+                        if last_date != date_str:
+                            logger.info(
+                                f"🎬 {schedule_name} schedule ended - enqueueing timelapse jobs"
+                            )
+
+                            for profile in profiles:
+                                job = timelapse_queue.enqueue(
+                                    "tasks.generate_timelapse",
+                                    profile=profile,
+                                    schedule=schedule_name,
+                                    date=date_str,
+                                    job_timeout="10m",
+                                )
+                                logger.info(
+                                    f"  Enqueued: profile-{profile}_{schedule_name}_{date_str} (job {job.id})"
+                                )
+
+                            last_timelapse_dates[schedule_name] = date_str
+
+                # Update window tracking
+                if current_window:
+                    schedule_windows[schedule_name] = current_window
+
                 should_capture = await should_capture_now(
                     schedule_name, schedule_config, current_time, last_captures, solar_calc
                 )
 
                 if should_capture:
                     # Capture ALL profiles in rapid sequence
-                    logger.info(f"📸 Triggering capture burst for {schedule_name} - all 6 profiles")
+                    logger.info(f"📸 Triggering capture burst for {schedule_name} - all 7 profiles")
 
                     for profile in profiles:
                         # Calculate exposure settings for this profile

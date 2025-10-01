@@ -16,6 +16,9 @@ services:
       - PI_HOST=${PI_HOST:-192.168.0.124}
       - PI_PORT=${PI_PORT:-8080}
       - BACKEND_URL=${BACKEND_URL:-http://localhost:8082}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
 
   transfer:
     build:
@@ -35,17 +38,29 @@ services:
       - DELETE_AFTER_DAYS=${DELETE_AFTER_DAYS:-1}
     restart: unless-stopped
 
-  processing:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  worker:
     build:
       context: .
       dockerfile: ./backend/Dockerfile
-    command: python3 -m processing.timelapse_generator
+    command: rq worker --url redis://redis:6379 timelapse
     volumes:
+      - ./backend:/app
       - skylapse-images:/data/images
       - skylapse-timelapses:/data/timelapses
     depends_on:
+      - redis
       - backend
-      - transfer
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
 
   frontend:
     build: ./frontend
@@ -71,3 +86,4 @@ volumes:
       type: none
       o: bind
       device: ${SKYLAPSE_TIMELAPSES_PATH:-./data/timelapses}
+  redis-data:
