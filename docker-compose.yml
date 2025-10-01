@@ -18,7 +18,9 @@ services:
       - BACKEND_URL=${BACKEND_URL:-http://localhost:8082}
 
   transfer:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
     command: python3 services/transfer.py
     network_mode: host # Use host network for DNS resolution
     volumes:
@@ -34,7 +36,9 @@ services:
     restart: unless-stopped
 
   processing:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
     command: python3 -m processing.timelapse_generator
     volumes:
       - skylapse-images:/data/images
