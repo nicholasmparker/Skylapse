@@ -7,6 +7,7 @@ IMPORTANT: Camera implementation details are in CAMERA_IMPLEMENTATION.md
 Current camera: ArduCam IMX519 (requires system-level picamera2)
 """
 
+import json
 import logging
 import os
 from datetime import datetime
@@ -17,6 +18,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from profile_executor import ProfileExecutor
 from pydantic import BaseModel, validator
 
 # Set up logging
@@ -43,6 +45,9 @@ USE_MOCK_CAMERA = os.getenv("MOCK_CAMERA", "false").lower() == "true"
 camera = None
 camera_model = "Unknown"
 camera_ready = False
+
+# Initialize profile executor (global)
+profile_executor = ProfileExecutor()
 
 
 def initialize_camera():
@@ -106,9 +111,9 @@ initialize_camera()
 class CaptureSettings(BaseModel):
     """Camera settings for a single capture"""
 
-    iso: int
-    shutter_speed: str  # e.g., "1/1000"
-    exposure_compensation: float  # e.g., +0.7
+    iso: int = 0  # Make optional for profile mode
+    shutter_speed: str = "1/500"  # Make optional with default
+    exposure_compensation: float = 0.0  # Make optional with default
     profile: str = "default"  # Profile name for folder organization (a, b, c, d, e, f)
     awb_mode: int = 1  # White balance mode (0=auto, 1=daylight, 2=cloudy, 6=custom)
     wb_temp: Optional[int] = None  # Color temperature in Kelvin (for awb_mode=6 custom)
@@ -116,6 +121,11 @@ class CaptureSettings(BaseModel):
     bracket_count: int = 1  # Number of shots for bracketing (1=single, 3=bracket)
     bracket_ev: Optional[list] = None  # EV offsets for bracketing (e.g., [-1.0, 0.0, 1.0])
     ae_metering_mode: Optional[int] = None  # Metering mode (0=CentreWeighted, 1=Spot, 2=Matrix)
+
+    # Profile execution fields (new modes)
+    use_deployed_profile: Optional[bool] = False  # Enable deployed profile execution
+    schedule_type: Optional[str] = None  # Schedule name for profile lookup
+    override: Optional[dict] = None  # Override settings for testing
 
     @validator("iso")
     def validate_iso(cls, v):
@@ -284,18 +294,71 @@ async def capture_photo(settings: CaptureSettings):
     """
     Capture a single photo with the provided settings.
 
-    Backend tells us EXACTLY what settings to use.
-    We just execute and return the result.
+    Supports three modes:
+    1. Explicit Settings (backward compatible): Provide iso, shutter_speed, etc.
+    2. Deployed Profile: use_deployed_profile=true, schedule_type="sunset"
+    3. Override Mode: use_deployed_profile=true with override dict
     """
     # Check if camera is ready
     if not camera_ready:
         raise HTTPException(status_code=503, detail="Camera not ready - check service logs")
 
     try:
-        logger.info(
-            f"📸 Capture request: ISO {settings.iso}, "
-            f"shutter {settings.shutter_speed}, EV {settings.exposure_compensation:+.1f}"
-        )
+        # MODE CHECK: Profile execution vs explicit settings
+        if settings.use_deployed_profile:
+            # MODE 2 & 3: Use deployed profile to calculate settings
+            logger.info(
+                f"🎯 Profile execution mode: schedule_type={settings.schedule_type or 'daytime'}"
+            )
+
+            # Validate profile is deployed
+            if not profile_executor.has_profile():
+                raise HTTPException(
+                    status_code=400,
+                    detail="No profile deployed - cannot use profile execution mode. "
+                    "Deploy a profile first or use explicit settings.",
+                )
+
+            # Meter scene to get lux
+            if USE_MOCK_CAMERA:
+                lux = 800.0  # Mock lux value
+            else:
+                metadata = camera.capture_metadata()
+                lux = metadata.get("Lux", 0.0)
+
+            # Calculate settings from profile
+            schedule_type = settings.schedule_type or "daytime"
+            profile_settings = profile_executor.calculate_settings(
+                schedule_type=schedule_type, lux=lux, override=settings.override
+            )
+
+            # Apply calculated settings to our settings object
+            # Override the explicit fields with profile-calculated values
+            settings.iso = profile_settings.get("iso", settings.iso)
+            settings.shutter_speed = profile_settings.get("shutter_speed", settings.shutter_speed)
+            settings.exposure_compensation = profile_settings.get(
+                "exposure_compensation", settings.exposure_compensation
+            )
+            settings.awb_mode = profile_settings.get("awb_mode", settings.awb_mode)
+            settings.wb_temp = profile_settings.get("wb_temp", settings.wb_temp)
+            settings.hdr_mode = profile_settings.get("hdr_mode", settings.hdr_mode)
+            settings.bracket_count = profile_settings.get("bracket_count", settings.bracket_count)
+            settings.bracket_ev = profile_settings.get("bracket_ev", settings.bracket_ev)
+            settings.ae_metering_mode = profile_settings.get(
+                "ae_metering_mode", settings.ae_metering_mode
+            )
+
+            logger.info(
+                f"📸 Profile-calculated settings: ISO {settings.iso}, "
+                f"shutter {settings.shutter_speed}, EV {settings.exposure_compensation:+.1f}, "
+                f"lux={lux:.0f}"
+            )
+        else:
+            # MODE 1: Explicit settings (backward compatible)
+            logger.info(
+                f"📸 Explicit settings mode: ISO {settings.iso}, "
+                f"shutter {settings.shutter_speed}, EV {settings.exposure_compensation:+.1f}"
+            )
 
         if USE_MOCK_CAMERA:
             # Mock mode: Just simulate capture
@@ -412,18 +475,109 @@ async def capture_photo(settings: CaptureSettings):
 @app.get("/status")
 async def get_status():
     """Report camera status to backend"""
-    return {
+    status = {
         "status": "online",
         "camera_model": camera_model,
         "camera_ready": camera_ready,
         "mock_mode": USE_MOCK_CAMERA,
     }
 
+    # Add deployed profile info if available
+    if profile_executor.has_profile():
+        status["deployed_profile"] = profile_executor.get_profile_info()
+        status["operational_mode"] = "deployed_profile"
+    else:
+        status["operational_mode"] = "live_orchestration"
+
+    return status
+
 
 @app.get("/health")
 async def health_check():
     """Simple health check for monitoring"""
     return {"status": "ok"}
+
+
+# ===== Profile Deployment Endpoints =====
+
+
+class ProfileDeployment(BaseModel):
+    """Profile deployment payload from Backend"""
+
+    profile_id: str
+    version: str = "1.0.0"
+    settings: dict
+    schedules: list = []
+    deployed_at: Optional[str] = None
+
+
+@app.post("/profile/deploy")
+async def deploy_profile(deployment: ProfileDeployment):
+    """
+    Deploy a profile snapshot from Backend.
+
+    Profile contains pre-compiled settings and lux lookup tables
+    for autonomous operation without Backend coordination.
+    """
+    try:
+        # Add deployment timestamp if not provided
+        if not deployment.deployed_at:
+            deployment.deployed_at = datetime.now().isoformat()
+
+        # Deploy profile
+        success = profile_executor.deploy_profile(deployment.dict())
+
+        if success:
+            return {
+                "status": "deployed",
+                "profile_id": deployment.profile_id,
+                "version": deployment.version,
+                "operational_mode": "deployed_profile",
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Profile deployment failed")
+
+    except Exception as e:
+        logger.error(f"Profile deployment error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/profile/current")
+async def get_current_profile():
+    """Get currently deployed profile info"""
+    if not profile_executor.has_profile():
+        return {
+            "status": "no_profile",
+            "operational_mode": "live_orchestration",
+            "message": "No profile deployed - using live orchestration mode",
+        }
+
+    profile_info = profile_executor.get_profile_info()
+    return {
+        "status": "deployed",
+        "operational_mode": "deployed_profile",
+        **profile_info,
+    }
+
+
+@app.delete("/profile/current")
+async def clear_profile():
+    """Clear deployed profile (revert to live orchestration mode)"""
+    try:
+        success = profile_executor.clear_profile()
+
+        if success:
+            return {
+                "status": "cleared",
+                "operational_mode": "live_orchestration",
+                "message": "Profile cleared - reverted to live orchestration mode",
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to clear profile")
+
+    except Exception as e:
+        logger.error(f"Profile clear error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/images/profile-{profile}/latest.jpg")
