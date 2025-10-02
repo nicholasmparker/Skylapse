@@ -376,9 +376,9 @@ class ExposureCalculator:
             )
 
         elif profile == "g":
-            # Profile G: EXPERIMENTAL Adaptive EV + Balanced WB
+            # Profile G: EXPERIMENTAL Adaptive EV + Balanced WB + Landscape Sharp
             # Protects highlights in bright conditions, lifts shadows in low light
-            # Uses lux-based EV curve: negative EV when bright, positive when dark
+            # Enhanced sharpness/contrast for distant mountains and clouds
             wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="balanced")
 
             # Calculate adaptive EV compensation based on lux
@@ -393,8 +393,14 @@ class ExposureCalculator:
             settings["exposure_compensation"] = ev_comp  # Adaptive EV
             settings["hdr_mode"] = 0  # No HDR
             settings["bracket_count"] = 1  # Single shot
+
+            # Landscape enhancements for crisp mountains/clouds
+            settings["sharpness"] = 1.5  # Boost edge definition (default 1.0)
+            settings["contrast"] = 1.15  # Increase contrast slightly
+            settings["saturation"] = 1.05  # Subtle color boost
+
             logger.info(
-                f"🎯 Profile G (Adaptive EV): lux={lux:.0f} → EV{ev_comp:+.1f}, WB={wb_temp}K"
+                f"🎯 Profile G (Adaptive EV + Sharp): lux={lux:.0f} → EV{ev_comp:+.1f}, WB={wb_temp}K"
             )
 
         else:

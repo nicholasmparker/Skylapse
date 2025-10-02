@@ -165,7 +165,7 @@ async def scheduler_loop(app: FastAPI):
 
                 if ScheduleType.is_solar(schedule_name):
                     # Solar-based schedule
-                    current_window = solar_calc.get_schedule_window(schedule_name, current_time)
+                    current_window = solar_calc.get_schedule_window(schedule_config, current_time)
                     is_active = current_window["start"] <= current_time <= current_window["end"]
 
                     # Check if we were previously in this window
@@ -413,7 +413,7 @@ async def should_capture_now(
     # Check schedule type and time window
     if ScheduleType.is_solar(schedule_name):
         # Solar-based schedule
-        window = solar_calc.get_schedule_window(schedule_name, current_time)
+        window = solar_calc.get_schedule_window(schedule_config, current_time)
         return window["start"] <= current_time <= window["end"]
 
     elif schedule_name == ScheduleType.DAYTIME:
@@ -537,7 +537,8 @@ async def get_schedules(request: Request):
     for schedule_type in ScheduleType.solar_schedules():
         schedule_name = schedule_type.value
         if schedule_name in schedules:
-            window = solar_calc.get_schedule_window(schedule_name)
+            schedule_config = schedules[schedule_name]
+            window = solar_calc.get_schedule_window(schedule_config)
             schedules[schedule_name]["calculated_window"] = {
                 "start": window["start"].isoformat(),
                 "end": window["end"].isoformat(),

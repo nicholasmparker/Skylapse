@@ -49,34 +49,34 @@ def generate_timelapse(
     output_filename = f"profile-{profile}_{schedule}_{date}.mp4"
     output_path = output_dir / output_filename
 
-    # Get exact image list from database
-    if not session_id:
-        logger.error("session_id is required for timelapse generation")
-        return {
-            "status": "error",
-            "message": "session_id is required",
-            "image_count": 0,
-        }
+    # Get exact image list from database (if session_id provided)
+    # Otherwise, use file-based glob pattern for ad-hoc generation
+    if session_id:
+        db = SessionDatabase()
+        with db._get_connection() as conn:
+            results = conn.execute(
+                "SELECT filename FROM captures WHERE session_id = ? ORDER BY timestamp ASC",
+                (session_id,),
+            ).fetchall()
+            filenames = [row["filename"] for row in results]
 
-    db = SessionDatabase()
-    with db._get_connection() as conn:
-        results = conn.execute(
-            "SELECT filename FROM captures WHERE session_id = ? ORDER BY timestamp ASC",
-            (session_id,),
-        ).fetchall()
-        filenames = [row["filename"] for row in results]
+        if not filenames:
+            logger.warning(f"No images found in database for session {session_id}")
+            return {
+                "status": "error",
+                "message": f"No images found for session {session_id}",
+                "image_count": 0,
+            }
 
-    if not filenames:
-        logger.warning(f"No images found in database for session {session_id}")
-        return {
-            "status": "error",
-            "message": f"No images found for session {session_id}",
-            "image_count": 0,
-        }
-
-    # Build full paths
-    images = [images_dir / filename for filename in filenames]
-    logger.info(f"Found {len(images)} images for session {session_id}")
+        # Build full paths
+        images = [images_dir / filename for filename in filenames]
+        logger.info(f"Found {len(images)} images for session {session_id}")
+    else:
+        # Ad-hoc generation: use all images matching date pattern
+        date_compact = date.replace("-", "")
+        pattern = f"capture_{date_compact}_*.jpg"
+        images = sorted(images_dir.glob(pattern))
+        logger.info(f"Ad-hoc generation: Found {len(images)} images matching {pattern}")
 
     # Create glob pattern for ffmpeg
     date_compact = date.replace("-", "")
@@ -96,6 +96,7 @@ def generate_timelapse(
         # Pattern must be absolute path for glob pattern matching
         input_pattern = str(images_dir / glob_pattern)
 
+        # Build FFmpeg command with profile-specific filters
         ffmpeg_cmd = [
             "ffmpeg",
             "-y",  # Overwrite output file
@@ -113,8 +114,17 @@ def generate_timelapse(
             str(preset["crf"]),
             "-preset",
             preset["preset"],
-            str(output_path),
         ]
+
+        # Profile G: Add post-processing filters for enhanced landscape sharpness
+        if profile == "g":
+            # unsharp: Sharpen mountains and clouds (luma only)
+            # eq: Boost contrast and saturation slightly
+            filter_chain = "unsharp=5:5:1.0:5:5:0.0,eq=contrast=1.1:saturation=1.05"
+            ffmpeg_cmd.extend(["-vf", filter_chain])
+            logger.info(f"Applying Profile G post-processing: {filter_chain}")
+
+        ffmpeg_cmd.append(str(output_path))
 
         logger.info(f"Running ffmpeg: {' '.join(ffmpeg_cmd)}")
 
