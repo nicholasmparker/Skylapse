@@ -66,9 +66,16 @@ class SolarCalculator:
             sun_times = sun(self.location.observer, date=date)
 
             # Convert UTC times to local timezone
+            # astral provides: dawn (civil), dusk (civil), sunrise, sunset, noon
+            # For other twilight phases, we need to calculate them
             self._cache[date_key] = {
                 "sunrise": sun_times["sunrise"].astimezone(self.timezone),
                 "sunset": sun_times["sunset"].astimezone(self.timezone),
+                "noon": sun_times["noon"].astimezone(self.timezone),
+                # Civil twilight (dawn/dusk are civil by default in astral)
+                "civil_dawn": sun_times["dawn"].astimezone(self.timezone),
+                "civil_dusk": sun_times["dusk"].astimezone(self.timezone),
+                # Keep old names for backward compatibility
                 "dawn": sun_times["dawn"].astimezone(self.timezone),
                 "dusk": sun_times["dusk"].astimezone(self.timezone),
             }
@@ -119,33 +126,76 @@ class SolarCalculator:
 
         return sunrise <= time <= sunset
 
-    def get_schedule_window(
-        self, schedule_type: str, date: Optional[datetime] = None
-    ) -> Dict[str, datetime]:
+    def get_solar_time(self, anchor: str, date: Optional[datetime] = None) -> datetime:
         """
-        Get the capture window for a schedule type.
+        Get a specific solar time (sunrise, sunset, dawn, dusk, etc.).
 
         Args:
-            schedule_type: "sunrise" or "sunset"
+            anchor: Solar anchor point (sunrise, sunset, dawn, dusk, civil_dawn, civil_dusk, noon)
+            date: Date to calculate for (defaults to today)
+
+        Returns:
+            Datetime object for the requested solar time
+
+        Raises:
+            ValueError: If anchor is not recognized
+        """
+        sun_times = self.get_sun_times(date)
+
+        if anchor not in sun_times:
+            available = ", ".join(sun_times.keys())
+            raise ValueError(f"Unknown solar anchor '{anchor}'. Available: {available}")
+
+        return sun_times[anchor]
+
+    def get_schedule_window(
+        self, schedule_config: dict, date: Optional[datetime] = None
+    ) -> Dict[str, datetime]:
+        """
+        Get the capture window for a schedule (data-driven).
+
+        Args:
+            schedule_config: Schedule configuration dict with 'anchor', 'offset_minutes', 'duration_minutes'
             date: Date to calculate for (defaults to today)
 
         Returns:
             Dictionary with 'start' and 'end' datetime objects
+
+        Example schedule_config:
+            {
+                "type": "solar_relative",
+                "anchor": "sunset",
+                "offset_minutes": -30,
+                "duration_minutes": 90
+            }
         """
-        sun_times = self.get_sun_times(date)
+        schedule_type = schedule_config.get("type")
 
-        if schedule_type == "sunrise":
-            # Start 30min before sunrise, run for 60min
-            start = sun_times["sunrise"] - timedelta(minutes=30)
-            end = sun_times["sunrise"] + timedelta(minutes=30)
-        elif schedule_type == "sunset":
-            # Start 30min before sunset, run for 60min
-            start = sun_times["sunset"] - timedelta(minutes=30)
-            end = sun_times["sunset"] + timedelta(minutes=30)
+        if schedule_type == "solar_relative":
+            anchor = schedule_config.get("anchor", "sunrise")
+            offset_minutes = schedule_config.get("offset_minutes", 0)
+            duration_minutes = schedule_config.get("duration_minutes", 60)
+
+            anchor_time = self.get_solar_time(anchor, date)
+            start = anchor_time + timedelta(minutes=offset_minutes)
+            end = start + timedelta(minutes=duration_minutes)
+
+            return {"start": start, "end": end}
         else:
-            raise ValueError(f"Unknown solar schedule type: {schedule_type}")
+            # For backward compatibility with old hardcoded schedule types
+            # This will be removed once we migrate all schedules
+            sun_times = self.get_sun_times(date)
 
-        return {"start": start, "end": end}
+            if schedule_type == "sunrise" or schedule_config.get("name") == "sunrise":
+                start = sun_times["sunrise"] - timedelta(minutes=30)
+                end = sun_times["sunrise"] + timedelta(minutes=30)
+            elif schedule_type == "sunset" or schedule_config.get("name") == "sunset":
+                start = sun_times["sunset"] - timedelta(minutes=30)
+                end = sun_times["sunset"] + timedelta(minutes=30)
+            else:
+                raise ValueError(f"Unknown schedule type: {schedule_type}")
+
+            return {"start": start, "end": end}
 
     def clear_cache(self):
         """Clear the date cache (call daily to prevent memory leak)"""

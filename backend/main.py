@@ -312,6 +312,75 @@ def parse_time_range(schedule_config: dict, schedule_name: str) -> tuple:
         return (None, None)
 
 
+def get_active_schedules(
+    config: Config, solar_calc: SolarCalculator, current_time: datetime, detailed: bool = False
+):
+    """
+    Get currently active schedules.
+
+    Args:
+        config: Configuration object
+        solar_calc: Solar calculator for sun times
+        current_time: Current datetime to check against
+        detailed: If True, return full schedule objects with windows/intervals.
+                  If False, return just schedule names.
+
+    Returns:
+        List of active schedules (strings if detailed=False, dicts if detailed=True)
+    """
+    active_schedules = []
+
+    for schedule_name, schedule_config in config.config["schedules"].items():
+        if not schedule_config.get("enabled", True):
+            continue
+
+        is_active = False
+        window_start = None
+        window_end = None
+        schedule_type = schedule_config.get(
+            "type", "solar_relative"
+        )  # Default for backward compatibility
+
+        if schedule_type == "solar_relative":
+            # Data-driven solar schedule (e.g., sunrise, sunset, civil_dusk)
+            window = solar_calc.get_schedule_window(schedule_config, current_time)
+            is_active = window["start"] <= current_time <= window["end"]
+            window_start = window["start"]
+            window_end = window["end"]
+        elif schedule_type == "time_of_day":
+            # Fixed time schedule (e.g., daytime 08:00-18:00)
+            start_time, end_time = parse_time_range(schedule_config, schedule_name)
+            if start_time is not None and end_time is not None:
+                is_active = start_time <= current_time.time() <= end_time
+                window_start = start_time
+                window_end = end_time
+
+        if is_active:
+            if detailed:
+                schedule_detail = {
+                    "name": schedule_name,
+                    "type": schedule_type,
+                    "interval_seconds": schedule_config.get("interval_seconds", 30),
+                }
+
+                if schedule_type == "solar_relative":
+                    schedule_detail["window"] = {
+                        "start": window_start.isoformat(),
+                        "end": window_end.isoformat(),
+                    }
+                else:  # time_of_day
+                    schedule_detail["window"] = {
+                        "start": str(window_start),
+                        "end": str(window_end),
+                    }
+
+                active_schedules.append(schedule_detail)
+            else:
+                active_schedules.append(schedule_name)
+
+    return active_schedules
+
+
 async def should_capture_now(
     schedule_name: str,
     schedule_config: dict,
@@ -486,22 +555,8 @@ async def get_status(request: Request):
     current_time = datetime.now(solar_calc.timezone)
     sun_times = solar_calc.get_sun_times()
 
-    # Check which schedules are active right now
-    active_schedules = []
-    for schedule_name, schedule_config in config.config["schedules"].items():
-        if not schedule_config.get("enabled", True):
-            continue
-
-        if ScheduleType.is_solar(schedule_name):
-            window = solar_calc.get_schedule_window(schedule_name)
-            if window["start"] <= current_time <= window["end"]:
-                active_schedules.append(schedule_name)
-        elif schedule_name == ScheduleType.DAYTIME:
-            start_time, end_time = parse_time_range(schedule_config, schedule_name)
-
-            if start_time is not None and end_time is not None:
-                if start_time <= current_time.time() <= end_time:
-                    active_schedules.append(schedule_name)
+    # Get active schedules using shared helper
+    active_schedules = get_active_schedules(config, solar_calc, current_time, detailed=False)
 
     return {
         "current_time": current_time.isoformat(),
@@ -630,39 +685,8 @@ async def get_system_info(request: Request):
     # Get all schedule configurations
     schedules_config = config.config.get("schedules", {})
 
-    # Determine active schedules
-    active_schedules = []
-    for schedule_name, schedule_config in schedules_config.items():
-        if not schedule_config.get("enabled", True):
-            continue
-
-        if ScheduleType.is_solar(schedule_name):
-            window = solar_calc.get_schedule_window(schedule_name, current_time)
-            is_active = window["start"] <= current_time <= window["end"]
-            if is_active:
-                active_schedules.append(
-                    {
-                        "name": schedule_name,
-                        "type": "solar",
-                        "window": {
-                            "start": window["start"].isoformat(),
-                            "end": window["end"].isoformat(),
-                        },
-                        "interval_seconds": schedule_config.get("interval_seconds", 30),
-                    }
-                )
-        elif schedule_name == ScheduleType.DAYTIME:
-            start_time, end_time = parse_time_range(schedule_config, schedule_name)
-            if start_time and end_time:
-                if start_time <= current_time.time() <= end_time:
-                    active_schedules.append(
-                        {
-                            "name": schedule_name,
-                            "type": "time_of_day",
-                            "window": {"start": f"{start_time}", "end": f"{end_time}"},
-                            "interval_seconds": schedule_config.get("interval_seconds", 30),
-                        }
-                    )
+    # Get active schedules using shared helper
+    active_schedules = get_active_schedules(config, solar_calc, current_time, detailed=True)
 
     # Get Pi status
     pi_config = config.get_pi_config()
