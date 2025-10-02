@@ -10,6 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from database import SessionDatabase
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,8 +19,10 @@ def generate_timelapse(
     profile: str,
     schedule: str,
     date: str,
+    session_id: Optional[str] = None,
     fps: int = 30,
     quality: str = "high",
+    job_timeout: int = 1200,  # 20 minutes for large timelapses
 ) -> dict:
     """
     Generate timelapse video from captured images.
@@ -27,6 +31,7 @@ def generate_timelapse(
         profile: Profile identifier (a-g)
         schedule: Schedule type (sunrise/daytime/sunset)
         date: Date string (YYYY-MM-DD)
+        session_id: Session ID to get exact image list from database
         fps: Frames per second for output video
         quality: Video quality (low/medium/high)
 
@@ -44,55 +49,62 @@ def generate_timelapse(
     output_filename = f"profile-{profile}_{schedule}_{date}.mp4"
     output_path = output_dir / output_filename
 
-    # Find images for this date and schedule
-    # Pattern: capture_2025-10-01_sunset_17-45-30_profile-a.jpg
-    pattern = f"capture_{date}_{schedule}_*_profile-{profile}.jpg"
-    images = sorted(images_dir.glob(pattern))
-
-    if not images:
-        logger.warning(f"No images found matching {pattern} in {images_dir}")
+    # Get exact image list from database
+    if not session_id:
+        logger.error("session_id is required for timelapse generation")
         return {
             "status": "error",
-            "message": f"No images found for {profile}/{schedule}/{date}",
+            "message": "session_id is required",
             "image_count": 0,
         }
 
-    logger.info(f"Found {len(images)} images for timelapse")
+    db = SessionDatabase()
+    with db._get_connection() as conn:
+        results = conn.execute(
+            "SELECT filename FROM captures WHERE session_id = ? ORDER BY timestamp ASC",
+            (session_id,),
+        ).fetchall()
+        filenames = [row["filename"] for row in results]
 
-    # Quality presets
+    if not filenames:
+        logger.warning(f"No images found in database for session {session_id}")
+        return {
+            "status": "error",
+            "message": f"No images found for session {session_id}",
+            "image_count": 0,
+        }
+
+    # Build full paths
+    images = [images_dir / filename for filename in filenames]
+    logger.info(f"Found {len(images)} images for session {session_id}")
+
+    # Create glob pattern for ffmpeg
+    date_compact = date.replace("-", "")
+    glob_pattern = f"capture_{date_compact}_*.jpg"
+
+    # Quality presets - use medium for high res images
     quality_presets = {
         "low": {"crf": 28, "preset": "fast"},
         "medium": {"crf": 23, "preset": "medium"},
-        "high": {"crf": 18, "preset": "slow"},
+        "high": {"crf": 18, "preset": "medium"},  # medium preset for 4K+ images
     }
 
     preset = quality_presets.get(quality, quality_presets["high"])
 
-    # Create temporary file list for ffmpeg
-    filelist_path = output_dir / f".filelist_{profile}_{schedule}_{date}.txt"
-    with open(filelist_path, "w") as f:
-        for img in images:
-            f.write(f"file '{img.absolute()}'\n")
-
     try:
-        # ffmpeg command to generate video
-        # -framerate: input framerate (how fast to read images)
-        # -f concat: concatenate images
-        # -c:v libx264: H.264 codec
-        # -pix_fmt yuv420p: compatible pixel format
-        # -crf: quality (lower = better, 18-28 recommended)
-        # -preset: encoding speed/compression tradeoff
+        # Use glob pattern approach - more efficient than concat demuxer
+        # Pattern must be absolute path for glob pattern matching
+        input_pattern = str(images_dir / glob_pattern)
+
         ffmpeg_cmd = [
             "ffmpeg",
             "-y",  # Overwrite output file
             "-framerate",
             str(fps),
-            "-f",
-            "concat",
-            "-safe",
-            "0",
+            "-pattern_type",
+            "glob",
             "-i",
-            str(filelist_path),
+            input_pattern,
             "-c:v",
             "libx264",
             "-pix_fmt",
@@ -121,15 +133,20 @@ def generate_timelapse(
                 "image_count": len(images),
             }
 
-        # Clean up temp filelist
-        filelist_path.unlink()
-
         # Get video file size
         video_size_mb = output_path.stat().st_size / 1024 / 1024
 
         logger.info(
             f"✓ Timelapse generated: {output_filename} ({video_size_mb:.1f} MB, {len(images)} frames)"
         )
+
+        # Mark session as timelapse_generated in database
+        if session_id:
+            try:
+                db = SessionDatabase()
+                db.mark_timelapse_generated(session_id)
+            except Exception as e:
+                logger.warning(f"Failed to mark session as generated: {e}")
 
         return {
             "status": "success",

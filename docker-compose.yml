@@ -12,6 +12,7 @@ services:
       - ./backend/data:/app/data
       - skylapse-images:/data/images # Transferred images from Pi
       - skylapse-timelapses:/data/timelapses # Generated timelapse videos
+      - skylapse-db:/data/db # SQLite database persistence
     environment:
       - PI_HOST=${PI_HOST:-192.168.0.124}
       - PI_PORT=${PI_PORT:-8080}
@@ -55,12 +56,17 @@ services:
       - ./backend:/app
       - skylapse-images:/data/images
       - skylapse-timelapses:/data/timelapses
+      - skylapse-db:/data/db # SQLite database persistence
     depends_on:
       - redis
       - backend
     restart: unless-stopped
     environment:
       - REDIS_URL=redis://redis:6379
+    deploy:
+      resources:
+        limits:
+          memory: 4G # Increase memory for large image processing
 
   frontend:
     build: ./frontend
@@ -86,4 +92,10 @@ volumes:
       type: none
       o: bind
       device: ${SKYLAPSE_TIMELAPSES_PATH:-./data/timelapses}
+  skylapse-db:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${SKYLAPSE_DB_PATH:-./data/db}
   redis-data:

@@ -20,6 +20,7 @@ from pathlib import Path
 import httpx
 import uvicorn
 from config import Config
+from database import SessionDatabase
 from exposure import ExposureCalculator
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -62,6 +63,9 @@ async def lifespan(app: FastAPI):
     pi_port = pi_config.get("port", 8080)
     exposure_calc = ExposureCalculator(solar_calc, pi_host=pi_host, pi_port=pi_port)
 
+    # Initialize session database
+    db = SessionDatabase()
+
     # Initialize Redis Queue for timelapse generation
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
     redis_conn = Redis.from_url(redis_url)
@@ -73,6 +77,7 @@ async def lifespan(app: FastAPI):
     app.state.solar_calc = solar_calc
     app.state.exposure_calc = exposure_calc
     app.state.timelapse_queue = timelapse_queue
+    app.state.db = db
 
     # Start scheduler loop
     scheduler_task = asyncio.create_task(scheduler_loop(app))
@@ -121,6 +126,7 @@ async def scheduler_loop(app: FastAPI):
     solar_calc = app.state.solar_calc
     exposure_calc = app.state.exposure_calc
     timelapse_queue = app.state.timelapse_queue
+    db = app.state.db
 
     # Track last capture times per schedule to avoid duplicates
     last_captures = {}
@@ -129,58 +135,100 @@ async def scheduler_loop(app: FastAPI):
     schedule_windows = {}
     last_timelapse_dates = {}  # Track last timelapse generation per schedule
 
-    # All profiles to capture each cycle
-    profiles = ["a", "b", "c", "d", "e", "f", "g"]
+    # Production profiles for sunset/sunrise timelapses
+    # A: Pure auto baseline
+    # D: 3-shot HDR bracket (-1, 0, +1)
+    # G: Adaptive EV (prevents overexposure)
+    profiles = ["a", "d", "g"]
 
     while True:
         try:
             # Get current time in local timezone
             current_time = datetime.now(solar_calc.timezone)
+            logger.info(f"🔄 Scheduler check at {current_time.strftime('%H:%M:%S')}")
 
             # Check each schedule
             schedules = config.config.get("schedules", {})
 
             for schedule_name, schedule_config in schedules.items():
+                logger.info(
+                    f"🔍 Checking schedule: {schedule_name}, enabled={schedule_config.get('enabled', True)}"
+                )
+
                 if not schedule_config.get("enabled", True):
                     continue
 
-                # Get current schedule window (for solar schedules)
+                # Get current schedule window
                 current_window = None
+                was_active = False
+                is_active = False
+
                 if ScheduleType.is_solar(schedule_name):
+                    # Solar-based schedule
                     current_window = solar_calc.get_schedule_window(schedule_name, current_time)
+                    is_active = current_window["start"] <= current_time <= current_window["end"]
 
-                # Check if schedule just ended (trigger timelapse generation)
-                if current_window and schedule_name in schedule_windows:
-                    prev_window = schedule_windows[schedule_name]
-                    # Schedule ended if we were in window but now we're past it
-                    if prev_window["end"] >= current_time > current_window["end"]:
-                        # Schedule ended - enqueue timelapse jobs for all profiles
-                        date_str = current_time.strftime("%Y-%m-%d")
+                    # Check if we were previously in this window
+                    if schedule_name in schedule_windows:
+                        prev_window = schedule_windows[schedule_name]
+                        was_active = prev_window["start"] <= current_time <= prev_window["end"]
 
-                        # Only generate once per day per schedule
-                        last_date = last_timelapse_dates.get(schedule_name)
-                        if last_date != date_str:
-                            logger.info(
-                                f"🎬 {schedule_name} schedule ended - enqueueing timelapse jobs"
+                elif schedule_name == ScheduleType.DAYTIME:
+                    # Time-based schedule
+                    start_time, end_time = parse_time_range(schedule_config, schedule_name)
+
+                    if start_time and end_time:
+                        current_time_only = current_time.time()
+                        is_active = start_time <= current_time_only <= end_time
+
+                        # Check if we were previously in this window
+                        if schedule_name in schedule_windows:
+                            was_active = schedule_windows[schedule_name].get("was_active", False)
+
+                        logger.info(
+                            f"🔍 {schedule_name}: current={current_time_only}, "
+                            f"window={start_time}-{end_time}, "
+                            f"was_active={was_active}, is_active={is_active}"
+                        )
+
+                # Detect schedule end: was active, now inactive
+                if was_active and not is_active:
+                    # Schedule ended - mark sessions complete and enqueue timelapse jobs
+                    date_str = current_time.strftime("%Y-%m-%d")
+
+                    # Only generate once per day per schedule
+                    last_date = last_timelapse_dates.get(schedule_name)
+                    if last_date != date_str:
+                        logger.info(
+                            f"🎬 {schedule_name} schedule ended - marking sessions complete and generating timelapses"
+                        )
+
+                        for profile in profiles:
+                            # Construct session_id (matches format from get_or_create_session)
+                            session_id = f"{profile}_{date_str.replace('-', '')}_{schedule_name}"
+
+                            # Mark session as complete in database
+                            db.mark_session_complete(session_id)
+
+                            # Enqueue timelapse generation
+                            job = timelapse_queue.enqueue(
+                                "tasks.generate_timelapse",
+                                profile=profile,
+                                schedule=schedule_name,
+                                date=date_str,
+                                session_id=session_id,
+                                job_timeout="20m",  # 20 min for 4K timelapses
                             )
+                            logger.info(f"  ✓ {session_id}: marked complete, job {job.id} enqueued")
 
-                            for profile in profiles:
-                                job = timelapse_queue.enqueue(
-                                    "tasks.generate_timelapse",
-                                    profile=profile,
-                                    schedule=schedule_name,
-                                    date=date_str,
-                                    job_timeout="10m",
-                                )
-                                logger.info(
-                                    f"  Enqueued: profile-{profile}_{schedule_name}_{date_str} (job {job.id})"
-                                )
-
-                            last_timelapse_dates[schedule_name] = date_str
+                        last_timelapse_dates[schedule_name] = date_str
 
                 # Update window tracking
                 if current_window:
                     schedule_windows[schedule_name] = current_window
+                else:
+                    # For time-based schedules, track active state
+                    schedule_windows[schedule_name] = {"was_active": is_active}
 
                 should_capture = await should_capture_now(
                     schedule_name, schedule_config, current_time, last_captures, solar_calc
@@ -190,16 +238,24 @@ async def scheduler_loop(app: FastAPI):
                     # Capture ALL profiles in rapid sequence
                     logger.info(f"📸 Triggering capture burst for {schedule_name} - all 7 profiles")
 
+                    date_str = current_time.strftime("%Y-%m-%d")
+
                     for profile in profiles:
+                        # Get or create session for this profile/date/schedule
+                        session_id = db.get_or_create_session(profile, date_str, schedule_name)
+
                         # Calculate exposure settings for this profile
                         settings = await exposure_calc.calculate_settings(
                             schedule_name, current_time, profile=profile
                         )
 
-                        # Send capture command to Pi
-                        success = await trigger_capture(schedule_name, settings, config)
+                        # Send capture command to Pi and download image
+                        success, filename = await trigger_capture(schedule_name, settings, config)
 
-                        if success:
+                        if success and filename:
+                            # Record capture metadata in database with actual filename
+                            db.record_capture(session_id, filename, current_time, settings)
+
                             logger.info(
                                 f"✓ Profile {profile.upper()}: ISO {settings['iso']}, {settings['shutter_speed']}, EV{settings['exposure_compensation']:+.1f}"
                             )
@@ -304,16 +360,16 @@ async def should_capture_now(
     return False
 
 
-async def trigger_capture(schedule_name: str, settings: dict, config: Config) -> bool:
+async def trigger_capture(schedule_name: str, settings: dict, config: Config) -> tuple[bool, str]:
     """
-    Send capture command to Raspberry Pi.
+    Send capture command to Raspberry Pi and download the image.
 
     Args:
         schedule_name: Name of the schedule (for logging)
         settings: Camera settings from exposure calculator
 
     Returns:
-        True if capture successful, False otherwise
+        Tuple of (success: bool, local_image_path: str)
     """
     pi_config = config.get_pi_config()
     pi_url = f"http://{pi_config['host']}:{pi_config['port']}/capture"
@@ -326,17 +382,55 @@ async def trigger_capture(schedule_name: str, settings: dict, config: Config) ->
             result = response.json()
             logger.debug(f"Pi response: {result}")
 
-            return result.get("status") == "success"
+            if result.get("status") != "success":
+                return (False, "")
+
+            # Extract filename from Pi's image_path (e.g., /home/user/skylapse-images/profile-a/capture_20251001_224401.jpg)
+            pi_image_path = result.get("image_path", "")
+            if not pi_image_path:
+                logger.error("Pi did not return image_path")
+                return (False, "")
+
+            # Extract just the filename
+            filename = Path(pi_image_path).name
+
+            # Construct local storage path
+            profile = settings.get("profile", "default")
+            local_dir = Path("/data/images") / f"profile-{profile}"
+            local_dir.mkdir(parents=True, exist_ok=True)
+            local_path = local_dir / filename
+
+            # Download image from Pi
+            # Pi serves images at /images/<profile>/<filename>
+            profile_path = Path(pi_image_path).parent.name  # e.g., "profile-a"
+            image_url = (
+                f"http://{pi_config['host']}:{pi_config['port']}/images/{profile_path}/{filename}"
+            )
+
+            logger.debug(f"Downloading image from {image_url} to {local_path}")
+
+            image_response = await client.get(image_url)
+            image_response.raise_for_status()
+
+            # Write image to local filesystem
+            with open(local_path, "wb") as f:
+                f.write(image_response.content)
+
+            logger.info(
+                f"✓ Image downloaded: {filename} ({len(image_response.content) / 1024:.1f} KB)"
+            )
+
+            return (True, filename)
 
     except httpx.TimeoutException:
         logger.error(f"Pi capture timeout for {schedule_name}")
-        return False
+        return (False, "")
     except httpx.HTTPError as e:
         logger.error(f"Pi capture HTTP error for {schedule_name}: {e}")
-        return False
+        return (False, "")
     except Exception as e:
         logger.error(f"Pi capture error for {schedule_name}: {e}")
-        return False
+        return (False, "")
 
 
 # API Endpoints

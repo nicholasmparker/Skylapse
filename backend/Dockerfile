@@ -2,10 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for transfer service
+# Install system dependencies for transfer service and video processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
     rsync \
     openssh-client \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
