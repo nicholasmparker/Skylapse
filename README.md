@@ -293,12 +293,13 @@ See [`CLAUDE.md`](CLAUDE.md) for critical Docker workflow reminders.
 
 ## Documentation
 
+- **[AI_GUIDE.md](AI_GUIDE.md)** - 🤖 Quick reference for AI assistants (SSH, debugging, common tasks)
 - **[API.md](API.md)** - Complete API reference for Backend and Pi services
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and technical design
 - **[DEPLOYMENT_AND_DOCKER.md](DEPLOYMENT_AND_DOCKER.md)** - Development workflow and deployment
 - **[HARDWARE.md](HARDWARE.md)** - Raspberry Pi and camera setup
 - **[TESTING.md](TESTING.md)** - Test strategy and Playwright tests
-- **[CLAUDE.md](CLAUDE.md)** - AI agent instructions (Docker workflow)
+- **[CLAUDE.md](CLAUDE.md)** - Critical reminders (Docker workflow, Pi SSH)
 
 ### Archived Documentation
 

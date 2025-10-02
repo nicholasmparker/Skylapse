@@ -1,0 +1,133 @@
+================================================================================
+SKYLAPSE PI CAPTURE SERVICE - THREE CAPTURE MODES
+================================================================================
+
+MODE 1: EXPLICIT SETTINGS (Backward Compatible)
+────────────────────────────────────────────────
+Backend → POST /capture
+          {
+            "iso": 400,
+            "shutter_speed": "1/1000",
+            "exposure_compensation": 0.7
+          }
+
+Pi      → Use settings exactly as provided
+       → Capture photo
+       → Return image path
+
+Use case: Live orchestration, Backend controls everything
+
+
+MODE 2: DEPLOYED PROFILE EXECUTION
+────────────────────────────────────
+Backend → POST /capture
+          {
+            "use_deployed_profile": true,
+            "schedule_type": "sunset"
+          }
+
+Pi      → Meter scene → lux = 850
+       → profile_executor.calculate_settings("sunset", 850)
+       → Profile returns: {iso: 400, shutter: "1/1000", ev: 0.7, ...}
+       → Capture photo with calculated settings
+       → Return image path
+
+Use case: Autonomous operation, Pi calculates settings locally
+
+
+MODE 3: PROFILE WITH OVERRIDE (Testing)
+────────────────────────────────────────
+Backend → POST /capture
+          {
+            "use_deployed_profile": true,
+            "schedule_type": "sunset",
+            "override": {"exposure_compensation": 0.9}
+          }
+
+Pi      → Meter scene → lux = 850
+       → profile_executor.calculate_settings("sunset", 850, override)
+       → Base settings from profile
+       → Apply override: ev = 0.9 (instead of profile's 0.7)
+       → Capture photo
+       → Return image path
+
+Use case: Testing profile tweaks without full redeployment
+
+
+================================================================================
+PROFILE DEPLOYMENT FLOW
+================================================================================
+
+1. Backend prepares profile snapshot:
+   {
+     "profile_id": "profile-a",
+     "version": "1.0.0",
+     "settings": {
+       "base": {...},
+       "adaptive_wb": {...},
+       "schedule_overrides": {...}
+     }
+   }
+
+2. Backend → POST /profile/deploy
+             {profile data}
+
+3. Pi → profile_executor.deploy_profile()
+     → Save to /home/pi/.skylapse/current_profile.json
+     → Activate for use
+
+4. Pi status now reports:
+   {
+     "operational_mode": "deployed_profile",
+     "deployed_profile": {...}
+   }
+
+5. Backend can now use Mode 2/3 for captures
+
+
+================================================================================
+OPERATIONAL MODE TRANSITIONS
+================================================================================
+
+LIVE ORCHESTRATION (default)
+    |
+    | POST /profile/deploy
+    v
+DEPLOYED PROFILE
+    |
+    | DELETE /profile/current
+    v
+LIVE ORCHESTRATION
+
+
+Status endpoint always reports current mode:
+- "operational_mode": "live_orchestration"  (Mode 1 only)
+- "operational_mode": "deployed_profile"    (Mode 2/3 available)
+
+
+================================================================================
+ERROR HANDLING
+================================================================================
+
+Scenario: use_deployed_profile=true but no profile deployed
+Response: 400 Bad Request
+          "No profile deployed - cannot use profile execution mode.
+           Deploy a profile first or use explicit settings."
+
+Scenario: schedule_type omitted in profile mode
+Behavior: Defaults to "daytime" schedule
+
+Scenario: ISO=0 with explicit settings
+Behavior: Camera uses auto-exposure (still works)
+
+
+================================================================================
+BACKWARD COMPATIBILITY
+================================================================================
+
+✓ All existing capture requests work unchanged
+✓ No required fields added
+✓ Safe defaults for new optional fields
+✓ Mode 1 (explicit) available regardless of profile deployment
+✓ ISO=0 auto mode still supported
+✓ No breaking changes to API
