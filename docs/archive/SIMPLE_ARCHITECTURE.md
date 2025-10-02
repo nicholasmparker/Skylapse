@@ -1,11 +1,13 @@
 # Skylapse: Super Simple Architecture
 
 ## Core Goal
+
 Capture beautiful sunrise, daytime, and sunset timelapses with automatic exposure adjustments and image stacking.
 
 ## Three Components
 
 ### 1. Raspberry Pi (Edge Device)
+
 **ONE job**: Take photos when told to
 
 ```python
@@ -29,9 +31,11 @@ async def capture_photo(settings: CaptureSettings):
 ---
 
 ### 2. Backend API (Brain)
+
 **Does everything else**:
 
 #### A. Schedule Management (3 simple schedules)
+
 ```python
 SCHEDULES = {
     "sunrise": {
@@ -53,6 +57,7 @@ SCHEDULES = {
 ```
 
 #### B. Scheduler Loop
+
 ```python
 # Run every 30 seconds
 async def scheduler_tick():
@@ -69,6 +74,7 @@ async def scheduler_tick():
 ```
 
 #### C. Smart Exposure Calculator
+
 ```python
 def calculate_exposure(time, schedule_type):
     """Adjust camera settings based on time of day"""
@@ -87,6 +93,7 @@ def calculate_exposure(time, schedule_type):
 ```
 
 #### D. Image Processing
+
 ```python
 # When images arrive, process them
 async def process_images(schedule_name, date):
@@ -106,6 +113,7 @@ async def process_images(schedule_name, date):
 ---
 
 ### 3. Frontend (Simple UI)
+
 **Three buttons. Three videos.**
 
 ```
@@ -126,6 +134,7 @@ async def process_images(schedule_name, date):
 ```
 
 **Settings page**:
+
 ```
 ┌─────────────────────────────────┐
 │     Settings                    │
@@ -222,18 +231,21 @@ skylapse/
 ## First Steps to Build
 
 ### Step 1: Raspberry Pi Capture Server (1 hour)
+
 - Simple Flask/FastAPI server
 - One endpoint: `POST /capture`
 - Uses picamera2 library
 - Returns image path
 
 ### Step 2: Backend Scheduler (2 hours)
+
 - Calculate sunrise/sunset times (use `astral` library)
 - Simple loop that runs every 30 seconds
 - Check if current time matches any schedule
 - HTTP POST to Pi with camera settings
 
 ### Step 3: Smart Exposure (1 hour)
+
 - Function that returns camera settings based on:
   - Schedule type (sunrise/daytime/sunset)
   - Current time
@@ -241,12 +253,14 @@ skylapse/
 - Start with hardcoded values, tune later
 
 ### Step 4: Image Processing (3 hours)
+
 - End-of-day job (runs at midnight)
 - Stack images using OpenCV/PIL
 - Generate video using ffmpeg
 - Save to `backend/data/videos/`
 
 ### Step 5: Simple Frontend (2 hours)
+
 - React app with 3 video players
 - Fetch videos from backend API
 - Display sunrise/sunset times

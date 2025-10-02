@@ -13,11 +13,13 @@ Each sprint ends with a stakeholder demo showing **working software**, not slide
 ### What Stakeholder Will See
 
 **Opening Scene:**
+
 ```
 Stakeholder opens browser → http://localhost:3000
 ```
 
 **Screen shows:**
+
 ```
 ┌─────────────────────────────────────────┐
 │     Today's Timelapses - Sept 30        │
@@ -41,27 +43,32 @@ Stakeholder opens browser → http://localhost:3000
 **Live Demo Flow (5 minutes):**
 
 1. **Click "Sunrise" play button**
+
    - Video plays showing smooth sunrise timelapse
    - 30-second video compressed from 1 hour of captures
    - Exposure gradually brightens as sun rises
    - Stacked images = clean, noise-free quality
 
 2. **Click "Daytime" play button**
+
    - Timelapse shows 6 hours compressed to ~1 minute
    - Consistent exposure throughout (bright sunny day)
    - Clouds moving, shadows shifting
 
 3. **Click "Sunset" play button**
+
    - Sunset timelapse shows fading light
    - Exposure adjusts smoothly as it gets darker
    - Stacked images = beautiful rich colors
 
 4. **Open Settings page**
+
    - Show current location (lat/lon)
    - Show calculated sunrise/sunset times for today
    - Change location → times update immediately
 
 5. **Show backend logs (terminal)**
+
    ```
    [09:00:00] ✓ Daytime capture triggered (ISO 100, 1/500s)
    [09:05:00] ✓ Daytime capture triggered (ISO 100, 1/500s)
@@ -77,20 +84,24 @@ Stakeholder opens browser → http://localhost:3000
 ### Key Messages for Stakeholder
 
 ✅ **"The core product works end-to-end"**
+
 - System automatically captures photos all day
 - Processes them into beautiful timelapses
 - User just opens the app and watches
 
 ✅ **"Smart exposure is working"**
+
 - Sunrise starts dark, ends bright
 - Daytime is consistently exposed
 - Sunset gracefully fades
 
 ✅ **"Image stacking delivers quality"**
+
 - Sunrise/sunset videos are noticeably cleaner
 - No noise or grain even in low light
 
 ✅ **"Deployment is simple"**
+
 - One command to update Pi: `./scripts/deploy-pi.sh`
 - Docker handles all backend/frontend updates
 
@@ -113,6 +124,7 @@ Stakeholder opens browser → http://localhost:3000
 ### What Stakeholder Will See
 
 **New Feature 1: Historical View**
+
 ```
 ┌─────────────────────────────────────────┐
 │  [< Sept 29]  Today: Sept 30  [Oct 1 >]│
@@ -126,11 +138,13 @@ Stakeholder opens browser → http://localhost:3000
 ```
 
 **Live Demo Flow:**
+
 1. Browse to yesterday, watch previous sunrise
 2. Click through last 7 days of timelapses
 3. Show automatic cleanup of old images (disk management)
 
 **New Feature 2: System Health Dashboard**
+
 ```
 ┌─────────────────────────────────────────┐
 │  System Status                          │
@@ -148,6 +162,7 @@ Stakeholder opens browser → http://localhost:3000
 ```
 
 **New Feature 3: Error Recovery**
+
 ```
 Demonstrate system resilience:
 1. Unplug Raspberry Pi (simulate network failure)
@@ -158,6 +173,7 @@ Demonstrate system resilience:
 ```
 
 **New Feature 4: Improved Image Quality**
+
 ```
 Show side-by-side comparison:
 - Sprint 1 sunset (5-frame stacking)
@@ -168,16 +184,19 @@ Show side-by-side comparison:
 ### Key Messages for Stakeholder
 
 ✅ **"System is production-ready"**
+
 - Runs for weeks without intervention
 - Gracefully handles failures
 - Automatically recovers from network issues
 
 ✅ **"Quality improved significantly"**
+
 - Better stacking algorithm
 - Sharper final videos
 - More consistent exposure
 
 ✅ **"Easy to monitor and debug"**
+
 - Health dashboard shows what's happening
 - Clear status indicators
 - Logs are comprehensive
@@ -198,6 +217,7 @@ Show side-by-side comparison:
 ### What Stakeholder Will See
 
 **New Feature 1: Custom Schedules**
+
 ```
 ┌─────────────────────────────────────────┐
 │  My Schedules                           │
@@ -211,6 +231,7 @@ Show side-by-side comparison:
 ```
 
 **Live Demo: Create Custom Schedule**
+
 ```
 1. Click "Create New Schedule"
 2. Name: "Golden Hour"
@@ -223,6 +244,7 @@ Show side-by-side comparison:
 ```
 
 **New Feature 2: Weather Integration**
+
 ```
 ┌─────────────────────────────────────────┐
 │  Today's Forecast                       │
@@ -238,6 +260,7 @@ Show side-by-side comparison:
 ```
 
 **New Feature 3: Manual Capture**
+
 ```
 Show "Capture Now" button:
 1. Click button
@@ -248,6 +271,7 @@ Show "Capture Now" button:
 ```
 
 **New Feature 4: Notifications**
+
 ```
 Demonstrate:
 - Email/SMS when sunrise video is ready
@@ -259,11 +283,13 @@ Demonstrate:
 ### Key Messages for Stakeholder
 
 ✅ **"System is now flexible"**
+
 - User can create custom schedules for specific needs
 - Not limited to sunrise/daytime/sunset
 - Weather-aware to avoid wasted captures
 
 ✅ **"User has control"**
+
 - Manual capture for special moments
 - Notifications keep user informed
 - Can fine-tune every schedule parameter
@@ -275,6 +301,7 @@ Demonstrate:
 ### Potential Demo Features (Prioritized by Stakeholder Feedback)
 
 **Option A: Multiple Cameras**
+
 ```
 Show two Raspberry Pis capturing simultaneously:
 - North-facing camera (sunrise)
@@ -284,6 +311,7 @@ Show two Raspberry Pis capturing simultaneously:
 ```
 
 **Option B: Cloud Storage & Sharing**
+
 ```
 - Videos automatically backup to S3/Cloudflare
 - Shareable links: "Check out today's sunrise!"
@@ -292,6 +320,7 @@ Show two Raspberry Pis capturing simultaneously:
 ```
 
 **Option C: Advanced Processing**
+
 ```
 - Deflickering (remove exposure variations)
 - Motion stabilization
@@ -300,6 +329,7 @@ Show two Raspberry Pis capturing simultaneously:
 ```
 
 **Option D: Analytics**
+
 ```
 - Heatmap of best sunrise/sunset times
 - Comparison across weeks/months
@@ -380,6 +410,7 @@ Stakeholder arrives at your home/office. You show them:
 ## Appendix: Demo Checklist
 
 ### Technical Setup
+
 - [ ] All Docker containers running and healthy
 - [ ] Pi connected and capturing (at least 1 day of data)
 - [ ] At least 3 complete timelapses available
@@ -389,6 +420,7 @@ Stakeholder arrives at your home/office. You show them:
 - [ ] Backend logs are clean (no warnings/errors)
 
 ### Content Preparation
+
 - [ ] At least one beautiful sunrise timelapse
 - [ ] At least one beautiful sunset timelapse
 - [ ] Daytime timelapse with interesting content (clouds, people, etc.)
@@ -396,6 +428,7 @@ Stakeholder arrives at your home/office. You show them:
 - [ ] System has been running for 3+ days (proves reliability)
 
 ### Presentation
+
 - [ ] Rehearsed demo flow (< 10 minutes)
 - [ ] Prepared talking points for each feature
 - [ ] Ready to answer: "What's next?" and "When can I have this?"
@@ -403,6 +436,7 @@ Stakeholder arrives at your home/office. You show them:
 - [ ] Feedback form or questions prepared
 
 ### Environment
+
 - [ ] Large screen or projector for stakeholder to see clearly
 - [ ] Good lighting for showing Raspberry Pi hardware
 - [ ] Quiet space with no interruptions

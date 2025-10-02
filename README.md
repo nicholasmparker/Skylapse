@@ -1,32 +1,47 @@
 # Skylapse
 
-**Automatic sunrise, daytime, and sunset timelapses with smart exposure and image stacking.**
+**Automated timelapse photography system with intelligent exposure profiles and metadata tracking.**
 
 ## What This Does
 
-Three simple timelapses, captured automatically every day:
-- 🌅 **Sunrise** - 30 second intervals, 1 hour duration
-- ☀️ **Daytime** - 5 minute intervals, 6 hours duration
-- 🌇 **Sunset** - 30 second intervals, 1 hour duration
+Captures and generates beautiful timelapses automatically:
 
-Camera settings adjust automatically to light conditions. Sunrise and sunset images are stacked for higher quality.
+- 🌅 **Sunrise** - 2 second intervals, 1 hour duration
+- ☀️ **Daytime** - Custom time windows
+- 🌇 **Sunset** - 2 second intervals, 1 hour duration
+
+Features multiple capture profiles (A-G) optimized for different lighting conditions. Production profiles (A, D, G) capture every session for comparison.
+
+## Current Features
+
+- **6 Capture Profiles** - Auto, Daylight WB, Conservative, Warm Dramatic, Balanced, Spot Metering
+- **SQLite Database** - Session and capture metadata tracking
+- **Automated Timelapses** - Schedule-end detection triggers background video generation
+- **Image Stacking** - HDR bracket support (Profile D)
+- **Live Preview** - Real-time camera feed in web UI
+- **Background Processing** - Redis Queue workers handle video generation
 
 ## Architecture
 
-Three components:
-1. **Raspberry Pi** - Captures photos when commanded
-2. **Backend** - Brain that schedules, calculates exposure, processes images
-3. **Frontend** - Simple UI to watch today's timelapses
+Five components:
 
-See [`SIMPLE_ARCHITECTURE.md`](SIMPLE_ARCHITECTURE.md) for complete details.
+1. **Raspberry Pi** - Captures photos via ArduCam IMX519 (16MP)
+2. **Backend** - Scheduler, exposure calculator, API server
+3. **Worker** - Background job processor for timelapse generation
+4. **Frontend** - React web UI for monitoring and control
+5. **Transfer Service** - Automatic image sync from Pi to backend
+
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for complete technical details.
 
 ## Quick Start
 
 **Requirements:**
+
 - Raspberry Pi with camera (for capture)
 - Docker (for backend/frontend development)
 
 **Development:**
+
 ```bash
 # Start all services
 docker-compose up
@@ -36,6 +51,7 @@ docker-compose up
 ```
 
 **Deploy:**
+
 ```bash
 # Deploy capture service to Pi
 ./scripts/deploy-pi.sh
@@ -46,16 +62,17 @@ docker-compose up
 
 ## Documentation
 
-- **[SIMPLE_ARCHITECTURE.md](SIMPLE_ARCHITECTURE.md)** - System design and implementation plan
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and technical design
 - **[DEPLOYMENT_AND_DOCKER.md](DEPLOYMENT_AND_DOCKER.md)** - Development workflow and deployment
-- **[LESSONS_LEARNED.md](LESSONS_LEARNED.md)** - What went wrong and why we started over
+- **[HARDWARE.md](HARDWARE.md)** - Raspberry Pi and camera setup
 - **[CLAUDE.md](CLAUDE.md)** - Critical reminders for AI agents (Docker workflow)
+- **[TESTING.md](TESTING.md)** - Test strategy and Playwright tests
+
+Historical documentation available in [`docs/archive/`](docs/archive/)
 
 ## Development Status
 
-🚧 **Fresh start** - Old complex codebase archived, rebuilding with simplicity first.
-
-See `../skylapse-archive/` for previous implementation.
+✅ **Production-ready** - Automated timelapse system with database tracking and background processing.
 
 ## License
 

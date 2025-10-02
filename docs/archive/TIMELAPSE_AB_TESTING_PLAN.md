@@ -10,37 +10,45 @@ Each profile will produce its own timelapse for side-by-side comparison.
 ## Profile Definitions
 
 ### Profile A: Auto Everything (Baseline)
+
 **Folder:** `~/skylapse-images/profile-a-auto/`
 **Settings:**
+
 - AfMode: 2 (Continuous autofocus)
 - AwbMode: 0 (Auto white balance)
 - ExposureMode: Auto (let camera decide ISO/shutter)
-**Purpose:** Baseline - what camera thinks is best
+  **Purpose:** Baseline - what camera thinks is best
 
 ### Profile B: Fixed Daylight WB + Auto Exposure
+
 **Folder:** `~/skylapse-images/profile-b-daylight-wb/`
 **Settings:**
+
 - AfMode: 2 (Continuous autofocus)
 - AwbMode: 1 (Daylight white balance - consistent color)
 - ExposureMode: Auto (camera decides ISO/shutter)
-**Purpose:** Test if fixed WB prevents color flicker
+  **Purpose:** Test if fixed WB prevents color flicker
 
 ### Profile C: Manual Ramping (Our Algorithm)
+
 **Folder:** `~/skylapse-images/profile-c-manual-ramp/`
 **Settings:**
+
 - AfMode: 2 (Continuous autofocus)
 - AwbMode: 1 (Daylight white balance)
 - Exposure: Manual ramping based on time from sunrise
-**Purpose:** Our intelligent exposure curve
+  **Purpose:** Our intelligent exposure curve
 
 ### Profile D: HDR Mode
+
 **Folder:** `~/skylapse-images/profile-d-hdr/`
 **Settings:**
+
 - AfMode: 2 (Continuous autofocus)
 - AwbMode: 1 (Daylight white balance)
 - HdrMode: 1 (Single exposure HDR)
 - Exposure: Manual ramping
-**Purpose:** Test if HDR improves dynamic range during golden hour
+  **Purpose:** Test if HDR improves dynamic range during golden hour
 
 ---
 
@@ -50,6 +58,7 @@ Each profile will produce its own timelapse for side-by-side comparison.
 **Rotation:** A → B → C → D → A → B → C → D...
 
 **Example Timeline:**
+
 ```
 00:00 - Profile A capture → folder A
 00:30 - Profile B capture → folder B
@@ -105,6 +114,7 @@ ffmpeg -framerate 30 -pattern_type glob -i 'profile-d-hdr/*.jpg' \
 ```
 
 ### Compare:
+
 - Which has best color consistency?
 - Which has smoothest exposure transitions?
 - Which has best dynamic range (detail in highlights + shadows)?
@@ -115,12 +125,14 @@ ffmpeg -framerate 30 -pattern_type glob -i 'profile-d-hdr/*.jpg' \
 ## Pros/Cons
 
 ### ✅ Advantages:
+
 - **Scientifically compare** different approaches
 - **Same lighting conditions** for all profiles (captured simultaneously)
 - **Prove which works best** with real data
 - **No guessing** - see actual results
 
 ### ⚠️ Considerations:
+
 - Each profile gets **1/4 the frames** (15 instead of 60)
 - Need **4x storage space**
 - Slightly **more complex** to implement
@@ -133,6 +145,7 @@ ffmpeg -framerate 30 -pattern_type glob -i 'profile-d-hdr/*.jpg' \
 If 4 is too many, start with just 2:
 
 ### Profile A: Auto WB + Auto Exposure (Safe)
+
 ### Profile B: Daylight WB + Manual Ramping (Quality)
 
 **Schedule:** Alternate every 30s
@@ -143,6 +156,7 @@ If 4 is too many, start with just 2:
 ## Recommendation
 
 **Start with 2 profiles** for first test:
+
 1. **Auto** (baseline - what camera wants)
 2. **Manual** (our algorithm - what we think is best)
 
@@ -150,6 +164,7 @@ If both look good but can't decide, add more profiles.
 If one is clearly better, use that going forward.
 
 **Next Steps:**
+
 1. Implement profile rotation in backend
 2. Update Pi to accept profile parameter
 3. Test during sunset today
