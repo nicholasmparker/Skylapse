@@ -311,8 +311,9 @@ class ExposureCalculator:
         lux = settings.pop("lux", None)
 
         if profile == "a":
-            # Profile A: Pure Full Auto
+            # Profile A: Pure Full Auto with Manual Focus at Infinity
             # Fully automatic exposure and white balance with no bias
+            # Manual focus set to infinity for landscape sharpness
             settings["iso"] = 0  # ISO=0 signals full auto mode to Pi
             settings["shutter_speed"] = "auto"  # Placeholder (not used in auto mode)
             settings["exposure_compensation"] = 0.0  # Pure auto, no bias
@@ -320,7 +321,10 @@ class ExposureCalculator:
             settings["hdr_mode"] = 0  # No HDR
             settings["bracket_count"] = 1  # Single shot
             settings["ae_metering_mode"] = 0  # Center-weighted metering
-            logger.debug(f"Profile A (Pure Auto): EV{settings['exposure_compensation']:+.1f}")
+            settings["lens_position"] = 0.0  # Manual focus at infinity (0.0 = infinity)
+            logger.debug(
+                f"Profile A (Pure Auto + Infinity Focus): EV{settings['exposure_compensation']:+.1f}"
+            )
 
         elif profile == "b":
             # Profile B: Fixed Daylight WB
