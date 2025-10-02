@@ -60,7 +60,10 @@ class SolarCalculator:
         date_key = date.strftime("%Y-%m-%d")
 
         if date_key not in self._cache:
-            sun_times = sun(self.location.observer, date=date.date())
+            # IMPORTANT: Pass timezone-aware datetime to astral, not naive date
+            # This ensures astral interprets the date in the local timezone
+            # Otherwise sunset after midnight UTC will roll back to previous day
+            sun_times = sun(self.location.observer, date=date)
 
             # Convert UTC times to local timezone
             self._cache[date_key] = {
@@ -72,8 +75,8 @@ class SolarCalculator:
 
             logger.info(
                 f"Calculated sun times for {date_key}: "
-                f"sunrise={sun_times['sunrise'].strftime('%H:%M')}, "
-                f"sunset={sun_times['sunset'].strftime('%H:%M')}"
+                f"sunrise={self._cache[date_key]['sunrise'].strftime('%H:%M')}, "
+                f"sunset={self._cache[date_key]['sunset'].strftime('%H:%M')}"
             )
 
         return self._cache[date_key]
