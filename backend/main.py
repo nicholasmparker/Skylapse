@@ -607,7 +607,7 @@ async def list_timelapses(
         timelapses.append(
             {
                 "id": t["id"],
-                "name": t["filename"].replace(".mp4", ""),
+                "name": t["filename"].replace(".mp4", "").replace("_archive", ""),
                 "filename": t["filename"],
                 "url": f"/timelapses/{t['filename']}",
                 "size": f"{t['file_size_mb']:.1f} MB",
@@ -618,6 +618,7 @@ async def list_timelapses(
                 "frame_count": t["frame_count"],
                 "fps": t["fps"],
                 "quality": t["quality"],
+                "quality_tier": t.get("quality_tier", "preview"),
                 "session_id": t["session_id"],
             }
         )
@@ -635,6 +636,81 @@ async def download_timelapse(filename: str):
 
     # Serve the file with appropriate MIME type for video streaming
     return FileResponse(path=video_path, media_type="video/mp4", filename=filename)
+
+
+@app.get("/thumbnails/{filename}")
+async def get_thumbnail(filename: str):
+    """Serve thumbnail image for timelapse"""
+    # Thumbnail filename: profile-a_sunset_2025-10-01_thumb.jpg
+    thumb_path = Path("/data/timelapses") / filename
+
+    if not thumb_path.exists() or not thumb_path.is_file():
+        return {"error": "Thumbnail not found"}, 404
+
+    return FileResponse(path=thumb_path, media_type="image/jpeg")
+
+
+@app.post("/timelapses/{session_id}/archive")
+async def generate_archive_timelapse(session_id: str, request: Request):
+    """
+    Generate archive-quality timelapse for a session.
+
+    This creates a high-quality archival version with near-lossless encoding,
+    separate from the preview quality timelapse.
+    """
+    db = request.app.state.db
+    timelapse_queue = request.app.state.timelapse_queue
+
+    # Verify session exists
+    session = db.get_session_stats(session_id)
+    if not session:
+        return {"error": "Session not found"}, 404
+
+    # Parse session_id to get profile, date, schedule
+    # Format: a_20251002_sunrise
+    parts = session_id.split("_")
+    if len(parts) != 3:
+        return {"error": "Invalid session_id format"}, 400
+
+    profile = parts[0]
+    date_compact = parts[1]
+    schedule = parts[2]
+
+    # Format date as YYYY-MM-DD
+    date = f"{date_compact[:4]}-{date_compact[4:6]}-{date_compact[6:]}"
+
+    # Check if archive already exists
+    existing_archives = db.get_timelapses(profile=profile, schedule=schedule, date=date)
+    archive_exists = any(t.get("quality_tier") == "archive" for t in existing_archives)
+
+    if archive_exists:
+        return {
+            "status": "already_exists",
+            "message": "Archive quality timelapse already exists for this session",
+        }
+
+    # Enqueue archive generation job
+    job = timelapse_queue.enqueue(
+        "tasks.generate_timelapse",
+        profile=profile,
+        schedule=schedule,
+        date=date,
+        session_id=session_id,
+        quality="high",
+        quality_tier="archive",
+        job_timeout="30m",  # Archive quality takes longer
+    )
+
+    logger.info(f"🎬 Archive quality timelapse enqueued for {session_id}, job {job.id}")
+
+    return {
+        "status": "enqueued",
+        "job_id": job.id,
+        "session_id": session_id,
+        "profile": profile,
+        "schedule": schedule,
+        "date": date,
+    }
 
 
 @app.get("/profiles")

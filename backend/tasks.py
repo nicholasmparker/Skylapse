@@ -22,6 +22,7 @@ def generate_timelapse(
     session_id: Optional[str] = None,
     fps: int = 30,
     quality: str = "high",
+    quality_tier: str = "preview",
     job_timeout: int = 1200,  # 20 minutes for large timelapses
 ) -> dict:
     """
@@ -34,19 +35,23 @@ def generate_timelapse(
         session_id: Session ID to get exact image list from database
         fps: Frames per second for output video
         quality: Video quality (low/medium/high)
+        quality_tier: Quality tier ('preview' for web-friendly, 'archive' for maximum quality)
 
     Returns:
         Dictionary with status and video path
     """
-    logger.info(f"🎬 Starting timelapse generation: {profile}/{schedule}/{date}")
+    logger.info(f"🎬 Starting timelapse generation: {profile}/{schedule}/{date} ({quality_tier})")
 
     # Paths
     images_dir = Path("/data/images") / f"profile-{profile}"
     output_dir = Path("/data/timelapses")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Output filename: profile-a_sunset_2025-10-01.mp4
-    output_filename = f"profile-{profile}_{schedule}_{date}.mp4"
+    # Output filename: profile-a_sunset_2025-10-01.mp4 (preview) or profile-a_sunset_2025-10-01_archive.mp4
+    if quality_tier == "archive":
+        output_filename = f"profile-{profile}_{schedule}_{date}_archive.mp4"
+    else:
+        output_filename = f"profile-{profile}_{schedule}_{date}.mp4"
     output_path = output_dir / output_filename
 
     # Get exact image list from database (if session_id provided)
@@ -88,12 +93,21 @@ def generate_timelapse(
             "image_count": 0,
         }
 
-    # Quality presets - use medium for high res images
-    quality_presets = {
-        "low": {"crf": 28, "preset": "fast"},
-        "medium": {"crf": 23, "preset": "medium"},
-        "high": {"crf": 18, "preset": "medium"},  # medium preset for 4K+ images
-    }
+    # Quality presets - distinguish between preview and archive tiers
+    if quality_tier == "archive":
+        # Archive quality: Maximum quality for long-term storage
+        quality_presets = {
+            "low": {"crf": 20, "preset": "medium"},
+            "medium": {"crf": 16, "preset": "slow"},
+            "high": {"crf": 12, "preset": "slow"},  # Near-lossless for archival
+        }
+    else:
+        # Preview quality: Web-friendly, smaller file sizes
+        quality_presets = {
+            "low": {"crf": 28, "preset": "fast"},
+            "medium": {"crf": 23, "preset": "medium"},
+            "high": {"crf": 18, "preset": "medium"},
+        }
 
     preset = quality_presets.get(quality, quality_presets["high"])
 
@@ -192,6 +206,30 @@ def generate_timelapse(
             f"✓ Timelapse generated: {output_filename} ({video_size_mb:.1f} MB, {len(images)} frames)"
         )
 
+        # Generate thumbnail from 1 second into video
+        thumbnail_filename = output_filename.replace(".mp4", "_thumb.jpg")
+        thumbnail_path = output_dir / thumbnail_filename
+
+        thumbnail_cmd = [
+            "ffmpeg",
+            "-y",
+            "-ss",
+            "00:00:01",  # Seek to 1 second
+            "-i",
+            str(output_path),
+            "-vframes",
+            "1",
+            "-q:v",
+            "2",  # High quality JPEG
+            str(thumbnail_path),
+        ]
+
+        try:
+            subprocess.run(thumbnail_cmd, capture_output=True, timeout=30)
+            logger.info(f"✓ Thumbnail generated: {thumbnail_filename}")
+        except Exception as e:
+            logger.warning(f"Failed to generate thumbnail: {e}")
+
         # Record timelapse in database
         if session_id:
             try:
@@ -212,6 +250,7 @@ def generate_timelapse(
                     frame_count=len(images),
                     fps=fps,
                     quality=quality,
+                    quality_tier=quality_tier,
                 )
             except Exception as e:
                 logger.warning(f"Failed to record timelapse metadata: {e}")

@@ -102,13 +102,23 @@
         .timelapse-card {
             background: #f9fafb;
             border-radius: 8px;
-            padding: 12px;
+            overflow: hidden;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
         }
         .timelapse-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .timelapse-thumbnail {
+            width: 100%;
+            aspect-ratio: 16/9;
+            object-fit: cover;
+            background: #e5e7eb;
+            display: block;
+        }
+        .timelapse-content {
+            padding: 12px;
         }
         .timelapse-name {
             font-weight: 600;
@@ -118,6 +128,46 @@
         .timelapse-info {
             font-size: 0.85rem;
             color: #666;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            position: relative;
+        }
+        .modal video {
+            width: 100%;
+            max-height: 90vh;
+            border-radius: 8px;
+        }
+        .modal-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .modal-close:hover {
+            color: #ccc;
         }
         .refresh-btn {
             background: #667eea;
@@ -273,6 +323,16 @@
         <img id="fullscreen-image" src="" alt="Fullscreen view">
     </div>
 
+    <!-- Video Modal -->
+    <div class="modal" id="video-modal" onclick="closeVideo()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeVideo()">&times;</button>
+            <video id="modal-video" controls autoplay>
+                <source src="" type="video/mp4">
+            </video>
+        </div>
+    </div>
+
     <script>
         function openFullscreen(imageUrl, event) {
             event.stopPropagation();
@@ -284,10 +344,26 @@
             document.getElementById('fullscreen-modal').classList.remove('active');
         }
 
+        function playVideo(videoUrl) {
+            const modal = document.getElementById('video-modal');
+            const video = document.getElementById('modal-video');
+            video.querySelector('source').src = videoUrl;
+            video.load();
+            modal.classList.add('active');
+        }
+
+        function closeVideo() {
+            const modal = document.getElementById('video-modal');
+            const video = document.getElementById('modal-video');
+            video.pause();
+            modal.classList.remove('active');
+        }
+
         // Close on ESC key
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
                 closeFullscreen();
+                closeVideo();
             }
         });
 
@@ -377,16 +453,79 @@
 
                 const timelapsesDiv = document.getElementById('timelapses');
                 if (timelapses.length > 0) {
-                    timelapsesDiv.innerHTML = timelapses.map(t => `
-                        <div class="timelapse-card" onclick="window.open('${t.url}', '_blank')">
-                            <div class="timelapse-name">${t.name}</div>
-                            <div class="timelapse-info">${t.size}</div>
-                            <div class="timelapse-info">${new Date(t.created).toLocaleDateString()}</div>
+                    // Group by session to show preview and archive together
+                    const grouped = {};
+                    timelapses.forEach(t => {
+                        if (!grouped[t.session_id]) {
+                            grouped[t.session_id] = {preview: null, archive: null, info: t};
+                        }
+                        if (t.quality_tier === 'archive') {
+                            grouped[t.session_id].archive = t;
+                        } else {
+                            grouped[t.session_id].preview = t;
+                        }
+                    });
+
+                    timelapsesDiv.innerHTML = Object.values(grouped).map(g => {
+                        const t = g.preview || g.archive;
+                        const tierLabel = g.preview ? (g.preview.quality_tier || 'preview') : 'archive';
+                        const hasArchive = !!g.archive;
+
+                        // Thumbnail URL
+                        const thumbnailUrl = `/thumbnails/${t.filename.replace('.mp4', '_thumb.jpg')}`;
+
+                        const archiveButton = !hasArchive && g.preview ?
+                            `<button class="archive-btn" onclick="event.stopPropagation(); generateArchive('${t.session_id}')"
+                                     style="background: #4CAF50; color: white; border: none; padding: 5px 10px;
+                                            margin-top: 5px; cursor: pointer; border-radius: 4px; font-size: 12px;">
+                                🎬 Generate Archive Quality
+                             </button>` : '';
+                        const archiveLink = hasArchive ?
+                            `<div style="margin-top: 5px; font-size: 12px;">
+                                <a href="#" onclick="event.stopPropagation(); playVideo('${g.archive.url}'); return false;"
+                                   style="color: #4CAF50; text-decoration: none;">
+                                    📦 Archive (${g.archive.size})
+                                </a>
+                             </div>` : '';
+
+                        return `
+                        <div class="timelapse-card" onclick="playVideo('${t.url}')">
+                            <img src="${thumbnailUrl}" class="timelapse-thumbnail" alt="${t.name}"
+                                 onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'400\\' height=\\'225\\'%3E%3Crect fill=\\'%23e5e7eb\\' width=\\'400\\' height=\\'225\\'/%3E%3Ctext fill=\\'%23666\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\'%3ENo thumbnail%3C/text%3E%3C/svg%3E'">
+                            <div class="timelapse-content">
+                                <div class="timelapse-name">${t.name}</div>
+                                <div class="timelapse-info">${t.size} ${tierLabel === 'archive' ? '(archive)' : ''}</div>
+                                <div class="timelapse-info">${new Date(t.created).toLocaleDateString()}</div>
+                                ${archiveButton}
+                                ${archiveLink}
+                            </div>
                         </div>
-                    `).join('');
+                    `}).join('');
                 } else {
                     timelapsesDiv.innerHTML = '<p>No timelapses yet</p>';
                 }
+
+                // Archive generation function
+                window.generateArchive = async function(sessionId) {
+                    if (!confirm('Generate archive quality timelapse? This will take several minutes.')) {
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch(`/timelapses/${sessionId}/archive`, {method: 'POST'});
+                        const result = await res.json();
+
+                        if (result.status === 'enqueued') {
+                            alert('Archive generation started! Job ID: ' + result.job_id + '\nRefresh in a few minutes to see it.');
+                        } else if (result.status === 'already_exists') {
+                            alert('Archive already exists for this session.');
+                        } else {
+                            alert('Error: ' + (result.message || 'Unknown error'));
+                        }
+                    } catch (err) {
+                        alert('Failed to start archive generation: ' + err.message);
+                    }
+                };
 
             } catch (err) {
                 console.error('Failed to load dashboard:', err);

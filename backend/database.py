@@ -117,6 +117,7 @@ class SessionDatabase:
                     frame_count INTEGER,
                     fps INTEGER,
                     quality TEXT,
+                    quality_tier TEXT DEFAULT 'preview',  -- 'preview' or 'archive'
 
                     -- Session reference
                     profile TEXT NOT NULL,
@@ -430,6 +431,7 @@ class SessionDatabase:
         frame_count: Optional[int] = None,
         fps: Optional[int] = None,
         quality: Optional[str] = None,
+        quality_tier: Optional[str] = "preview",
     ):
         """
         Record a generated timelapse in the database.
@@ -446,6 +448,7 @@ class SessionDatabase:
             frame_count: Number of frames in video
             fps: Frames per second
             quality: Quality setting (low/medium/high)
+            quality_tier: Quality tier ('preview' or 'archive')
         """
         now = datetime.utcnow().isoformat()
 
@@ -454,9 +457,9 @@ class SessionDatabase:
                 """
                 INSERT INTO timelapses (
                     session_id, filename, file_path, file_size_mb,
-                    duration_seconds, frame_count, fps, quality,
+                    duration_seconds, frame_count, fps, quality, quality_tier,
                     profile, schedule, date, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -467,6 +470,7 @@ class SessionDatabase:
                     frame_count,
                     fps,
                     quality,
+                    quality_tier,
                     profile,
                     schedule,
                     date,
@@ -474,7 +478,9 @@ class SessionDatabase:
                 ),
             )
             conn.commit()
-            logger.info(f"📼 Recorded timelapse: {filename} ({file_size_mb:.1f} MB)")
+            logger.info(
+                f"📼 Recorded timelapse: {filename} ({file_size_mb:.1f} MB, {quality_tier})"
+            )
 
     def get_timelapses(
         self,
