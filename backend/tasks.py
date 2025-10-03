@@ -132,7 +132,7 @@ def generate_timelapse(
             ffmpeg_cmd,
             capture_output=True,
             text=True,
-            timeout=600,  # 10 minute timeout
+            timeout=1800,  # 30 minute timeout for 4K timelapses
         )
 
         if result.returncode != 0:
