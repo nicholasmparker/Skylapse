@@ -131,9 +131,8 @@ async def scheduler_loop(app: FastAPI):
     # Track last capture times per schedule to avoid duplicates
     last_captures = {}
 
-    # Track schedule windows to detect when they end
-    schedule_windows = {}
-    last_timelapse_dates = {}  # Track last timelapse generation per schedule
+    # Track last timelapse generation per schedule (in-memory for session, reset on restart)
+    last_timelapse_dates = {}  # Prevents duplicate timelapse jobs within same backend session
 
     # Production profiles for sunset/sunrise timelapses
     # A: Pure auto baseline
@@ -160,18 +159,12 @@ async def scheduler_loop(app: FastAPI):
 
                 # Get current schedule window
                 current_window = None
-                was_active = False
                 is_active = False
 
                 if ScheduleType.is_solar(schedule_name):
                     # Solar-based schedule
                     current_window = solar_calc.get_schedule_window(schedule_config, current_time)
                     is_active = current_window["start"] <= current_time <= current_window["end"]
-
-                    # Check if we were previously in this window
-                    if schedule_name in schedule_windows:
-                        prev_window = schedule_windows[schedule_name]
-                        was_active = prev_window["start"] <= current_time <= prev_window["end"]
 
                 elif schedule_name == ScheduleType.DAYTIME:
                     # Time-based schedule
@@ -181,26 +174,28 @@ async def scheduler_loop(app: FastAPI):
                         current_time_only = current_time.time()
                         is_active = start_time <= current_time_only <= end_time
 
-                        # Check if we were previously in this window
-                        if schedule_name in schedule_windows:
-                            was_active = schedule_windows[schedule_name].get("was_active", False)
-
                         logger.info(
                             f"🔍 {schedule_name}: current={current_time_only}, "
                             f"window={start_time}-{end_time}, "
-                            f"was_active={was_active}, is_active={is_active}"
+                            f"is_active={is_active}"
                         )
 
-                # Detect schedule end: was active, now inactive
+                # Detect schedule end: check each profile's was_active state
+                # (Profiles may have different states if backend restarted mid-capture)
+                date_str = current_time.strftime("%Y-%m-%d")
+
+                # Check if schedule just transitioned from active to inactive
+                # We check the first profile as representative (all profiles share same schedule)
+                was_active = db.get_was_active(profiles[0], date_str, schedule_name)
+
                 if was_active and not is_active:
                     # Schedule ended - mark sessions complete and enqueue timelapse jobs
-                    date_str = current_time.strftime("%Y-%m-%d")
-
                     # Only generate once per day per schedule
                     last_date = last_timelapse_dates.get(schedule_name)
                     if last_date != date_str:
                         logger.info(
-                            f"🎬 {schedule_name} schedule ended - marking sessions complete and generating timelapses"
+                            f"🎬 {schedule_name} schedule ended (was_active={was_active}, is_active={is_active}) "
+                            f"- marking sessions complete and generating timelapses"
                         )
 
                         for profile in profiles:
@@ -223,12 +218,10 @@ async def scheduler_loop(app: FastAPI):
 
                         last_timelapse_dates[schedule_name] = date_str
 
-                # Update window tracking
-                if current_window:
-                    schedule_windows[schedule_name] = current_window
-                else:
-                    # For time-based schedules, track active state
-                    schedule_windows[schedule_name] = {"was_active": is_active}
+                # Update was_active state in database for all profiles
+                # This persists the state across backend restarts
+                for profile in profiles:
+                    db.update_was_active(profile, date_str, schedule_name, is_active)
 
                 should_capture = await should_capture_now(
                     schedule_name, schedule_config, current_time, last_captures, solar_calc

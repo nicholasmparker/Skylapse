@@ -39,6 +39,7 @@ class SessionDatabase:
                     end_time TEXT,
                     image_count INTEGER DEFAULT 0,
                     status TEXT DEFAULT 'active',
+                    was_active INTEGER DEFAULT 0,
                     tags TEXT,
                     weather_conditions TEXT,
 
@@ -56,6 +57,14 @@ class SessionDatabase:
                 )
             """
             )
+
+            # Add was_active column to existing tables (migration)
+            try:
+                conn.execute("ALTER TABLE sessions ADD COLUMN was_active INTEGER DEFAULT 0")
+                logger.info("Added was_active column to sessions table")
+            except sqlite3.OperationalError:
+                # Column already exists
+                pass
 
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_session_lookup ON sessions(profile, date, schedule)"
@@ -325,3 +334,50 @@ class SessionDatabase:
             ).fetchone()
 
             return dict(result) if result else None
+
+    def update_was_active(self, profile: str, date: str, schedule: str, was_active: bool):
+        """
+        Update the was_active state for a schedule.
+
+        Args:
+            profile: Profile identifier
+            date: Date string (YYYY-MM-DD)
+            schedule: Schedule name
+            was_active: Whether schedule was active
+        """
+        session_id = f"{profile}_{date.replace('-', '')}_{schedule}"
+
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                UPDATE sessions SET
+                    was_active = ?,
+                    updated_at = ?
+                WHERE session_id = ?
+                """,
+                (1 if was_active else 0, datetime.utcnow().isoformat(), session_id),
+            )
+            conn.commit()
+
+    def get_was_active(self, profile: str, date: str, schedule: str) -> bool:
+        """
+        Get the was_active state for a schedule.
+
+        Args:
+            profile: Profile identifier
+            date: Date string (YYYY-MM-DD)
+            schedule: Schedule name
+
+        Returns:
+            Boolean indicating if schedule was previously active
+        """
+        session_id = f"{profile}_{date.replace('-', '')}_{schedule}"
+
+        with self._get_connection() as conn:
+            result = conn.execute(
+                "SELECT was_active FROM sessions WHERE session_id = ?", (session_id,)
+            ).fetchone()
+
+            if result:
+                return bool(result["was_active"])
+            return False
