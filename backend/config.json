@@ -8,6 +8,8 @@
   "schedules": {
     "sunrise": {
       "enabled": true,
+      "type": "solar_relative",
+      "anchor": "sunrise",
       "offset_minutes": -30,
       "duration_minutes": 60,
       "interval_seconds": 2,
@@ -15,19 +17,33 @@
       "stack_count": 5
     },
     "daytime": {
-      "enabled": false,
-      "start_time": "09:00",
-      "end_time": "15:00",
-      "interval_seconds": 2,
-      "stack_images": false
+      "enabled": true,
+      "type": "time_of_day",
+      "start_time": "07:30",
+      "end_time": "17:55",
+      "interval_seconds": 14,
+      "stack_images": false,
+      "description": "All-day timelapse, 14-sec interval for 90-sec video (update times seasonally)"
     },
     "sunset": {
       "enabled": true,
-      "offset_minutes": -30,
-      "duration_minutes": 60,
+      "type": "solar_relative",
+      "anchor": "sunset",
+      "offset_minutes": -45,
+      "duration_minutes": 90,
       "interval_seconds": 2,
       "stack_images": true,
       "stack_count": 5
+    },
+    "blue_hour": {
+      "enabled": false,
+      "type": "solar_relative",
+      "anchor": "civil_dusk",
+      "offset_minutes": 0,
+      "duration_minutes": 30,
+      "interval_seconds": 1,
+      "stack_images": false,
+      "description": "Blue hour - capture during civil dusk"
     }
   },
   "pi": {

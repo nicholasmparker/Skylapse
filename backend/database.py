@@ -39,6 +39,7 @@ class SessionDatabase:
                     end_time TEXT,
                     image_count INTEGER DEFAULT 0,
                     status TEXT DEFAULT 'active',
+                    was_active INTEGER DEFAULT 0,
                     tags TEXT,
                     weather_conditions TEXT,
 
@@ -56,6 +57,14 @@ class SessionDatabase:
                 )
             """
             )
+
+            # Add was_active column to existing tables (migration)
+            try:
+                conn.execute("ALTER TABLE sessions ADD COLUMN was_active INTEGER DEFAULT 0")
+                logger.info("Added was_active column to sessions table")
+            except sqlite3.OperationalError:
+                # Column already exists
+                pass
 
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_session_lookup ON sessions(profile, date, schedule)"
@@ -93,6 +102,42 @@ class SessionDatabase:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_session ON captures(session_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON captures(timestamp)")
 
+            # Timelapses table for tracking generated videos
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS timelapses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    filename TEXT NOT NULL UNIQUE,
+                    file_path TEXT NOT NULL,
+                    file_size_mb REAL NOT NULL,
+
+                    -- Video metadata
+                    duration_seconds REAL,
+                    frame_count INTEGER,
+                    fps INTEGER,
+                    quality TEXT,
+                    quality_tier TEXT DEFAULT 'preview',  -- 'preview' or 'archive'
+
+                    -- Session reference
+                    profile TEXT NOT NULL,
+                    schedule TEXT NOT NULL,
+                    date TEXT NOT NULL,
+
+                    -- Timestamps
+                    created_at TEXT NOT NULL,
+
+                    FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+                )
+            """
+            )
+
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_timelapse_session ON timelapses(session_id)"
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_timelapse_date ON timelapses(date)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_timelapse_profile ON timelapses(profile)")
+
             conn.commit()
             logger.info(f"Database initialized at {self.db_path}")
 
@@ -117,26 +162,32 @@ class SessionDatabase:
         now = datetime.utcnow().isoformat()
 
         with self._get_connection() as conn:
-            # Check if session exists
-            result = conn.execute(
-                "SELECT session_id FROM sessions WHERE session_id = ?", (session_id,)
-            ).fetchone()
+            try:
+                # Check if session exists
+                result = conn.execute(
+                    "SELECT session_id FROM sessions WHERE session_id = ?", (session_id,)
+                ).fetchone()
 
-            if result:
-                return session_id
+                if result:
+                    return session_id
 
-            # Create new session
-            conn.execute(
-                """
-                INSERT INTO sessions (
-                    session_id, profile, date, schedule,
-                    start_time, status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)
-                """,
-                (session_id, profile, date, schedule, now, now, now),
-            )
-            conn.commit()
-            logger.info(f"📊 Created session: {session_id}")
+                # Create new session with transaction
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute(
+                    """
+                    INSERT INTO sessions (
+                        session_id, profile, date, schedule,
+                        start_time, status, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)
+                    """,
+                    (session_id, profile, date, schedule, now, now, now),
+                )
+                conn.commit()
+                logger.info(f"📊 Created session: {session_id}")
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Failed to get/create session: {e}", exc_info=True)
+                raise
 
         return session_id
 
@@ -151,36 +202,44 @@ class SessionDatabase:
         now = datetime.utcnow().isoformat()
 
         with self._get_connection() as conn:
-            # Insert capture record
-            conn.execute(
-                """
-                INSERT INTO captures (
-                    session_id, timestamp, filename,
-                    iso, shutter_speed, exposure_compensation,
-                    lux, wb_temp, wb_mode,
-                    analog_gain, digital_gain,
-                    created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    session_id,
-                    timestamp.isoformat(),
-                    filename,
-                    settings.get("iso"),
-                    settings.get("shutter_speed"),
-                    settings.get("exposure_compensation"),
-                    settings.get("lux"),
-                    settings.get("wb_temp"),
-                    settings.get("awb_mode"),
-                    settings.get("analog_gain"),
-                    settings.get("digital_gain"),
-                    now,
-                ),
-            )
+            try:
+                conn.execute("BEGIN IMMEDIATE")
 
-            # Update session statistics
-            self._update_session_stats(conn, session_id, timestamp, settings)
-            conn.commit()
+                # Insert capture record
+                conn.execute(
+                    """
+                    INSERT INTO captures (
+                        session_id, timestamp, filename,
+                        iso, shutter_speed, exposure_compensation,
+                        lux, wb_temp, wb_mode,
+                        analog_gain, digital_gain,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        session_id,
+                        timestamp.isoformat(),
+                        filename,
+                        settings.get("iso"),
+                        settings.get("shutter_speed"),
+                        settings.get("exposure_compensation"),
+                        settings.get("lux"),
+                        settings.get("wb_temp"),
+                        settings.get("awb_mode"),
+                        settings.get("analog_gain"),
+                        settings.get("digital_gain"),
+                        now,
+                    ),
+                )
+
+                # Update session statistics
+                self._update_session_stats(conn, session_id, timestamp, settings)
+
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Failed to record capture: {e}", exc_info=True)
+                raise
 
     def _update_session_stats(
         self, conn: sqlite3.Connection, session_id: str, timestamp: datetime, settings: Dict
@@ -325,3 +384,164 @@ class SessionDatabase:
             ).fetchone()
 
             return dict(result) if result else None
+
+    def update_was_active(self, profile: str, date: str, schedule: str, was_active: bool):
+        """
+        Update the was_active state for a schedule.
+
+        Args:
+            profile: Profile identifier
+            date: Date string (YYYY-MM-DD)
+            schedule: Schedule name
+            was_active: Whether schedule was active
+        """
+        session_id = f"{profile}_{date.replace('-', '')}_{schedule}"
+
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                UPDATE sessions SET
+                    was_active = ?,
+                    updated_at = ?
+                WHERE session_id = ?
+                """,
+                (1 if was_active else 0, datetime.utcnow().isoformat(), session_id),
+            )
+            conn.commit()
+
+    def get_was_active(self, profile: str, date: str, schedule: str) -> bool:
+        """
+        Get the was_active state for a schedule.
+
+        Args:
+            profile: Profile identifier
+            date: Date string (YYYY-MM-DD)
+            schedule: Schedule name
+
+        Returns:
+            Boolean indicating if schedule was previously active
+        """
+        session_id = f"{profile}_{date.replace('-', '')}_{schedule}"
+
+        with self._get_connection() as conn:
+            result = conn.execute(
+                "SELECT was_active FROM sessions WHERE session_id = ?", (session_id,)
+            ).fetchone()
+
+            if result:
+                return bool(result["was_active"])
+            return False
+
+    def record_timelapse(
+        self,
+        session_id: str,
+        filename: str,
+        file_path: str,
+        file_size_mb: float,
+        profile: str,
+        schedule: str,
+        date: str,
+        duration_seconds: Optional[float] = None,
+        frame_count: Optional[int] = None,
+        fps: Optional[int] = None,
+        quality: Optional[str] = None,
+        quality_tier: Optional[str] = "preview",
+    ):
+        """
+        Record a generated timelapse in the database.
+
+        Args:
+            session_id: Session ID this timelapse was generated from
+            filename: Video filename (e.g., profile-a_sunset_2025-10-03.mp4)
+            file_path: Full path to video file
+            file_size_mb: File size in megabytes
+            profile: Profile identifier (a-g)
+            schedule: Schedule name (sunrise/daytime/sunset)
+            date: Date string (YYYY-MM-DD)
+            duration_seconds: Video duration in seconds
+            frame_count: Number of frames in video
+            fps: Frames per second
+            quality: Quality setting (low/medium/high)
+            quality_tier: Quality tier ('preview' or 'archive')
+        """
+        now = datetime.utcnow().isoformat()
+
+        with self._get_connection() as conn:
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute(
+                    """
+                    INSERT INTO timelapses (
+                        session_id, filename, file_path, file_size_mb,
+                        duration_seconds, frame_count, fps, quality, quality_tier,
+                        profile, schedule, date, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        session_id,
+                        filename,
+                        file_path,
+                        file_size_mb,
+                        duration_seconds,
+                        frame_count,
+                        fps,
+                        quality,
+                        quality_tier,
+                        profile,
+                        schedule,
+                        date,
+                        now,
+                    ),
+                )
+                conn.commit()
+                logger.info(
+                    f"📼 Recorded timelapse: {filename} ({file_size_mb:.1f} MB, {quality_tier})"
+                )
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Failed to record timelapse: {e}", exc_info=True)
+                raise
+
+    def get_timelapses(
+        self,
+        limit: Optional[int] = None,
+        profile: Optional[str] = None,
+        schedule: Optional[str] = None,
+        date: Optional[str] = None,
+    ) -> List[Dict]:
+        """
+        Query timelapses from database with optional filters.
+
+        Args:
+            limit: Maximum number of results (default: all)
+            profile: Filter by profile (a-g)
+            schedule: Filter by schedule (sunrise/daytime/sunset)
+            date: Filter by date (YYYY-MM-DD)
+
+        Returns:
+            List of timelapse dictionaries sorted by created_at descending
+        """
+        with self._get_connection() as conn:
+            query = "SELECT * FROM timelapses WHERE 1=1"
+            params = []
+
+            if profile:
+                query += " AND profile = ?"
+                params.append(profile)
+
+            if schedule:
+                query += " AND schedule = ?"
+                params.append(schedule)
+
+            if date:
+                query += " AND date = ?"
+                params.append(date)
+
+            query += " ORDER BY created_at DESC"
+
+            if limit:
+                query += " LIMIT ?"
+                params.append(limit)
+
+            results = conn.execute(query, params).fetchall()
+            return [dict(row) for row in results]

@@ -28,25 +28,27 @@ DELETE_AFTER_DAYS = int(os.getenv("DELETE_AFTER_DAYS", "7"))  # Keep 7 days on P
 
 def run_rsync_transfer():
     """
-    Transfer images from Pi to backend using rsync.
+    Transfer images from Pi to backend using rsync, then delete from Pi.
 
     Uses rsync with:
     - Archive mode (-a): preserves timestamps, permissions
     - Verbose (-v): shows progress
     - Human-readable (-h): easier to read sizes
     - Progress: shows transfer progress
+    - Remove source files (--remove-source-files): delete from Pi after successful transfer
     """
     logger.info(f"Starting transfer from {PI_USER}@{PI_HOST}:{PI_SOURCE}")
 
     # Ensure destination exists
     LOCAL_DEST.mkdir(parents=True, exist_ok=True)
 
-    # Build rsync command
+    # Build rsync command with --remove-source-files to delete from Pi after transfer
     rsync_cmd = [
         "rsync",
         "-avh",
         "--progress",
         "--stats",
+        "--remove-source-files",  # Delete source files after successful transfer
         f"{PI_USER}@{PI_HOST}:{PI_SOURCE}",
         str(LOCAL_DEST) + "/",
     ]
@@ -61,6 +63,7 @@ def run_rsync_transfer():
 
         if result.returncode == 0:
             logger.info("✓ Transfer completed successfully")
+            logger.info("✓ Source images deleted from Pi")
             logger.info(result.stdout)
             return True
         else:
@@ -76,32 +79,40 @@ def run_rsync_transfer():
         return False
 
 
-def cleanup_old_images_on_pi():
+def cleanup_old_images_on_backend():
     """
-    Delete images older than DELETE_AFTER_DAYS from Pi to free space.
-    Only runs after successful transfer.
+    Delete images older than DELETE_AFTER_DAYS from backend storage to free space.
+    Keeps videos forever, only cleans up source images.
     """
-    logger.info(f"Cleaning up images older than {DELETE_AFTER_DAYS} days on Pi")
+    logger.info(f"Cleaning up images older than {DELETE_AFTER_DAYS} days on backend")
 
-    # SSH command to find and delete old images
-    cleanup_cmd = [
-        "ssh",
-        f"{PI_USER}@{PI_HOST}",
-        f"find {PI_SOURCE} -name 'capture_*.jpg' -type f -mtime +{DELETE_AFTER_DAYS} -delete",
-    ]
+    deleted_count = 0
+    deleted_size = 0
+    cutoff_time = time.time() - (DELETE_AFTER_DAYS * 24 * 60 * 60)
 
     try:
-        result = subprocess.run(cleanup_cmd, capture_output=True, text=True, timeout=60)
+        if LOCAL_DEST.exists():
+            for profile_dir in LOCAL_DEST.glob("profile-*"):
+                if profile_dir.is_dir():
+                    for image_file in profile_dir.glob("capture_*.jpg"):
+                        # Check file modification time
+                        if image_file.stat().st_mtime < cutoff_time:
+                            file_size = image_file.stat().st_size
+                            image_file.unlink()
+                            deleted_count += 1
+                            deleted_size += file_size
 
-        if result.returncode == 0:
-            logger.info("✓ Cleanup completed")
-            return True
+        if deleted_count > 0:
+            logger.info(
+                f"✓ Deleted {deleted_count} old images ({deleted_size / 1024 / 1024:.1f} MB freed)"
+            )
         else:
-            logger.error(f"✗ Cleanup failed: {result.stderr}")
-            return False
+            logger.info("✓ No old images to delete")
+
+        return True
 
     except Exception as e:
-        logger.error(f"✗ Cleanup error: {e}")
+        logger.error(f"✗ Backend cleanup error: {e}")
         return False
 
 
@@ -148,8 +159,8 @@ def run_transfer_loop():
                 total_images, total_size = get_transfer_stats()
                 logger.info(f"Total: {total_images} images, {total_size / 1024 / 1024:.1f} MB")
 
-                # Clean up old images on Pi
-                cleanup_old_images_on_pi()
+                # Clean up old images on backend
+                cleanup_old_images_on_backend()
 
             # Wait for next cycle
             logger.info(f"Next transfer in {TRANSFER_INTERVAL} minutes")

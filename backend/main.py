@@ -13,6 +13,7 @@ Responsibilities:
 import asyncio
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, time
 from pathlib import Path
@@ -20,10 +21,11 @@ from pathlib import Path
 import httpx
 import uvicorn
 from config import Config
+from config_validator import ConfigValidationError, validate_config
 from database import SessionDatabase
 from exposure import ExposureCalculator
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from redis import Redis
@@ -44,6 +46,14 @@ async def lifespan(app: FastAPI):
     """Lifecycle manager for startup and shutdown"""
     # Startup
     logger.info("Starting Skylapse Backend...")
+
+    # Validate configuration before loading
+    try:
+        validate_config()
+    except ConfigValidationError as e:
+        logger.error(f"Configuration validation failed: {e}")
+        logger.error("Please fix config.json and restart the service")
+        sys.exit(1)
 
     # Initialize configuration
     config = Config()
@@ -131,9 +141,8 @@ async def scheduler_loop(app: FastAPI):
     # Track last capture times per schedule to avoid duplicates
     last_captures = {}
 
-    # Track schedule windows to detect when they end
-    schedule_windows = {}
-    last_timelapse_dates = {}  # Track last timelapse generation per schedule
+    # Track last timelapse generation per schedule (in-memory for session, reset on restart)
+    last_timelapse_dates = {}  # Prevents duplicate timelapse jobs within same backend session
 
     # Production profiles for sunset/sunrise timelapses
     # A: Pure auto baseline
@@ -160,18 +169,12 @@ async def scheduler_loop(app: FastAPI):
 
                 # Get current schedule window
                 current_window = None
-                was_active = False
                 is_active = False
 
                 if ScheduleType.is_solar(schedule_name):
                     # Solar-based schedule
-                    current_window = solar_calc.get_schedule_window(schedule_name, current_time)
+                    current_window = solar_calc.get_schedule_window(schedule_config, current_time)
                     is_active = current_window["start"] <= current_time <= current_window["end"]
-
-                    # Check if we were previously in this window
-                    if schedule_name in schedule_windows:
-                        prev_window = schedule_windows[schedule_name]
-                        was_active = prev_window["start"] <= current_time <= prev_window["end"]
 
                 elif schedule_name == ScheduleType.DAYTIME:
                     # Time-based schedule
@@ -181,26 +184,28 @@ async def scheduler_loop(app: FastAPI):
                         current_time_only = current_time.time()
                         is_active = start_time <= current_time_only <= end_time
 
-                        # Check if we were previously in this window
-                        if schedule_name in schedule_windows:
-                            was_active = schedule_windows[schedule_name].get("was_active", False)
-
                         logger.info(
                             f"🔍 {schedule_name}: current={current_time_only}, "
                             f"window={start_time}-{end_time}, "
-                            f"was_active={was_active}, is_active={is_active}"
+                            f"is_active={is_active}"
                         )
 
-                # Detect schedule end: was active, now inactive
+                # Detect schedule end: check each profile's was_active state
+                # (Profiles may have different states if backend restarted mid-capture)
+                date_str = current_time.strftime("%Y-%m-%d")
+
+                # Check if schedule just transitioned from active to inactive
+                # We check the first profile as representative (all profiles share same schedule)
+                was_active = db.get_was_active(profiles[0], date_str, schedule_name)
+
                 if was_active and not is_active:
                     # Schedule ended - mark sessions complete and enqueue timelapse jobs
-                    date_str = current_time.strftime("%Y-%m-%d")
-
                     # Only generate once per day per schedule
                     last_date = last_timelapse_dates.get(schedule_name)
                     if last_date != date_str:
                         logger.info(
-                            f"🎬 {schedule_name} schedule ended - marking sessions complete and generating timelapses"
+                            f"🎬 {schedule_name} schedule ended (was_active={was_active}, is_active={is_active}) "
+                            f"- marking sessions complete and generating timelapses"
                         )
 
                         for profile in profiles:
@@ -223,12 +228,10 @@ async def scheduler_loop(app: FastAPI):
 
                         last_timelapse_dates[schedule_name] = date_str
 
-                # Update window tracking
-                if current_window:
-                    schedule_windows[schedule_name] = current_window
-                else:
-                    # For time-based schedules, track active state
-                    schedule_windows[schedule_name] = {"was_active": is_active}
+                # Update was_active state in database for all profiles
+                # This persists the state across backend restarts
+                for profile in profiles:
+                    db.update_was_active(profile, date_str, schedule_name, is_active)
 
                 should_capture = await should_capture_now(
                     schedule_name, schedule_config, current_time, last_captures, solar_calc
@@ -312,6 +315,75 @@ def parse_time_range(schedule_config: dict, schedule_name: str) -> tuple:
         return (None, None)
 
 
+def get_active_schedules(
+    config: Config, solar_calc: SolarCalculator, current_time: datetime, detailed: bool = False
+):
+    """
+    Get currently active schedules.
+
+    Args:
+        config: Configuration object
+        solar_calc: Solar calculator for sun times
+        current_time: Current datetime to check against
+        detailed: If True, return full schedule objects with windows/intervals.
+                  If False, return just schedule names.
+
+    Returns:
+        List of active schedules (strings if detailed=False, dicts if detailed=True)
+    """
+    active_schedules = []
+
+    for schedule_name, schedule_config in config.config["schedules"].items():
+        if not schedule_config.get("enabled", True):
+            continue
+
+        is_active = False
+        window_start = None
+        window_end = None
+        schedule_type = schedule_config.get(
+            "type", "solar_relative"
+        )  # Default for backward compatibility
+
+        if schedule_type == "solar_relative":
+            # Data-driven solar schedule (e.g., sunrise, sunset, civil_dusk)
+            window = solar_calc.get_schedule_window(schedule_config, current_time)
+            is_active = window["start"] <= current_time <= window["end"]
+            window_start = window["start"]
+            window_end = window["end"]
+        elif schedule_type == "time_of_day":
+            # Fixed time schedule (e.g., daytime 08:00-18:00)
+            start_time, end_time = parse_time_range(schedule_config, schedule_name)
+            if start_time is not None and end_time is not None:
+                is_active = start_time <= current_time.time() <= end_time
+                window_start = start_time
+                window_end = end_time
+
+        if is_active:
+            if detailed:
+                schedule_detail = {
+                    "name": schedule_name,
+                    "type": schedule_type,
+                    "interval_seconds": schedule_config.get("interval_seconds", 30),
+                }
+
+                if schedule_type == "solar_relative":
+                    schedule_detail["window"] = {
+                        "start": window_start.isoformat(),
+                        "end": window_end.isoformat(),
+                    }
+                else:  # time_of_day
+                    schedule_detail["window"] = {
+                        "start": str(window_start),
+                        "end": str(window_end),
+                    }
+
+                active_schedules.append(schedule_detail)
+            else:
+                active_schedules.append(schedule_name)
+
+    return active_schedules
+
+
 async def should_capture_now(
     schedule_name: str,
     schedule_config: dict,
@@ -344,7 +416,7 @@ async def should_capture_now(
     # Check schedule type and time window
     if ScheduleType.is_solar(schedule_name):
         # Solar-based schedule
-        window = solar_calc.get_schedule_window(schedule_name, current_time)
+        window = solar_calc.get_schedule_window(schedule_config, current_time)
         return window["start"] <= current_time <= window["end"]
 
     elif schedule_name == ScheduleType.DAYTIME:
@@ -468,7 +540,8 @@ async def get_schedules(request: Request):
     for schedule_type in ScheduleType.solar_schedules():
         schedule_name = schedule_type.value
         if schedule_name in schedules:
-            window = solar_calc.get_schedule_window(schedule_name)
+            schedule_config = schedules[schedule_name]
+            window = solar_calc.get_schedule_window(schedule_config)
             schedules[schedule_name]["calculated_window"] = {
                 "start": window["start"].isoformat(),
                 "end": window["end"].isoformat(),
@@ -486,22 +559,8 @@ async def get_status(request: Request):
     current_time = datetime.now(solar_calc.timezone)
     sun_times = solar_calc.get_sun_times()
 
-    # Check which schedules are active right now
-    active_schedules = []
-    for schedule_name, schedule_config in config.config["schedules"].items():
-        if not schedule_config.get("enabled", True):
-            continue
-
-        if ScheduleType.is_solar(schedule_name):
-            window = solar_calc.get_schedule_window(schedule_name)
-            if window["start"] <= current_time <= window["end"]:
-                active_schedules.append(schedule_name)
-        elif schedule_name == ScheduleType.DAYTIME:
-            start_time, end_time = parse_time_range(schedule_config, schedule_name)
-
-            if start_time is not None and end_time is not None:
-                if start_time <= current_time.time() <= end_time:
-                    active_schedules.append(schedule_name)
+    # Get active schedules using shared helper
+    active_schedules = get_active_schedules(config, solar_calc, current_time, detailed=False)
 
     return {
         "current_time": current_time.isoformat(),
@@ -528,29 +587,140 @@ async def dashboard(request: Request):
 
 
 @app.get("/timelapses")
-async def list_timelapses():
-    """List available timelapse videos"""
-    video_dir = Path("/data/timelapses")
+async def list_timelapses(
+    request: Request,
+    limit: int = None,
+    profile: str = None,
+    schedule: str = None,
+    date: str = None,
+):
+    """
+    List available timelapse videos from database with optional filters.
 
-    if not video_dir.exists():
-        return []
+    Args:
+        limit: Maximum number of results
+        profile: Filter by profile (a-g)
+        schedule: Filter by schedule (sunrise/daytime/sunset)
+        date: Filter by date (YYYY-MM-DD)
 
+    Returns:
+        List of timelapse metadata sorted by creation time (newest first)
+    """
+    db = request.app.state.db
+
+    # Query database for timelapses
+    timelapses_db = db.get_timelapses(limit=limit, profile=profile, schedule=schedule, date=date)
+
+    # Format for frontend
     timelapses = []
-    for video_file in video_dir.glob("*.mp4"):
-        stat = video_file.stat()
+    for t in timelapses_db:
         timelapses.append(
             {
-                "name": video_file.stem,
-                "url": f"/timelapses/{video_file.name}",
-                "size": f"{stat.st_size / 1024 / 1024:.1f} MB",
-                "created": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "id": t["id"],
+                "name": t["filename"].replace(".mp4", "").replace("_archive", ""),
+                "filename": t["filename"],
+                "url": f"/timelapses/{t['filename']}",
+                "size": f"{t['file_size_mb']:.1f} MB",
+                "created": t["created_at"],
+                "profile": t["profile"],
+                "schedule": t["schedule"],
+                "date": t["date"],
+                "frame_count": t["frame_count"],
+                "fps": t["fps"],
+                "quality": t["quality"],
+                "quality_tier": t.get("quality_tier", "preview"),
+                "session_id": t["session_id"],
             }
         )
 
-    # Sort by creation time, newest first
-    timelapses.sort(key=lambda x: x["created"], reverse=True)
-
     return timelapses
+
+
+@app.get("/timelapses/{filename}")
+async def download_timelapse(filename: str):
+    """Serve timelapse video file for download/streaming"""
+    video_path = Path("/data/timelapses") / filename
+
+    if not video_path.exists() or not video_path.is_file():
+        return {"error": "File not found"}, 404
+
+    # Serve the file with appropriate MIME type for video streaming
+    return FileResponse(path=video_path, media_type="video/mp4", filename=filename)
+
+
+@app.get("/thumbnails/{filename}")
+async def get_thumbnail(filename: str):
+    """Serve thumbnail image for timelapse"""
+    # Thumbnail filename: profile-a_sunset_2025-10-01_thumb.jpg
+    thumb_path = Path("/data/timelapses") / filename
+
+    if not thumb_path.exists() or not thumb_path.is_file():
+        return {"error": "Thumbnail not found"}, 404
+
+    return FileResponse(path=thumb_path, media_type="image/jpeg")
+
+
+@app.post("/timelapses/{session_id}/archive")
+async def generate_archive_timelapse(session_id: str, request: Request):
+    """
+    Generate archive-quality timelapse for a session.
+
+    This creates a high-quality archival version with near-lossless encoding,
+    separate from the preview quality timelapse.
+    """
+    db = request.app.state.db
+    timelapse_queue = request.app.state.timelapse_queue
+
+    # Verify session exists
+    session = db.get_session_stats(session_id)
+    if not session:
+        return {"error": "Session not found"}, 404
+
+    # Parse session_id to get profile, date, schedule
+    # Format: a_20251002_sunrise
+    parts = session_id.split("_")
+    if len(parts) != 3:
+        return {"error": "Invalid session_id format"}, 400
+
+    profile = parts[0]
+    date_compact = parts[1]
+    schedule = parts[2]
+
+    # Format date as YYYY-MM-DD
+    date = f"{date_compact[:4]}-{date_compact[4:6]}-{date_compact[6:]}"
+
+    # Check if archive already exists
+    existing_archives = db.get_timelapses(profile=profile, schedule=schedule, date=date)
+    archive_exists = any(t.get("quality_tier") == "archive" for t in existing_archives)
+
+    if archive_exists:
+        return {
+            "status": "already_exists",
+            "message": "Archive quality timelapse already exists for this session",
+        }
+
+    # Enqueue archive generation job
+    job = timelapse_queue.enqueue(
+        "tasks.generate_timelapse",
+        profile=profile,
+        schedule=schedule,
+        date=date,
+        session_id=session_id,
+        quality="high",
+        quality_tier="archive",
+        job_timeout="30m",  # Archive quality takes longer
+    )
+
+    logger.info(f"🎬 Archive quality timelapse enqueued for {session_id}, job {job.id}")
+
+    return {
+        "status": "enqueued",
+        "job_id": job.id,
+        "session_id": session_id,
+        "profile": profile,
+        "schedule": schedule,
+        "date": date,
+    }
 
 
 @app.get("/profiles")
@@ -630,39 +800,8 @@ async def get_system_info(request: Request):
     # Get all schedule configurations
     schedules_config = config.config.get("schedules", {})
 
-    # Determine active schedules
-    active_schedules = []
-    for schedule_name, schedule_config in schedules_config.items():
-        if not schedule_config.get("enabled", True):
-            continue
-
-        if ScheduleType.is_solar(schedule_name):
-            window = solar_calc.get_schedule_window(schedule_name, current_time)
-            is_active = window["start"] <= current_time <= window["end"]
-            if is_active:
-                active_schedules.append(
-                    {
-                        "name": schedule_name,
-                        "type": "solar",
-                        "window": {
-                            "start": window["start"].isoformat(),
-                            "end": window["end"].isoformat(),
-                        },
-                        "interval_seconds": schedule_config.get("interval_seconds", 30),
-                    }
-                )
-        elif schedule_name == ScheduleType.DAYTIME:
-            start_time, end_time = parse_time_range(schedule_config, schedule_name)
-            if start_time and end_time:
-                if start_time <= current_time.time() <= end_time:
-                    active_schedules.append(
-                        {
-                            "name": schedule_name,
-                            "type": "time_of_day",
-                            "window": {"start": f"{start_time}", "end": f"{end_time}"},
-                            "interval_seconds": schedule_config.get("interval_seconds", 30),
-                        }
-                    )
+    # Get active schedules using shared helper
+    active_schedules = get_active_schedules(config, solar_calc, current_time, detailed=True)
 
     # Get Pi status
     pi_config = config.get_pi_config()
