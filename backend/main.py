@@ -23,7 +23,7 @@ from config import Config
 from database import SessionDatabase
 from exposure import ExposureCalculator
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from redis import Redis
@@ -600,6 +600,18 @@ async def list_timelapses():
     timelapses.sort(key=lambda x: x["created"], reverse=True)
 
     return timelapses
+
+
+@app.get("/timelapses/{filename}")
+async def download_timelapse(filename: str):
+    """Serve timelapse video file for download/streaming"""
+    video_path = Path("/data/timelapses") / filename
+
+    if not video_path.exists() or not video_path.is_file():
+        return {"error": "File not found"}, 404
+
+    # Serve the file with appropriate MIME type for video streaming
+    return FileResponse(path=video_path, media_type="video/mp4", filename=filename)
 
 
 @app.get("/profiles")
