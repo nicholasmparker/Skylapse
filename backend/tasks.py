@@ -71,16 +71,22 @@ def generate_timelapse(
         # Build full paths
         images = [images_dir / filename for filename in filenames]
         logger.info(f"Found {len(images)} images for session {session_id}")
+        use_concat = True  # Use concat demuxer for exact file list
     else:
         # Ad-hoc generation: use all images matching date pattern
         date_compact = date.replace("-", "")
         pattern = f"capture_{date_compact}_*.jpg"
         images = sorted(images_dir.glob(pattern))
         logger.info(f"Ad-hoc generation: Found {len(images)} images matching {pattern}")
+        use_concat = False  # Use glob pattern for ad-hoc
 
-    # Create glob pattern for ffmpeg
-    date_compact = date.replace("-", "")
-    glob_pattern = f"capture_{date_compact}_*.jpg"
+    if not images:
+        logger.warning(f"No images found for {profile}/{schedule}/{date}")
+        return {
+            "status": "error",
+            "message": "No images found",
+            "image_count": 0,
+        }
 
     # Quality presets - use medium for high res images
     quality_presets = {
@@ -92,29 +98,65 @@ def generate_timelapse(
     preset = quality_presets.get(quality, quality_presets["high"])
 
     try:
-        # Use glob pattern approach - more efficient than concat demuxer
-        # Pattern must be absolute path for glob pattern matching
-        input_pattern = str(images_dir / glob_pattern)
+        if use_concat:
+            # Use concat demuxer for exact file list (session-based)
+            # Create temporary file list for concat demuxer
+            filelist_path = output_dir / f".filelist_{profile}_{schedule}_{date}.txt"
+            with open(filelist_path, "w") as f:
+                for img in images:
+                    # Escape single quotes and write in concat format
+                    f.write(f"file '{img}'\n")
 
-        # Build FFmpeg command with profile-specific filters
-        ffmpeg_cmd = [
-            "ffmpeg",
-            "-y",  # Overwrite output file
-            "-framerate",
-            str(fps),
-            "-pattern_type",
-            "glob",
-            "-i",
-            input_pattern,
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "-crf",
-            str(preset["crf"]),
-            "-preset",
-            preset["preset"],
-        ]
+            logger.info(f"Using concat demuxer with {len(images)} exact images")
+
+            # Build FFmpeg command with concat demuxer
+            ffmpeg_cmd = [
+                "ffmpeg",
+                "-y",  # Overwrite output file
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(filelist_path),
+                "-framerate",
+                str(fps),
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-crf",
+                str(preset["crf"]),
+                "-preset",
+                preset["preset"],
+            ]
+        else:
+            # Use glob pattern for ad-hoc generation
+            date_compact = date.replace("-", "")
+            glob_pattern = f"capture_{date_compact}_*.jpg"
+            input_pattern = str(images_dir / glob_pattern)
+
+            logger.info(f"Using glob pattern: {glob_pattern}")
+
+            # Build FFmpeg command with glob pattern
+            ffmpeg_cmd = [
+                "ffmpeg",
+                "-y",  # Overwrite output file
+                "-framerate",
+                str(fps),
+                "-pattern_type",
+                "glob",
+                "-i",
+                input_pattern,
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-crf",
+                str(preset["crf"]),
+                "-preset",
+                preset["preset"],
+            ]
 
         # Profile G: Add post-processing filters for enhanced landscape sharpness
         if profile == "g":
@@ -150,13 +192,29 @@ def generate_timelapse(
             f"✓ Timelapse generated: {output_filename} ({video_size_mb:.1f} MB, {len(images)} frames)"
         )
 
-        # Mark session as timelapse_generated in database
+        # Record timelapse in database
         if session_id:
             try:
                 db = SessionDatabase()
+
+                # Mark session as timelapse_generated
                 db.mark_timelapse_generated(session_id)
+
+                # Record timelapse metadata
+                db.record_timelapse(
+                    session_id=session_id,
+                    filename=output_filename,
+                    file_path=str(output_path),
+                    file_size_mb=video_size_mb,
+                    profile=profile,
+                    schedule=schedule,
+                    date=date,
+                    frame_count=len(images),
+                    fps=fps,
+                    quality=quality,
+                )
             except Exception as e:
-                logger.warning(f"Failed to mark session as generated: {e}")
+                logger.warning(f"Failed to record timelapse metadata: {e}")
 
         return {
             "status": "success",

@@ -577,27 +577,50 @@ async def dashboard(request: Request):
 
 
 @app.get("/timelapses")
-async def list_timelapses():
-    """List available timelapse videos"""
-    video_dir = Path("/data/timelapses")
+async def list_timelapses(
+    request: Request,
+    limit: int = None,
+    profile: str = None,
+    schedule: str = None,
+    date: str = None,
+):
+    """
+    List available timelapse videos from database with optional filters.
 
-    if not video_dir.exists():
-        return []
+    Args:
+        limit: Maximum number of results
+        profile: Filter by profile (a-g)
+        schedule: Filter by schedule (sunrise/daytime/sunset)
+        date: Filter by date (YYYY-MM-DD)
 
+    Returns:
+        List of timelapse metadata sorted by creation time (newest first)
+    """
+    db = request.app.state.db
+
+    # Query database for timelapses
+    timelapses_db = db.get_timelapses(limit=limit, profile=profile, schedule=schedule, date=date)
+
+    # Format for frontend
     timelapses = []
-    for video_file in video_dir.glob("*.mp4"):
-        stat = video_file.stat()
+    for t in timelapses_db:
         timelapses.append(
             {
-                "name": video_file.stem,
-                "url": f"/timelapses/{video_file.name}",
-                "size": f"{stat.st_size / 1024 / 1024:.1f} MB",
-                "created": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "id": t["id"],
+                "name": t["filename"].replace(".mp4", ""),
+                "filename": t["filename"],
+                "url": f"/timelapses/{t['filename']}",
+                "size": f"{t['file_size_mb']:.1f} MB",
+                "created": t["created_at"],
+                "profile": t["profile"],
+                "schedule": t["schedule"],
+                "date": t["date"],
+                "frame_count": t["frame_count"],
+                "fps": t["fps"],
+                "quality": t["quality"],
+                "session_id": t["session_id"],
             }
         )
-
-    # Sort by creation time, newest first
-    timelapses.sort(key=lambda x: x["created"], reverse=True)
 
     return timelapses
 

@@ -102,6 +102,41 @@ class SessionDatabase:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_session ON captures(session_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON captures(timestamp)")
 
+            # Timelapses table for tracking generated videos
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS timelapses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    filename TEXT NOT NULL UNIQUE,
+                    file_path TEXT NOT NULL,
+                    file_size_mb REAL NOT NULL,
+
+                    -- Video metadata
+                    duration_seconds REAL,
+                    frame_count INTEGER,
+                    fps INTEGER,
+                    quality TEXT,
+
+                    -- Session reference
+                    profile TEXT NOT NULL,
+                    schedule TEXT NOT NULL,
+                    date TEXT NOT NULL,
+
+                    -- Timestamps
+                    created_at TEXT NOT NULL,
+
+                    FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+                )
+            """
+            )
+
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_timelapse_session ON timelapses(session_id)"
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_timelapse_date ON timelapses(date)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_timelapse_profile ON timelapses(profile)")
+
             conn.commit()
             logger.info(f"Database initialized at {self.db_path}")
 
@@ -381,3 +416,106 @@ class SessionDatabase:
             if result:
                 return bool(result["was_active"])
             return False
+
+    def record_timelapse(
+        self,
+        session_id: str,
+        filename: str,
+        file_path: str,
+        file_size_mb: float,
+        profile: str,
+        schedule: str,
+        date: str,
+        duration_seconds: Optional[float] = None,
+        frame_count: Optional[int] = None,
+        fps: Optional[int] = None,
+        quality: Optional[str] = None,
+    ):
+        """
+        Record a generated timelapse in the database.
+
+        Args:
+            session_id: Session ID this timelapse was generated from
+            filename: Video filename (e.g., profile-a_sunset_2025-10-03.mp4)
+            file_path: Full path to video file
+            file_size_mb: File size in megabytes
+            profile: Profile identifier (a-g)
+            schedule: Schedule name (sunrise/daytime/sunset)
+            date: Date string (YYYY-MM-DD)
+            duration_seconds: Video duration in seconds
+            frame_count: Number of frames in video
+            fps: Frames per second
+            quality: Quality setting (low/medium/high)
+        """
+        now = datetime.utcnow().isoformat()
+
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO timelapses (
+                    session_id, filename, file_path, file_size_mb,
+                    duration_seconds, frame_count, fps, quality,
+                    profile, schedule, date, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    session_id,
+                    filename,
+                    file_path,
+                    file_size_mb,
+                    duration_seconds,
+                    frame_count,
+                    fps,
+                    quality,
+                    profile,
+                    schedule,
+                    date,
+                    now,
+                ),
+            )
+            conn.commit()
+            logger.info(f"📼 Recorded timelapse: {filename} ({file_size_mb:.1f} MB)")
+
+    def get_timelapses(
+        self,
+        limit: Optional[int] = None,
+        profile: Optional[str] = None,
+        schedule: Optional[str] = None,
+        date: Optional[str] = None,
+    ) -> List[Dict]:
+        """
+        Query timelapses from database with optional filters.
+
+        Args:
+            limit: Maximum number of results (default: all)
+            profile: Filter by profile (a-g)
+            schedule: Filter by schedule (sunrise/daytime/sunset)
+            date: Filter by date (YYYY-MM-DD)
+
+        Returns:
+            List of timelapse dictionaries sorted by created_at descending
+        """
+        with self._get_connection() as conn:
+            query = "SELECT * FROM timelapses WHERE 1=1"
+            params = []
+
+            if profile:
+                query += " AND profile = ?"
+                params.append(profile)
+
+            if schedule:
+                query += " AND schedule = ?"
+                params.append(schedule)
+
+            if date:
+                query += " AND date = ?"
+                params.append(date)
+
+            query += " ORDER BY created_at DESC"
+
+            if limit:
+                query += " LIMIT ?"
+                params.append(limit)
+
+            results = conn.execute(query, params).fetchall()
+            return [dict(row) for row in results]
