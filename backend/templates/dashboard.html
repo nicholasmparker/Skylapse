@@ -393,30 +393,37 @@
                     schedulesList.innerHTML = '<li class="schedule-item">No active schedules</li>';
                 }
 
-                // Camera status and latest image
+                // Load all profiles first (needed for camera status)
+                const profilesRes = await fetch('/profiles');
+                const profiles = await profilesRes.json();
+
+                // Camera status and latest image from backend
                 const camerasDiv = document.getElementById('cameras');
 
-                // Fetch latest image
+                // Get latest image from profiles
                 let latestImageHtml = '';
-                try {
-                    const imagesRes = await fetch(`http://${status.pi_host}:8080/latest-image`);
-                    if (imagesRes.ok) {
-                        const imageData = await imagesRes.json();
-                        if (imageData.image_url) {
-                            latestImageHtml = `
-                                <div class="preview-label">Latest Capture</div>
-                                <div class="camera-preview">
-                                    <img src="http://${status.pi_host}:8080${imageData.image_url}" alt="Latest capture">
-                                </div>
-                                <div class="camera-detail" style="margin-top: 8px;">
-                                    ${imageData.profile ? `Profile ${imageData.profile.toUpperCase()}` : ''} -
-                                    ${new Date(imageData.timestamp).toLocaleTimeString()}
-                                </div>
-                            `;
-                        }
-                    }
-                } catch (err) {
-                    console.log('Could not load latest image:', err);
+                if (profiles.length > 0) {
+                    // Find the most recent profile image
+                    const mostRecent = profiles.reduce((prev, current) =>
+                        (prev.timestamp > current.timestamp) ? prev : current
+                    );
+
+                    latestImageHtml = `
+                        <div class="preview-label">Latest Capture</div>
+                        <div class="camera-preview">
+                            <img src="${mostRecent.image_url}" alt="Latest capture"
+                                 onclick="openFullscreen('${mostRecent.image_url}', event)"
+                                 style="cursor: pointer;">
+                        </div>
+                        <div class="camera-detail" style="margin-top: 8px;">
+                            Profile ${mostRecent.profile.toUpperCase()} - ${mostRecent.description}
+                        </div>
+                        <div class="camera-detail" style="color: #667eea;">
+                            ${new Date(mostRecent.timestamp).toLocaleString()}
+                        </div>
+                    `;
+                } else {
+                    latestImageHtml = '<div class="camera-detail" style="color: #666;">No captures yet</div>';
                 }
 
                 camerasDiv.innerHTML = `
@@ -428,10 +435,7 @@
                     </div>
                 `;
 
-                // Load all 6 profiles
-                const profilesRes = await fetch('/profiles');
-                const profiles = await profilesRes.json();
-
+                // Display profiles grid (profiles already loaded above)
                 const profilesGrid = document.getElementById('profiles-grid');
                 if (profiles.length > 0) {
                     profilesGrid.innerHTML = profiles.map(p => `

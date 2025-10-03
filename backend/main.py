@@ -741,49 +741,55 @@ async def get_all_profiles(request: Request):
     }
 
     profiles = []
-    local_images_dir = Path("/data/images")
     url_builder = get_url_builder()
+    db = request.app.state.db
 
-    # Check local images first, fallback to Pi
-    for profile in ["a", "b", "c", "d", "e", "f", "g"]:
-        profile_dir = local_images_dir / f"profile-{profile}"
+    # Use database to get latest capture for each profile (FAST!)
+    with db._get_connection() as conn:
+        for profile in ["a", "b", "c", "d", "e", "f", "g"]:
+            # Query database for latest capture and total count
+            # Profile is encoded in session_id (e.g., "d_20251002_daytime")
+            latest = conn.execute(
+                """
+                SELECT c.filename, c.timestamp
+                FROM captures c
+                JOIN sessions s ON c.session_id = s.session_id
+                WHERE s.profile = ?
+                ORDER BY c.timestamp DESC
+                LIMIT 1
+                """,
+                (profile,),
+            ).fetchone()
 
-        # Try local images first
-        if profile_dir.exists():
-            image_files = sorted(
-                profile_dir.glob("capture_*.jpg"), key=lambda p: p.stat().st_mtime, reverse=True
-            )
-            if image_files:
-                latest_file = image_files[0]
+            count = conn.execute(
+                """
+                SELECT COUNT(*) as count
+                FROM captures c
+                JOIN sessions s ON c.session_id = s.session_id
+                WHERE s.profile = ?
+                """,
+                (profile,),
+            ).fetchone()
+
+            if latest:
+                # Extract just the filename from the full path
+                filename = Path(latest["filename"]).name
+
+                # Parse ISO timestamp and convert to milliseconds
+                from datetime import datetime
+
+                dt = datetime.fromisoformat(latest["timestamp"])
+                timestamp_ms = int(dt.timestamp() * 1000)
+
                 profiles.append(
                     {
                         "profile": profile,
                         "description": descriptions[profile],
-                        "image_url": url_builder.image(profile, latest_file.name, source="backend"),
-                        "timestamp": latest_file.stat().st_mtime * 1000,
-                        "image_count": len(image_files),
+                        "image_url": url_builder.image(profile, filename, source="backend"),
+                        "timestamp": timestamp_ms,
+                        "image_count": count["count"] if count else 0,
                     }
                 )
-                continue
-
-        # Fallback to Pi if no local images
-        try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                response = await client.get(url_builder.pi(f"/latest-image?profile={profile}"))
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("image_url"):
-                        profiles.append(
-                            {
-                                "profile": profile,
-                                "description": descriptions[profile],
-                                "image_url": url_builder.pi(data["image_url"]),
-                                "timestamp": data.get("timestamp"),
-                                "image_count": data.get("image_count", 0),
-                            }
-                        )
-        except Exception as e:
-            logger.debug(f"Could not fetch profile {profile}: {e}")
 
     return profiles
 
