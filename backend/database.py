@@ -162,26 +162,32 @@ class SessionDatabase:
         now = datetime.utcnow().isoformat()
 
         with self._get_connection() as conn:
-            # Check if session exists
-            result = conn.execute(
-                "SELECT session_id FROM sessions WHERE session_id = ?", (session_id,)
-            ).fetchone()
+            try:
+                # Check if session exists
+                result = conn.execute(
+                    "SELECT session_id FROM sessions WHERE session_id = ?", (session_id,)
+                ).fetchone()
 
-            if result:
-                return session_id
+                if result:
+                    return session_id
 
-            # Create new session
-            conn.execute(
-                """
-                INSERT INTO sessions (
-                    session_id, profile, date, schedule,
-                    start_time, status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)
-                """,
-                (session_id, profile, date, schedule, now, now, now),
-            )
-            conn.commit()
-            logger.info(f"📊 Created session: {session_id}")
+                # Create new session with transaction
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute(
+                    """
+                    INSERT INTO sessions (
+                        session_id, profile, date, schedule,
+                        start_time, status, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)
+                    """,
+                    (session_id, profile, date, schedule, now, now, now),
+                )
+                conn.commit()
+                logger.info(f"📊 Created session: {session_id}")
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Failed to get/create session: {e}", exc_info=True)
+                raise
 
         return session_id
 
@@ -196,36 +202,44 @@ class SessionDatabase:
         now = datetime.utcnow().isoformat()
 
         with self._get_connection() as conn:
-            # Insert capture record
-            conn.execute(
-                """
-                INSERT INTO captures (
-                    session_id, timestamp, filename,
-                    iso, shutter_speed, exposure_compensation,
-                    lux, wb_temp, wb_mode,
-                    analog_gain, digital_gain,
-                    created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    session_id,
-                    timestamp.isoformat(),
-                    filename,
-                    settings.get("iso"),
-                    settings.get("shutter_speed"),
-                    settings.get("exposure_compensation"),
-                    settings.get("lux"),
-                    settings.get("wb_temp"),
-                    settings.get("awb_mode"),
-                    settings.get("analog_gain"),
-                    settings.get("digital_gain"),
-                    now,
-                ),
-            )
+            try:
+                conn.execute("BEGIN IMMEDIATE")
 
-            # Update session statistics
-            self._update_session_stats(conn, session_id, timestamp, settings)
-            conn.commit()
+                # Insert capture record
+                conn.execute(
+                    """
+                    INSERT INTO captures (
+                        session_id, timestamp, filename,
+                        iso, shutter_speed, exposure_compensation,
+                        lux, wb_temp, wb_mode,
+                        analog_gain, digital_gain,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        session_id,
+                        timestamp.isoformat(),
+                        filename,
+                        settings.get("iso"),
+                        settings.get("shutter_speed"),
+                        settings.get("exposure_compensation"),
+                        settings.get("lux"),
+                        settings.get("wb_temp"),
+                        settings.get("awb_mode"),
+                        settings.get("analog_gain"),
+                        settings.get("digital_gain"),
+                        now,
+                    ),
+                )
+
+                # Update session statistics
+                self._update_session_stats(conn, session_id, timestamp, settings)
+
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Failed to record capture: {e}", exc_info=True)
+                raise
 
     def _update_session_stats(
         self, conn: sqlite3.Connection, session_id: str, timestamp: datetime, settings: Dict
@@ -453,34 +467,40 @@ class SessionDatabase:
         now = datetime.utcnow().isoformat()
 
         with self._get_connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO timelapses (
-                    session_id, filename, file_path, file_size_mb,
-                    duration_seconds, frame_count, fps, quality, quality_tier,
-                    profile, schedule, date, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    session_id,
-                    filename,
-                    file_path,
-                    file_size_mb,
-                    duration_seconds,
-                    frame_count,
-                    fps,
-                    quality,
-                    quality_tier,
-                    profile,
-                    schedule,
-                    date,
-                    now,
-                ),
-            )
-            conn.commit()
-            logger.info(
-                f"📼 Recorded timelapse: {filename} ({file_size_mb:.1f} MB, {quality_tier})"
-            )
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute(
+                    """
+                    INSERT INTO timelapses (
+                        session_id, filename, file_path, file_size_mb,
+                        duration_seconds, frame_count, fps, quality, quality_tier,
+                        profile, schedule, date, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        session_id,
+                        filename,
+                        file_path,
+                        file_size_mb,
+                        duration_seconds,
+                        frame_count,
+                        fps,
+                        quality,
+                        quality_tier,
+                        profile,
+                        schedule,
+                        date,
+                        now,
+                    ),
+                )
+                conn.commit()
+                logger.info(
+                    f"📼 Recorded timelapse: {filename} ({file_size_mb:.1f} MB, {quality_tier})"
+                )
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Failed to record timelapse: {e}", exc_info=True)
+                raise
 
     def get_timelapses(
         self,

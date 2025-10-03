@@ -13,6 +13,7 @@ Responsibilities:
 import asyncio
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, time
 from pathlib import Path
@@ -20,6 +21,7 @@ from pathlib import Path
 import httpx
 import uvicorn
 from config import Config
+from config_validator import ConfigValidationError, validate_config
 from database import SessionDatabase
 from exposure import ExposureCalculator
 from fastapi import FastAPI, Request
@@ -44,6 +46,14 @@ async def lifespan(app: FastAPI):
     """Lifecycle manager for startup and shutdown"""
     # Startup
     logger.info("Starting Skylapse Backend...")
+
+    # Validate configuration before loading
+    try:
+        validate_config()
+    except ConfigValidationError as e:
+        logger.error(f"Configuration validation failed: {e}")
+        logger.error("Please fix config.json and restart the service")
+        sys.exit(1)
 
     # Initialize configuration
     config = Config()
