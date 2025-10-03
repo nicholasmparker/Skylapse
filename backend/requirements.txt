@@ -8,3 +8,6 @@ opencv-python==4.8.1.78  # For image stacking (future)
 pillow==10.1.0  # For image processing (future)
 redis==5.0.1  # Redis client for job queue
 rq==1.15.1  # Redis Queue for background jobs
+pytz==2024.1  # For timezone validation
+pytest==7.4.3  # Testing framework
+pytest-cov==4.1.0  # Coverage reporting
