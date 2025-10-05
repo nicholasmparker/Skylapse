@@ -311,9 +311,8 @@ class ExposureCalculator:
         lux = settings.pop("lux", None)
 
         if profile == "a":
-            # Profile A: Pure Full Auto with Manual Focus at Infinity
-            # Fully automatic exposure and white balance with no bias
-            # Manual focus set to infinity for landscape sharpness
+            # Profile A: Pure Full Auto with Autofocus
+            # Fully automatic exposure, white balance, and focus
             settings["iso"] = 0  # ISO=0 signals full auto mode to Pi
             settings["shutter_speed"] = "auto"  # Placeholder (not used in auto mode)
             settings["exposure_compensation"] = 0.0  # Pure auto, no bias
@@ -321,9 +320,9 @@ class ExposureCalculator:
             settings["hdr_mode"] = 0  # No HDR
             settings["bracket_count"] = 1  # Single shot
             settings["ae_metering_mode"] = 0  # Center-weighted metering
-            settings["lens_position"] = 0.0  # Manual focus at infinity (0.0 = infinity)
+            # Note: No lens_position set - camera uses autofocus
             logger.debug(
-                f"Profile A (Pure Auto + Infinity Focus): EV{settings['exposure_compensation']:+.1f}"
+                f"Profile A (Pure Auto + Autofocus): EV{settings['exposure_compensation']:+.1f}"
             )
 
         elif profile == "b":
@@ -346,14 +345,14 @@ class ExposureCalculator:
         elif profile == "d":
             # Profile D: EXPERIMENTAL Warm/dramatic adaptive curve + Landscape Focus
             # Embraces golden tones earlier, richer sunset colors
-            # Manual focus at infinity for sharp landscapes
+            # Manual focus optimized for distant mountain peaks
             wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="warm")
             settings["awb_mode"] = 6  # Custom WB
             settings["wb_temp"] = wb_temp  # Color temperature in Kelvin
             settings["hdr_mode"] = 0  # No HDR
             settings["bracket_count"] = 1  # Single shot
             settings["af_mode"] = 0  # Manual focus
-            settings["lens_position"] = 0.0  # Manual focus at infinity for landscapes
+            settings["lens_position"] = 2.45  # Optimal focus for distant landscapes
 
         elif profile == "e":
             # Profile E: EXPERIMENTAL Balanced adaptive curve
@@ -382,7 +381,7 @@ class ExposureCalculator:
             # Profile G: EXPERIMENTAL Adaptive EV + Balanced WB + Landscape Sharp
             # Protects highlights in bright conditions, lifts shadows in low light
             # Enhanced sharpness/contrast for distant mountains and clouds
-            # Manual focus at infinity for landscape sharpness
+            # Manual focus optimized for distant mountain peaks
             wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="balanced")
 
             # Calculate adaptive EV compensation based on lux
@@ -400,7 +399,7 @@ class ExposureCalculator:
 
             # Focus for landscapes
             settings["af_mode"] = 0  # Manual focus
-            settings["lens_position"] = 0.0  # Manual focus at infinity for sharp landscapes
+            settings["lens_position"] = 2.45  # Optimal focus for distant landscapes
 
             # Landscape enhancements for crisp mountains/clouds
             settings["sharpness"] = 1.5  # Boost edge definition (default 1.0)
