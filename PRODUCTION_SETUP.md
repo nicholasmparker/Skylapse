@@ -6,19 +6,39 @@
 - Access to the Raspberry Pi via SSH
 - GitHub Container Registry access (images are public)
 
-## Initial Server Setup
+## Quick Setup (Recommended)
 
-### 1. Clone Repository
+Run the automated setup script:
 
 ```bash
-git clone https://github.com/nicholasmparker/skylapse.git
-cd skylapse
+curl -fsSL https://raw.githubusercontent.com/nicholasmparker/skylapse/main/scripts/setup-production.sh | bash
 ```
 
-### 2. Create Data Directories
+This will:
+
+- Create directory structure
+- Prompt for configuration (Pi host, ports, etc.)
+- Generate `.env` and `docker-compose.prod.yml`
+- Create default `backend/config.json`
+- Guide you through SSH setup
+- Pull images and start services
+
+**Or** follow the manual setup below for more control.
+
+## Manual Setup
+
+### 1. Create Directory Structure
 
 ```bash
-mkdir -p data/images data/timelapses data/db
+mkdir -p skylapse && cd skylapse
+mkdir -p data/images data/timelapses data/db backend
+```
+
+### 2. Download Required Files
+
+```bash
+curl -O https://raw.githubusercontent.com/nicholasmparker/skylapse/main/docker-compose.prod.yml
+curl -o backend/config.json https://raw.githubusercontent.com/nicholasmparker/skylapse/main/backend/config.json
 ```
 
 ### 3. Configure Environment
@@ -95,9 +115,13 @@ ssh-copy-id nicholasmparker@192.168.0.124
 ssh nicholasmparker@192.168.0.124 "ls ~/skylapse-images/"
 ```
 
-### 5. Deploy Services
+### 5. Pull Images and Start Services
 
 ```bash
+# Pull latest images
+docker-compose -f docker-compose.prod.yml pull
+
+# Start all services
 docker-compose -f docker-compose.prod.yml up -d
 ```
 

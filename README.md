@@ -173,12 +173,21 @@ ssh pi@helios.local
 systemctl status skylapse-capture
 ```
 
-### Deploy to Server
+### Deploy to Production Server
+
+**One-line setup (recommended):**
 
 ```bash
-# Deploy backend/frontend/worker to production server
+curl -fsSL https://raw.githubusercontent.com/nicholasmparker/skylapse/main/scripts/setup-production.sh | bash
+```
+
+**Or use deployment script:**
+
+```bash
 ./scripts/deploy-server.sh
 ```
+
+See [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md) for detailed instructions.
 
 ---
 

@@ -10,9 +10,9 @@ services:
     volumes:
       - ./backend:/app
       - ./backend/data:/app/data
-      - skylapse-images:/data/images # Transferred images from Pi
-      - skylapse-timelapses:/data/timelapses # Generated timelapse videos
-      - skylapse-db:/data/db # SQLite database persistence
+      - ${SKYLAPSE_IMAGES_PATH:-./data/images}:/data/images
+      - ${SKYLAPSE_TIMELAPSES_PATH:-./data/timelapses}:/data/timelapses
+      - ${SKYLAPSE_DB_PATH:-./data/db}:/data/db
     environment:
       - PI_HOST=${PI_HOST:-192.168.0.124}
       - PI_PORT=${PI_PORT:-8080}
@@ -29,8 +29,8 @@ services:
     command: python3 services/transfer.py
     network_mode: host # Use host network for DNS resolution
     volumes:
-      - skylapse-images:/data/images
-      - ~/.ssh:/root/.ssh:ro # SSH keys for Pi access
+      - ${SKYLAPSE_IMAGES_PATH:-./data/images}:/data/images
+      - ~/.ssh:/root/.ssh:ro
     environment:
       - PI_HOST=${PI_HOST:-192.168.0.124}
       - PI_USER=${PI_USER:-nicholasmparker}
@@ -55,9 +55,9 @@ services:
     command: rq worker --url redis://redis:6379 timelapse
     volumes:
       - ./backend:/app
-      - skylapse-images:/data/images
-      - skylapse-timelapses:/data/timelapses
-      - skylapse-db:/data/db # SQLite database persistence
+      - ${SKYLAPSE_IMAGES_PATH:-./data/images}:/data/images
+      - ${SKYLAPSE_TIMELAPSES_PATH:-./data/timelapses}:/data/timelapses
+      - ${SKYLAPSE_DB_PATH:-./data/db}:/data/db
     depends_on:
       - redis
       - backend
@@ -81,22 +81,4 @@ services:
       - backend
 
 volumes:
-  skylapse-images:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${SKYLAPSE_IMAGES_PATH:-./data/images}
-  skylapse-timelapses:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${SKYLAPSE_TIMELAPSES_PATH:-./data/timelapses}
-  skylapse-db:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${SKYLAPSE_DB_PATH:-./data/db}
   redis-data:
