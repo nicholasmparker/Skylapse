@@ -131,7 +131,7 @@
             border: 3px solid #4a9eff;
             border-radius: 8px;
             background: #000;
-            max-width: 100%;
+            width: 100%;
             height: auto;
             box-shadow: 0 4px 20px rgba(74, 158, 255, 0.3);
         }
@@ -140,6 +140,55 @@
             font-size: 24px;
             font-weight: bold;
             color: #4a9eff;
+        }
+        .sharpness-display {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #7fff7f;
+        }
+        .sharpness-bar {
+            width: 100%;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        .sharpness-fill {
+            height: 100%;
+            background: linear-gradient(to right, #ff4444, #ffaa44, #7fff7f);
+            transition: width 0.3s ease;
+        }
+        .view-toggle {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #555;
+            border: 2px solid #777;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .view-toggle:hover {
+            background: #666;
+        }
+        .fullscreen-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .fullscreen-view.active {
+            display: flex;
+        }
+        .fullscreen-image {
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
         }
 
         .focus-controls {
@@ -273,9 +322,18 @@
 
         <div class="focus-test-area">
             <div class="roi-display">
-                <h3>ROI Live View (4x Zoom)</h3>
+                <h3>ROI Live View (Dynamic Zoom)</h3>
                 <canvas id="zoomCanvas" class="roi-zoom-canvas"></canvas>
                 <div class="lens-position-display" id="lensPositionDisplay">Lens Position: --</div>
+                <div class="sharpness-display">
+                    <div>Sharpness: <strong id="sharpnessScore">--</strong></div>
+                    <div class="sharpness-bar">
+                        <div class="sharpness-fill" id="sharpnessFill" style="width: 0%"></div>
+                    </div>
+                </div>
+                <button class="view-toggle" onclick="toggleFullView()" id="viewToggleBtn">
+                    📷 View Full Image (F)
+                </button>
             </div>
 
             <div class="focus-controls">
@@ -298,13 +356,15 @@
                 <div class="fine-controls">
                     <h4 style="margin-bottom: 8px;">Fine Adjust</h4>
                     <div class="fine-adjust">
-                        <button class="arrow-btn" onclick="adjustFocus(-0.5)">◄◄</button>
-                        <button class="arrow-btn" onclick="adjustFocus(-0.1)">◄</button>
+                        <button class="arrow-btn" onclick="adjustFocus(-0.5)">◄◄◄</button>
+                        <button class="arrow-btn" onclick="adjustFocus(-0.1)">◄◄</button>
+                        <button class="arrow-btn" onclick="adjustFocus(-0.01)">◄</button>
                         <span class="current-position" id="currentPosition">--</span>
-                        <button class="arrow-btn" onclick="adjustFocus(0.1)">►</button>
-                        <button class="arrow-btn" onclick="adjustFocus(0.5)">►►</button>
+                        <button class="arrow-btn" onclick="adjustFocus(0.01)">►</button>
+                        <button class="arrow-btn" onclick="adjustFocus(0.1)">►►</button>
+                        <button class="arrow-btn" onclick="adjustFocus(0.5)">►►►</button>
                     </div>
-                    <div class="step-size">◄ = -0.1 | ◄◄ = -0.5 | ► = +0.1 | ►► = +0.5</div>
+                    <div class="step-size">◄ = -0.01 | ◄◄ = -0.1 | ◄◄◄ = -0.5</div>
                 </div>
 
                 <div class="reset-controls">
@@ -316,11 +376,17 @@
         <div id="status3" class="status" style="display: none;"></div>
     </div>
 
+    <!-- Fullscreen View Overlay -->
+    <div id="fullscreenView" class="fullscreen-view" onclick="toggleFullView()">
+        <img id="fullscreenImage" class="fullscreen-image" src="">
+    </div>
+
     <script>
         const API_BASE = '';  // Same origin
 
         let state = {
             currentLensPosition: null,
+            currentFullImage: null,  // Store the current full-res image for fullscreen view
             roiImage: null,
             isDrawing: false,
             startX: 0,
@@ -518,6 +584,36 @@
             }, 800);
         }
 
+        // Calculate sharpness using Laplacian variance (edge detection)
+        function calculateSharpness(ctx, width, height) {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            // Subsample for performance (every 4th pixel)
+            let laplacianSum = 0;
+            let count = 0;
+
+            for (let y = 4; y < height - 4; y += 4) {
+                for (let x = 4; x < width - 4; x += 4) {
+                    const idx = (y * width + x) * 4;
+                    const center = data[idx]; // Just use red channel
+
+                    // Simple Laplacian: center - average of neighbors
+                    const top = data[((y-4) * width + x) * 4];
+                    const bottom = data[((y+4) * width + x) * 4];
+                    const left = data[(y * width + (x-4)) * 4];
+                    const right = data[(y * width + (x+4)) * 4];
+
+                    const laplacian = Math.abs(4 * center - top - bottom - left - right);
+                    laplacianSum += laplacian * laplacian;
+                    count++;
+                }
+            }
+
+            // Return variance (normalized to 0-100 range for display)
+            return Math.min(100, Math.sqrt(laplacianSum / count) / 2);
+        }
+
         // Step 3: Focus testing
         function displayROI(image, lensPosition) {
             if (!state.lockedBounds) return;
@@ -529,9 +625,13 @@
             const srcHeight = bounds.height * bounds.scaleY;
 
             const zoomCanvas = document.getElementById('zoomCanvas');
-            const ZOOM_FACTOR = 4;  // 4x magnification for better detail
-            zoomCanvas.width = bounds.width * ZOOM_FACTOR;
-            zoomCanvas.height = bounds.height * ZOOM_FACTOR;
+
+            // Dynamically calculate zoom to fill ~1000px width target
+            const TARGET_WIDTH = 1000;
+            const zoomFactor = Math.max(1, TARGET_WIDTH / srcWidth);
+
+            zoomCanvas.width = srcWidth * zoomFactor;
+            zoomCanvas.height = srcHeight * zoomFactor;
 
             const ctx = zoomCanvas.getContext('2d');
             ctx.drawImage(
@@ -540,8 +640,18 @@
                 0, 0, zoomCanvas.width, zoomCanvas.height
             );
 
-            document.getElementById('lensPositionDisplay').textContent = `Lens Position: ${lensPosition.toFixed(2)}`;
+            // Calculate sharpness metric
+            const sharpness = calculateSharpness(ctx, zoomCanvas.width, zoomCanvas.height);
+
+            // Store current image for fullscreen view
+            state.currentFullImage = image.src;
+
+            // Update displays
+            const actualZoom = zoomFactor.toFixed(1);
+            document.getElementById('lensPositionDisplay').textContent = `Lens Position: ${lensPosition.toFixed(2)} | Zoom: ${actualZoom}x`;
             document.getElementById('currentPosition').textContent = lensPosition.toFixed(1);
+            document.getElementById('sharpnessScore').textContent = sharpness.toFixed(1);
+            document.getElementById('sharpnessFill').style.width = `${sharpness}%`;
         }
 
         async function jumpToPosition(lensPosition) {
@@ -623,6 +733,33 @@
             statusDiv.className = `status ${type}`;
             statusDiv.style.display = 'block';
         }
+
+        // Toggle fullscreen view of current image
+        function toggleFullView() {
+            const fullscreenView = document.getElementById('fullscreenView');
+            const fullscreenImage = document.getElementById('fullscreenImage');
+
+            if (fullscreenView.classList.contains('active')) {
+                fullscreenView.classList.remove('active');
+            } else {
+                if (state.currentFullImage) {
+                    fullscreenImage.src = state.currentFullImage;
+                    fullscreenView.classList.add('active');
+                }
+            }
+        }
+
+        // Keyboard shortcut: F to toggle fullscreen
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'f' || e.key === 'F') {
+                e.preventDefault();
+                toggleFullView();
+            }
+            // ESC to close fullscreen
+            if (e.key === 'Escape') {
+                document.getElementById('fullscreenView').classList.remove('active');
+            }
+        });
     </script>
 </body>
 </html>
