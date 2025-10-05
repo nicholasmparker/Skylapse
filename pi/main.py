@@ -44,6 +44,11 @@ images_dir = Path(os.path.expanduser("~/skylapse-images"))
 if images_dir.exists():
     app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
 
+# Mount static directory for HTML pages (like focus-test.html)
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir), html=True), name="static")
+
 # Determine if we're running on real hardware or in mock mode
 USE_MOCK_CAMERA = os.getenv("MOCK_CAMERA", "false").lower() == "true"
 
@@ -127,6 +132,15 @@ class CaptureSettings(BaseModel):
     bracket_count: int = 1  # Number of shots for bracketing (1=single, 3=bracket)
     bracket_ev: Optional[list] = None  # EV offsets for bracketing (e.g., [-1.0, 0.0, 1.0])
     ae_metering_mode: Optional[int] = None  # Metering mode (0=CentreWeighted, 1=Spot, 2=Matrix)
+
+    # Focus controls
+    af_mode: Optional[int] = None  # Autofocus mode (0=Manual, 2=Continuous)
+    lens_position: Optional[float] = None  # Manual focus position (0.0=infinity, 10.0=close)
+
+    # Image enhancement controls
+    sharpness: Optional[float] = None  # Sharpness (1.0=default, >1.0=sharper)
+    contrast: Optional[float] = None  # Contrast (1.0=default, >1.0=higher contrast)
+    saturation: Optional[float] = None  # Saturation (1.0=default, >1.0=more saturated)
 
     # Profile execution fields (new modes)
     use_deployed_profile: Optional[bool] = False  # Enable deployed profile execution
@@ -440,6 +454,7 @@ async def capture_photo(settings: CaptureSettings):
                         logger.info(
                             f"📸 Auto-exposure: Default metering, EV{settings.exposure_compensation:+.1f}"
                         )
+
                 else:
                     # Manual exposure mode
                     shutter_us = parse_shutter_speed(settings.shutter_speed)
@@ -461,6 +476,39 @@ async def capture_photo(settings: CaptureSettings):
                     # IMX519 supports ExposureValue for fine-tuning (±8 stops)
                     if settings.exposure_compensation != 0.0:
                         controls["ExposureValue"] = settings.exposure_compensation
+
+                # Apply focus controls (works for both auto and manual exposure)
+                if settings.af_mode is not None:
+                    controls["AfMode"] = settings.af_mode
+                    if settings.af_mode == 0 and settings.lens_position is not None:
+                        # Manual focus mode with specific lens position
+                        controls["LensPosition"] = settings.lens_position
+                        focus_desc = (
+                            "infinity"
+                            if settings.lens_position == 0.0
+                            else f"{settings.lens_position:.1f}"
+                        )
+                        logger.info(f"🔍 Manual focus: {focus_desc}")
+                    elif settings.af_mode == 2:
+                        logger.info("🔍 Continuous autofocus enabled")
+                elif settings.lens_position is not None:
+                    # Lens position specified without af_mode - use manual focus
+                    controls["AfMode"] = 0  # Manual
+                    controls["LensPosition"] = settings.lens_position
+                    focus_desc = (
+                        "infinity"
+                        if settings.lens_position == 0.0
+                        else f"{settings.lens_position:.1f}"
+                    )
+                    logger.info(f"🔍 Manual focus: {focus_desc}")
+
+                # Apply image enhancement if specified
+                if settings.sharpness is not None:
+                    controls["Sharpness"] = settings.sharpness
+                if settings.contrast is not None:
+                    controls["Contrast"] = settings.contrast
+                if settings.saturation is not None:
+                    controls["Saturation"] = settings.saturation
 
                 camera.set_controls(controls)
                 camera.capture_file(image_path)
@@ -697,6 +745,152 @@ async def get_latest_image_info(profile: str):
         "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
         "profile": profile,
     }
+
+
+@app.post("/focus-test")
+async def capture_focus_test(lens_position: float):
+    """
+    Capture a test image at a specific lens position for focus testing.
+
+    Args:
+        lens_position: Manual focus position (0.0-6.5 for IMX519)
+
+    Returns:
+        Image filename and lens position used
+    """
+    import time
+
+    global camera
+
+    if not camera_ready:
+        raise HTTPException(status_code=503, detail="Camera not ready")
+
+    try:
+        # Set manual focus
+        camera.set_controls({"AfMode": 0, "LensPosition": lens_position})  # Manual focus
+
+        # Wait for focus to settle
+        time.sleep(2)
+
+        # Capture test image
+        output_dir = Path.home() / "skylapse-images" / "focus-test"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"focus_test_lens_{lens_position:.1f}_{timestamp}.jpg"
+        filepath = output_dir / filename
+
+        camera.capture_file(str(filepath))
+
+        logger.info(f"🔍 Focus test captured: LensPosition={lens_position}, file={filename}")
+
+        return {
+            "success": True,
+            "filename": filename,
+            "lens_position": lens_position,
+            "path": str(filepath),
+        }
+
+    except Exception as e:
+        logger.error(f"Focus test capture failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/focus-test/auto")
+async def capture_focus_test_auto():
+    """
+    Capture a test image with autofocus and report what lens position was chosen.
+
+    Returns:
+        Image filename and detected lens position
+    """
+    import time
+
+    global camera
+
+    if not camera_ready:
+        raise HTTPException(status_code=503, detail="Camera not ready")
+
+    try:
+        # Enable continuous autofocus
+        camera.set_controls({"AfMode": 2})  # Continuous autofocus
+
+        # Wait for autofocus to settle
+        time.sleep(3)
+
+        # Read the lens position that autofocus chose
+        metadata = camera.capture_metadata()
+        detected_lens_position = metadata.get("LensPosition", None)
+
+        # Capture test image
+        output_dir = Path.home() / "skylapse-images" / "focus-test"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"focus_test_auto_{timestamp}.jpg"
+        filepath = output_dir / filename
+
+        camera.capture_file(str(filepath))
+
+        logger.info(
+            f"🔍 Autofocus test captured: detected LensPosition={detected_lens_position}, file={filename}"
+        )
+
+        return {
+            "success": True,
+            "filename": filename,
+            "lens_position": detected_lens_position,
+            "path": str(filepath),
+        }
+
+    except Exception as e:
+        logger.error(f"Autofocus test capture failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/focus-test/images")
+async def list_focus_test_images():
+    """List all focus test images with their lens positions"""
+    output_dir = Path.home() / "skylapse-images" / "focus-test"
+
+    if not output_dir.exists():
+        return {"images": []}
+
+    images = []
+    for image_path in sorted(
+        output_dir.glob("*.jpg"), key=lambda p: p.stat().st_mtime, reverse=True
+    ):
+        # Parse lens position from filename
+        lens_pos = None
+        if "lens_" in image_path.name:
+            try:
+                parts = image_path.name.split("lens_")[1].split("_")
+                lens_pos = float(parts[0])
+            except (IndexError, ValueError):
+                pass
+
+        images.append(
+            {
+                "filename": image_path.name,
+                "lens_position": lens_pos,
+                "url": f"/images/focus-test/{image_path.name}",
+                "modified": datetime.fromtimestamp(image_path.stat().st_mtime).isoformat(),
+            }
+        )
+
+    return {"images": images}
+
+
+@app.get("/images/focus-test/{filename}")
+async def get_focus_test_image(filename: str):
+    """Serve a focus test image"""
+    output_dir = Path.home() / "skylapse-images" / "focus-test"
+    filepath = output_dir / filename
+
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    return FileResponse(filepath, media_type="image/jpeg")
 
 
 @app.get("/images/profile-{profile}/list")

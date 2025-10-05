@@ -344,13 +344,16 @@ class ExposureCalculator:
             settings["bracket_count"] = 1  # Single shot
 
         elif profile == "d":
-            # Profile D: EXPERIMENTAL Warm/dramatic adaptive curve
+            # Profile D: EXPERIMENTAL Warm/dramatic adaptive curve + Landscape Focus
             # Embraces golden tones earlier, richer sunset colors
+            # Manual focus at infinity for sharp landscapes
             wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="warm")
             settings["awb_mode"] = 6  # Custom WB
             settings["wb_temp"] = wb_temp  # Color temperature in Kelvin
             settings["hdr_mode"] = 0  # No HDR
             settings["bracket_count"] = 1  # Single shot
+            settings["af_mode"] = 0  # Manual focus
+            settings["lens_position"] = 0.0  # Manual focus at infinity for landscapes
 
         elif profile == "e":
             # Profile E: EXPERIMENTAL Balanced adaptive curve
@@ -379,6 +382,7 @@ class ExposureCalculator:
             # Profile G: EXPERIMENTAL Adaptive EV + Balanced WB + Landscape Sharp
             # Protects highlights in bright conditions, lifts shadows in low light
             # Enhanced sharpness/contrast for distant mountains and clouds
+            # Manual focus at infinity for landscape sharpness
             wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="balanced")
 
             # Calculate adaptive EV compensation based on lux
@@ -393,6 +397,10 @@ class ExposureCalculator:
             settings["exposure_compensation"] = ev_comp  # Adaptive EV
             settings["hdr_mode"] = 0  # No HDR
             settings["bracket_count"] = 1  # Single shot
+
+            # Focus for landscapes
+            settings["af_mode"] = 0  # Manual focus
+            settings["lens_position"] = 0.0  # Manual focus at infinity for sharp landscapes
 
             # Landscape enhancements for crisp mountains/clouds
             settings["sharpness"] = 1.5  # Boost edge definition (default 1.0)

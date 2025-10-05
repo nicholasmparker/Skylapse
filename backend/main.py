@@ -215,8 +215,9 @@ async def scheduler_loop(app: FastAPI):
                             # Mark session as complete in database
                             db.mark_session_complete(session_id)
 
-                            # Enqueue timelapse generation
-                            job = timelapse_queue.enqueue(
+                            # Enqueue timelapse generation (use to_thread for sync RQ library)
+                            job = await asyncio.to_thread(
+                                timelapse_queue.enqueue,
                                 "tasks.generate_timelapse",
                                 profile=profile,
                                 schedule=schedule_name,
@@ -251,6 +252,9 @@ async def scheduler_loop(app: FastAPI):
                         settings = await exposure_calc.calculate_settings(
                             schedule_name, current_time, profile=profile
                         )
+
+                        # DEBUG: Log all settings being sent to Pi
+                        logger.info(f"🔧 Profile {profile.upper()} settings: {settings}")
 
                         # Send capture command to Pi and download image
                         success, filename = await trigger_capture(schedule_name, settings, config)

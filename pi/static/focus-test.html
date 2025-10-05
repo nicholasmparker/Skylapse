@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Test - Skylapse</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #f0f0f0;
+        }
+        h1 {
+            color: #4a9eff;
+        }
+        .controls {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #3a8eef;
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        button.auto-focus {
+            background: #ff8c42;
+        }
+        button.auto-focus:hover {
+            background: #ef7c32;
+        }
+        .custom-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        input[type="number"] {
+            flex: 1;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #333;
+            color: #f0f0f0;
+            font-size: 14px;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            background: #333;
+        }
+        .status.success {
+            background: #2d5a2d;
+            color: #7fff7f;
+        }
+        .status.error {
+            background: #5a2d2d;
+            color: #ff7f7f;
+        }
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .image-card {
+            background: #2a2a2a;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+        .image-card:hover {
+            transform: scale(1.02);
+        }
+        .image-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            cursor: pointer;
+        }
+        .roi-container {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+        }
+        .roi-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+            pointer-events: auto;
+        }
+        .roi-zoom {
+            margin-top: 20px;
+            border: 2px solid #4a9eff;
+            border-radius: 8px;
+            background: #1a1a1a;
+            padding: 10px;
+        }
+        .roi-zoom canvas {
+            display: block;
+            margin: 10px auto;
+            border: 1px solid #444;
+        }
+        .roi-controls {
+            text-align: center;
+            margin-top: 10px;
+        }
+        .image-info {
+            padding: 15px;
+        }
+        .lens-position {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4a9eff;
+        }
+        .auto-label {
+            color: #ff8c42;
+        }
+        .timestamp {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.show {
+            display: flex;
+        }
+        .modal img {
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
+        }
+        .loader {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4a9eff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Focus Test - ArduCam IMX519</h1>
+
+    <div class="controls">
+        <h2>Capture Test Images</h2>
+        <p>Click a preset lens position to capture a test image. ArduCam IMX519 effective range: 0.0-6.5</p>
+
+        <div class="preset-buttons">
+            <button onclick="captureAtPosition(0.0)">0.0 (Close)</button>
+            <button onclick="captureAtPosition(0.5)">0.5</button>
+            <button onclick="captureAtPosition(1.0)">1.0</button>
+            <button onclick="captureAtPosition(2.0)">2.0</button>
+            <button onclick="captureAtPosition(3.0)">3.0</button>
+            <button onclick="captureAtPosition(4.0)">4.0</button>
+            <button onclick="captureAtPosition(5.0)">5.0</button>
+            <button onclick="captureAtPosition(6.0)">6.0 (Far)</button>
+        </div>
+
+        <button class="auto-focus" onclick="captureAutofocus()">🎯 Autofocus (Detect Position)</button>
+
+        <div class="custom-input">
+            <input type="number" id="customPosition" placeholder="Custom position (0.0-6.5)" step="0.1" min="0" max="6.5">
+            <button onclick="captureCustomPosition()">Capture Custom</button>
+        </div>
+
+        <div id="status" class="status" style="display: none;"></div>
+    </div>
+
+    <h2>Captured Images</h2>
+    <button onclick="loadImages()">🔄 Refresh Images</button>
+    <div id="images" class="images-grid"></div>
+
+    <h2>ROI Zoom Inspector</h2>
+    <p>Click on an image above to load it, then click and drag to select a region to zoom in for detailed focus inspection.</p>
+    <div id="roiInspector">
+        <div class="roi-container" id="roiContainer" style="display: none;">
+            <img id="roiImage" src="" style="max-width: 100%; display: block;">
+            <canvas id="roiCanvas" class="roi-canvas"></canvas>
+        </div>
+        <div id="roiZoom" class="roi-zoom" style="display: none;">
+            <h3>Zoomed Region (2x magnification)</h3>
+            <canvas id="zoomCanvas"></canvas>
+            <div class="roi-controls">
+                <button onclick="clearROI()">Clear Selection</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="modal" onclick="closeModal()">
+        <img id="modalImage" src="" alt="Full size image">
+    </div>
+
+    <script>
+        const API_BASE = '';  // Same origin
+
+        async function captureAtPosition(lensPosition) {
+            showStatus(`Capturing at lens position ${lensPosition}...`, 'info');
+            disableButtons(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/focus-test?lens_position=${lensPosition}`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                showStatus(`✓ Captured at lens position ${lensPosition}`, 'success');
+
+                // Reload images after a brief delay
+                setTimeout(loadImages, 500);
+            } catch (error) {
+                showStatus(`✗ Capture failed: ${error.message}`, 'error');
+            } finally {
+                disableButtons(false);
+            }
+        }
+
+        async function captureAutofocus() {
+            showStatus('Capturing with autofocus...', 'info');
+            disableButtons(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/focus-test/auto`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                const detectedPos = result.lens_position ? result.lens_position.toFixed(2) : 'unknown';
+                showStatus(`✓ Autofocus captured - detected lens position: ${detectedPos}`, 'success');
+
+                setTimeout(loadImages, 500);
+            } catch (error) {
+                showStatus(`✗ Autofocus capture failed: ${error.message}`, 'error');
+            } finally {
+                disableButtons(false);
+            }
+        }
+
+        async function captureCustomPosition() {
+            const input = document.getElementById('customPosition');
+            const lensPosition = parseFloat(input.value);
+
+            if (isNaN(lensPosition) || lensPosition < 0 || lensPosition > 6.5) {
+                showStatus('✗ Please enter a valid lens position (0.0-6.5)', 'error');
+                return;
+            }
+
+            await captureAtPosition(lensPosition);
+        }
+
+        async function loadImages() {
+            try {
+                const response = await fetch(`${API_BASE}/focus-test/images`);
+                const data = await response.json();
+
+                const imagesDiv = document.getElementById('images');
+
+                if (data.images.length === 0) {
+                    imagesDiv.innerHTML = '<p style="color: #888;">No images captured yet. Click a button above to capture test images.</p>';
+                    return;
+                }
+
+                imagesDiv.innerHTML = data.images.map(img => {
+                    const isAuto = img.filename.includes('_auto_');
+                    const lensLabel = isAuto
+                        ? `<span class="auto-label">Auto (${img.lens_position !== null ? img.lens_position.toFixed(2) : '?'})</span>`
+                        : `Lens ${img.lens_position !== null ? img.lens_position.toFixed(1) : '?'}`;
+
+                    const timestamp = new Date(img.modified).toLocaleString();
+
+                    return `
+                        <div class="image-card">
+                            <img src="${API_BASE}${img.url}" alt="${img.filename}"
+                                 onclick="loadImageForROI('${API_BASE}${img.url}', '${lensLabel}')"
+                                 ondblclick="openModal('${API_BASE}${img.url}')">
+                            <div class="image-info">
+                                <div class="lens-position">${lensLabel}</div>
+                                <div class="timestamp">${timestamp}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Failed to load images:', error);
+                showStatus(`✗ Failed to load images: ${error.message}`, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        function disableButtons(disabled) {
+            document.querySelectorAll('button').forEach(btn => {
+                btn.disabled = disabled;
+            });
+        }
+
+        function openModal(imageSrc) {
+            const modal = document.getElementById('modal');
+            const modalImage = document.getElementById('modalImage');
+            modalImage.src = imageSrc;
+            modal.classList.add('show');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.classList.remove('show');
+        }
+
+        // ROI Selection and Zoom functionality
+        let roiState = {
+            image: null,
+            isDrawing: false,
+            startX: 0,
+            startY: 0,
+            endX: 0,
+            endY: 0
+        };
+
+        function loadImageForROI(imageSrc, lensLabel) {
+            const roiImage = document.getElementById('roiImage');
+            const roiContainer = document.getElementById('roiContainer');
+            const canvas = document.getElementById('roiCanvas');
+
+            // Load the image
+            roiImage.onload = function() {
+                // Show container
+                roiContainer.style.display = 'block';
+
+                // Set canvas to match image dimensions
+                canvas.width = roiImage.width;
+                canvas.height = roiImage.height;
+
+                // Position canvas over image
+                canvas.style.width = roiImage.width + 'px';
+                canvas.style.height = roiImage.height + 'px';
+
+                // Store the image for cropping
+                roiState.image = roiImage;
+
+                // Clear any previous selection
+                clearROI();
+
+                showStatus(`✓ Loaded ${lensLabel} - Click and drag to select mountain peaks for zoom`, 'success');
+
+                // Scroll to ROI inspector
+                document.getElementById('roiInspector').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            };
+
+            roiImage.src = imageSrc;
+        }
+
+        function clearROI() {
+            const canvas = document.getElementById('roiCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            document.getElementById('roiZoom').style.display = 'none';
+
+            roiState.isDrawing = false;
+            roiState.startX = 0;
+            roiState.startY = 0;
+            roiState.endX = 0;
+            roiState.endY = 0;
+        }
+
+        // Set up canvas event listeners
+        const roiCanvas = document.getElementById('roiCanvas');
+
+        roiCanvas.addEventListener('mousedown', (e) => {
+            const rect = roiCanvas.getBoundingClientRect();
+            roiState.isDrawing = true;
+            roiState.startX = e.clientX - rect.left;
+            roiState.startY = e.clientY - rect.top;
+        });
+
+        roiCanvas.addEventListener('mousemove', (e) => {
+            if (!roiState.isDrawing) return;
+
+            const rect = roiCanvas.getBoundingClientRect();
+            const ctx = roiCanvas.getContext('2d');
+
+            roiState.endX = e.clientX - rect.left;
+            roiState.endY = e.clientY - rect.top;
+
+            // Clear and redraw selection rectangle
+            ctx.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+            ctx.strokeStyle = '#4a9eff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(
+                roiState.startX,
+                roiState.startY,
+                roiState.endX - roiState.startX,
+                roiState.endY - roiState.startY
+            );
+        });
+
+        roiCanvas.addEventListener('mouseup', (e) => {
+            if (!roiState.isDrawing) return;
+
+            roiState.isDrawing = false;
+
+            const rect = roiCanvas.getBoundingClientRect();
+            roiState.endX = e.clientX - rect.left;
+            roiState.endY = e.clientY - rect.top;
+
+            // Draw zoomed region
+            drawZoomedRegion();
+        });
+
+        function drawZoomedRegion() {
+            if (!roiState.image) return;
+
+            // Calculate selection bounds
+            const x = Math.min(roiState.startX, roiState.endX);
+            const y = Math.min(roiState.startY, roiState.endY);
+            const width = Math.abs(roiState.endX - roiState.startX);
+            const height = Math.abs(roiState.endY - roiState.startY);
+
+            if (width < 10 || height < 10) {
+                showStatus('✗ Selection too small - drag a larger region', 'error');
+                return;
+            }
+
+            // Get the actual image dimensions vs display dimensions
+            const scaleX = roiState.image.naturalWidth / roiState.image.width;
+            const scaleY = roiState.image.naturalHeight / roiState.image.height;
+
+            // Calculate source coordinates in the original image
+            const srcX = x * scaleX;
+            const srcY = y * scaleY;
+            const srcWidth = width * scaleX;
+            const srcHeight = height * scaleY;
+
+            // Set up zoom canvas
+            const zoomCanvas = document.getElementById('zoomCanvas');
+            const ZOOM_FACTOR = 2; // 2x magnification
+            zoomCanvas.width = width * ZOOM_FACTOR;
+            zoomCanvas.height = height * ZOOM_FACTOR;
+
+            const zoomCtx = zoomCanvas.getContext('2d');
+
+            // Draw the cropped and zoomed region
+            zoomCtx.drawImage(
+                roiState.image,
+                srcX, srcY, srcWidth, srcHeight,  // Source rectangle
+                0, 0, zoomCanvas.width, zoomCanvas.height  // Destination rectangle
+            );
+
+            // Show zoom container
+            document.getElementById('roiZoom').style.display = 'block';
+
+            showStatus(`✓ Zoomed ${width}x${height}px region at ${ZOOM_FACTOR}x magnification`, 'success');
+        }
+
+        // Load images on page load
+        loadImages();
+    </script>
+</body>
+</html>
