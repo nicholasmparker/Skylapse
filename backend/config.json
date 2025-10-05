@@ -1,10 +1,4 @@
 {
-  "location": {
-    "latitude": 39.609573,
-    "longitude": -105.314163,
-    "timezone": "America/Denver",
-    "name": "Colorado"
-  },
   "schedules": {
     "sunrise": {
       "enabled": true,
@@ -12,53 +6,35 @@
       "anchor": "sunrise",
       "offset_minutes": -30,
       "duration_minutes": 60,
-      "interval_seconds": 2,
-      "stack_images": true,
-      "stack_count": 5
-    },
-    "daytime": {
-      "enabled": true,
-      "type": "time_of_day",
-      "start_time": "07:30",
-      "end_time": "17:55",
-      "interval_seconds": 14,
-      "stack_images": false,
-      "description": "All-day timelapse, 14-sec interval for 90-sec video (update times seasonally)"
+      "interval_seconds": 5,
+      "profile": "D"
     },
     "sunset": {
       "enabled": true,
       "type": "solar_relative",
       "anchor": "sunset",
-      "offset_minutes": -45,
-      "duration_minutes": 90,
-      "interval_seconds": 2,
-      "stack_images": true,
-      "stack_count": 5
+      "offset_minutes": -30,
+      "duration_minutes": 60,
+      "interval_seconds": 5,
+      "profile": "D"
     },
-    "blue_hour": {
-      "enabled": false,
-      "type": "solar_relative",
-      "anchor": "civil_dusk",
-      "offset_minutes": 0,
-      "duration_minutes": 30,
-      "interval_seconds": 1,
-      "stack_images": false,
-      "description": "Blue hour - capture during civil dusk"
+    "all_day": {
+      "enabled": true,
+      "type": "time_of_day",
+      "start_time": "06:30",
+      "end_time": "21:30",
+      "interval_seconds": 5,
+      "profile": "A"
     }
+  },
+  "location": {
+    "latitude": 39.6333,
+    "longitude": -105.3167,
+    "timezone": "America/Denver"
   },
   "pi": {
     "host": "192.168.0.124",
     "port": 8080,
     "timeout_seconds": 10
-  },
-  "storage": {
-    "images_dir": "data/images",
-    "videos_dir": "data/videos",
-    "max_days_to_keep": 7
-  },
-  "processing": {
-    "video_fps": 24,
-    "video_codec": "libx264",
-    "video_quality": "23"
   }
 }
