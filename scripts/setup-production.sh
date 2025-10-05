@@ -175,6 +175,7 @@ cat > backend/config.json <<'EOF'
 {
   "schedules": {
     "golden_hour": {
+      "enabled": true,
       "type": "solar_relative",
       "anchor": "sunrise",
       "offset_minutes": -60,
@@ -187,6 +188,11 @@ cat > backend/config.json <<'EOF'
     "latitude": 37.7749,
     "longitude": -122.4194,
     "timezone": "America/Los_Angeles"
+  },
+  "pi": {
+    "host": "192.168.0.124",
+    "port": 8080,
+    "timeout_seconds": 10
   }
 }
 EOF
