@@ -289,7 +289,7 @@ class ExposureCalculator:
         Apply profile-specific modifications to base settings.
 
         Profile A: Auto WB (AwbMode=0), no HDR
-        Profile B: Ultra-Vibrant Warm WB + Maximum Sharpness/Saturation (2.0/1.3/1.2)
+        Profile B: Ultra-Vibrant Warm WB + Maximum Sharpness/Saturation (Sharp=8.0, Contrast=2.0, Sat=2.0)
         Profile C: Underexposed Daylight WB, highlight protection
         Profile D: Cloudy WB (AwbMode=2), natural sunset colors
         Profile E: EXPERIMENTAL Adaptive WB ramping (lux + time based)
@@ -341,12 +341,12 @@ class ExposureCalculator:
             settings["lens_position"] = 2.45  # Optimal focus for distant landscapes
 
             # Ultra-vibrant landscape enhancements
-            settings["sharpness"] = 2.0  # Maximum edge definition (vs 1.5 in G)
-            settings["contrast"] = 1.3  # Strong contrast (vs 1.15 in G)
-            settings["saturation"] = 1.2  # Boosted color intensity (vs 1.05 in G)
+            settings["sharpness"] = 8.0  # Very sharp (50% of max 16.0)
+            settings["contrast"] = 2.0  # Strong contrast (default + 100%)
+            settings["saturation"] = 2.0  # Highly saturated colors (default + 100%)
 
             logger.info(
-                f"🎨 Profile B (Ultra-Vibrant + Sharp): WB={wb_temp}K, Saturation=1.2, Sharpness=2.0"
+                f"🎨 Profile B (Ultra-Vibrant + Sharp): WB={wb_temp}K, Saturation=2.0, Contrast=2.0, Sharpness=8.0"
             )
 
         elif profile == "c":
