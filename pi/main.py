@@ -60,6 +60,16 @@ camera_ready = False
 # Initialize profile executor (global)
 profile_executor = ProfileExecutor()
 
+# Simple backend coordination: Only allow captures from the configured backend
+# Set PRIMARY_BACKEND env var to "production" or "dev" to control which backend can capture
+# Default to None (allow all) for backward compatibility
+ALLOWED_BACKEND = os.getenv("PRIMARY_BACKEND", None)
+
+if ALLOWED_BACKEND:
+    logger.info(f"🔒 Backend coordination enabled: Only '{ALLOWED_BACKEND}' can trigger captures")
+else:
+    logger.info("🔓 Backend coordination disabled: All backends can trigger captures")
+
 
 def initialize_camera():
     """Initialize and start the camera once at application startup."""
@@ -146,6 +156,9 @@ class CaptureSettings(BaseModel):
     use_deployed_profile: Optional[bool] = False  # Enable deployed profile execution
     schedule_type: Optional[str] = None  # Schedule name for profile lookup
     override: Optional[dict] = None  # Override settings for testing
+
+    # Backend coordination (optional)
+    backend_name: Optional[str] = None  # Backend name (e.g., "production", "dev")
 
     @validator("iso")
     def validate_iso(cls, v):
@@ -322,6 +335,20 @@ async def capture_photo(settings: CaptureSettings):
     # Check if camera is ready
     if not camera_ready:
         raise HTTPException(status_code=503, detail="Camera not ready - check service logs")
+
+    # Simple backend coordination check
+    if ALLOWED_BACKEND is not None and settings.backend_name is not None:
+        if settings.backend_name != ALLOWED_BACKEND:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error": "Not authorized - wrong backend",
+                    "allowed_backend": ALLOWED_BACKEND,
+                    "your_backend": settings.backend_name,
+                    "message": f"Pi is configured to only accept captures from '{ALLOWED_BACKEND}' backend. "
+                    f"To switch, SSH to Pi and run: export PRIMARY_BACKEND={settings.backend_name} (then restart service).",
+                },
+            )
 
     try:
         # MODE CHECK: Profile execution vs explicit settings

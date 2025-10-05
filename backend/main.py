@@ -82,12 +82,22 @@ async def lifespan(app: FastAPI):
     timelapse_queue = Queue("timelapse", connection=redis_conn)
     logger.info(f"Connected to Redis at {redis_url}")
 
+    # Backend name for Pi coordination (optional)
+    backend_name = os.getenv("BACKEND_NAME", None)
+    if backend_name:
+        logger.info(f"🏷️  Backend name: '{backend_name}' (will be sent with capture requests)")
+    else:
+        logger.info(
+            "🏷️  Backend name not set (BACKEND_NAME env var) - capture requests won't include backend_name"
+        )
+
     # Store in app state (no more globals!)
     app.state.config = config
     app.state.solar_calc = solar_calc
     app.state.exposure_calc = exposure_calc
     app.state.timelapse_queue = timelapse_queue
     app.state.db = db
+    app.state.backend_name = backend_name
 
     # Start scheduler loop
     scheduler_task = asyncio.create_task(scheduler_loop(app))
@@ -449,6 +459,10 @@ async def trigger_capture(schedule_name: str, settings: dict, config: Config) ->
     """
     pi_config = config.get_pi_config()
     pi_url = f"http://{pi_config['host']}:{pi_config['port']}/capture"
+
+    # Add backend_name to settings if configured (for Pi coordination)
+    if app.state.backend_name:
+        settings["backend_name"] = app.state.backend_name
 
     try:
         async with httpx.AsyncClient(timeout=pi_config["timeout_seconds"]) as client:

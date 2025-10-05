@@ -2,14 +2,11 @@ version: "3.8"
 
 services:
   backend:
-    build:
-      context: .
-      dockerfile: ./backend/Dockerfile
+    image: ghcr.io/nicholasmparker/skylapse/backend:main
     ports:
       - "${BACKEND_PORT:-8082}:8082"
     volumes:
-      - ./backend:/app
-      - ./backend/data:/app/data
+      - ./backend/config.json:/app/config.json:ro
       - skylapse-images:/data/images # Transferred images from Pi
       - skylapse-timelapses:/data/timelapses # Generated timelapse videos
       - skylapse-db:/data/db # SQLite database persistence
@@ -18,14 +15,13 @@ services:
       - PI_PORT=${PI_PORT:-8080}
       - BACKEND_URL=${BACKEND_URL:-http://localhost:8082}
       - REDIS_URL=redis://redis:6379
-      - BACKEND_NAME=${BACKEND_NAME:-dev} # For Pi coordination
+      - BACKEND_NAME=${BACKEND_NAME:-production} # For Pi coordination
     depends_on:
       - redis
+    restart: unless-stopped
 
   transfer:
-    build:
-      context: .
-      dockerfile: ./backend/Dockerfile
+    image: ghcr.io/nicholasmparker/skylapse/backend:main
     command: python3 services/transfer.py
     network_mode: host # Use host network for DNS resolution
     volumes:
@@ -49,12 +45,9 @@ services:
     restart: unless-stopped
 
   worker:
-    build:
-      context: .
-      dockerfile: ./backend/Dockerfile
+    image: ghcr.io/nicholasmparker/skylapse/worker:main
     command: rq worker --url redis://redis:6379 timelapse
     volumes:
-      - ./backend:/app
       - skylapse-images:/data/images
       - skylapse-timelapses:/data/timelapses
       - skylapse-db:/data/db # SQLite database persistence
@@ -70,15 +63,14 @@ services:
           memory: 4G # Increase memory for large image processing
 
   frontend:
-    build: ./frontend
+    image: ghcr.io/nicholasmparker/skylapse/frontend:main
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
-    volumes:
-      - ./frontend/src:/app/src
     environment:
       - VITE_BACKEND_URL=${VITE_BACKEND_URL:-http://localhost:8082}
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
   skylapse-images:
