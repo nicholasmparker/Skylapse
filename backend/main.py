@@ -156,9 +156,10 @@ async def scheduler_loop(app: FastAPI):
 
     # Production profiles for sunset/sunrise timelapses
     # A: Pure auto baseline
-    # D: 3-shot HDR bracket (-1, 0, +1)
+    # B: Ultra-vibrant warm WB with maximum sharpness/saturation
+    # D: Warm WB with manual focus for landscapes
     # G: Adaptive EV (prevents overexposure)
-    profiles = ["a", "d", "g"]
+    profiles = ["a", "b", "d", "g"]
 
     while True:
         try:
