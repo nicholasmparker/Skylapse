@@ -30,33 +30,33 @@ echo "📝 Configuration"
 echo "================"
 echo ""
 
-read -p "Pi hostname or IP [192.168.0.124]: " PI_HOST
+read -p "Pi hostname or IP [192.168.0.124]: " PI_HOST </dev/tty
 PI_HOST=${PI_HOST:-192.168.0.124}
 
-read -p "Pi port [8080]: " PI_PORT
+read -p "Pi port [8080]: " PI_PORT </dev/tty
 PI_PORT=${PI_PORT:-8080}
 
-read -p "Pi SSH username [nicholasmparker]: " PI_USER
+read -p "Pi SSH username [nicholasmparker]: " PI_USER </dev/tty
 PI_USER=${PI_USER:-nicholasmparker}
 
-read -p "Pi source directory [~/skylapse-images/]: " PI_SOURCE
+read -p "Pi source directory [~/skylapse-images/]: " PI_SOURCE </dev/tty
 PI_SOURCE=${PI_SOURCE:-~/skylapse-images/}
 
-read -p "Backend port [8082]: " BACKEND_PORT
+read -p "Backend port [8082]: " BACKEND_PORT </dev/tty
 BACKEND_PORT=${BACKEND_PORT:-8082}
 
-read -p "Frontend port [3000]: " FRONTEND_PORT
+read -p "Frontend port [3000]: " FRONTEND_PORT </dev/tty
 FRONTEND_PORT=${FRONTEND_PORT:-3000}
 
-read -p "Server IP or hostname (for BACKEND_URL and VITE_BACKEND_URL): " SERVER_HOST
+read -p "Server IP or hostname (for BACKEND_URL and VITE_BACKEND_URL): " SERVER_HOST </dev/tty
 if [ -z "$SERVER_HOST" ]; then
     SERVER_HOST="localhost"
 fi
 
-read -p "Transfer interval in minutes [5]: " TRANSFER_INTERVAL
+read -p "Transfer interval in minutes [5]: " TRANSFER_INTERVAL </dev/tty
 TRANSFER_INTERVAL=${TRANSFER_INTERVAL:-5}
 
-read -p "Delete images from Pi after N days [1]: " DELETE_AFTER_DAYS
+read -p "Delete images from Pi after N days [1]: " DELETE_AFTER_DAYS </dev/tty
 DELETE_AFTER_DAYS=${DELETE_AFTER_DAYS:-1}
 
 # Create .env file
@@ -199,7 +199,7 @@ echo "The transfer service needs SSH access to pull images from the Pi."
 echo ""
 
 if [ ! -f ~/.ssh/id_ed25519 ] && [ ! -f ~/.ssh/id_rsa ]; then
-    read -p "No SSH key found. Generate one now? (y/n) " -n 1 -r
+    read -p "No SSH key found. Generate one now? (y/n) " -n 1 -r REPLY </dev/tty
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         ssh-keygen -t ed25519 -C "skylapse-transfer" -f ~/.ssh/id_ed25519 -N ""
@@ -215,7 +215,7 @@ echo "Then test the connection:"
 echo "  ssh ${PI_USER}@${PI_HOST} 'ls ${PI_SOURCE}'"
 echo ""
 
-read -p "Press Enter to continue after setting up SSH access..."
+read -p "Press Enter to continue after setting up SSH access..." </dev/tty
 
 # Pull images
 echo ""
