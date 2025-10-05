@@ -3,17 +3,19 @@
 # Deploy capture service to Raspberry Pi
 #
 # Usage:
-#   ./scripts/deploy-capture.sh [pi_host] [pi_user] [primary_backend]
+#   ./scripts/deploy-capture.sh [pi_host] [pi_user] [primary_backend_name]
 #
 # Example:
-#   ./scripts/deploy-capture.sh helios.local nicholasmparker http://192.168.0.149:8082
+#   ./scripts/deploy-capture.sh helios.local nicholasmparker dagon
+#
+# The primary_backend_name must match BACKEND_NAME in your server's .env file!
 #
 
 set -e
 
 PI_HOST="${1:-helios.local}"
-PI_USER="${2:-nicholasmparker}"  # Updated: actual username is nicholasmparker
-PRIMARY_BACKEND="${3:-}"  # Optional: PRIMARY_BACKEND URL
+PI_USER="${2:-nicholasmparker}"
+PRIMARY_BACKEND="${3:-}"  # Optional: PRIMARY_BACKEND name (e.g., "dagon", "production")
 REMOTE_DIR="/home/${PI_USER}/skylapse-capture"
 
 echo "🚀 Deploying Skylapse Capture to ${PI_HOST}..."
