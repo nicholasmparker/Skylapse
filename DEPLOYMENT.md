@@ -12,7 +12,7 @@ ssh nicholasmparker@dagon.local
 mkdir -p ~/skylapse && cd ~/skylapse
 
 # Download setup script and run
-curl -fsSL https://raw.githubusercontent.com/nicholasmparker/skylapse/main/setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/nicholasmparker/Skylapse/main/scripts/setup-production.sh | bash
 ```
 
 When prompted:
@@ -79,7 +79,7 @@ ssh nicholasmparker@dagon.local
 mkdir -p ~/skylapse && cd ~/skylapse
 
 # Run setup script (interactive)
-curl -fsSL https://raw.githubusercontent.com/nicholasmparker/skylapse/main/setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/nicholasmparker/Skylapse/main/scripts/setup-production.sh | bash
 ```
 
 The setup script will:
@@ -137,9 +137,9 @@ EOF
 
 **Download files:**
 ```bash
-curl -O https://raw.githubusercontent.com/nicholasmparker/skylapse/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/nicholasmparker/Skylapse/main/docker-compose.prod.yml
 mkdir -p backend
-curl -o backend/config.json https://raw.githubusercontent.com/nicholasmparker/skylapse/main/backend/config.json
+curl -o backend/config.json https://raw.githubusercontent.com/nicholasmparker/Skylapse/main/backend/config.json
 ```
 
 #### SSH Setup for Transfer Service

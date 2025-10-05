@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Skylapse Production Setup Script
-# Usage: curl -fsSL https://raw.githubusercontent.com/nicholasmparker/skylapse/main/scripts/setup-production.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/nicholasmparker/Skylapse/main/scripts/setup-production.sh | bash
 
 set -e
 
