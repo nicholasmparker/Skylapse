@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: 20px;
             background: #1a1a1a;
@@ -15,18 +15,12 @@
         }
         h1 {
             color: #4a9eff;
+            margin-bottom: 10px;
         }
-        .controls {
-            background: #2a2a2a;
-            padding: 20px;
-            border-radius: 8px;
+        .workflow-step {
+            color: #888;
+            font-size: 14px;
             margin-bottom: 20px;
-        }
-        .preset-buttons {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: 10px;
-            margin-bottom: 15px;
         }
         button {
             background: #4a9eff;
@@ -46,29 +40,17 @@
             background: #555;
             cursor: not-allowed;
         }
-        button.auto-focus {
+        button.primary {
             background: #ff8c42;
+            font-size: 16px;
+            padding: 15px 30px;
         }
-        button.auto-focus:hover {
+        button.primary:hover {
             background: #ef7c32;
         }
-        .custom-input {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        input[type="number"] {
-            flex: 1;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #444;
-            background: #333;
-            color: #f0f0f0;
-            font-size: 14px;
-        }
         .status {
-            margin-top: 15px;
-            padding: 10px;
+            margin: 15px 0;
+            padding: 12px;
             border-radius: 6px;
             background: #333;
         }
@@ -80,30 +62,40 @@
             background: #5a2d2d;
             color: #ff7f7f;
         }
-        .images-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        .status.info {
+            background: #2d3a5a;
+            color: #7f9fff;
+        }
+
+        /* Step 1: Initialize */
+        #step1 {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        /* Step 2: ROI Selection */
+        #step2 {
+            display: none;
+        }
+        .roi-selection-area {
+            display: flex;
             gap: 20px;
+            margin-top: 20px;
         }
-        .image-card {
-            background: #2a2a2a;
-            border-radius: 8px;
-            overflow: hidden;
-            transition: transform 0.2s;
-        }
-        .image-card:hover {
-            transform: scale(1.02);
-        }
-        .image-card img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            cursor: pointer;
+        .reference-panel {
+            flex: 0 0 400px;
         }
         .roi-container {
             position: relative;
             display: inline-block;
+            border: 2px solid #444;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .roi-container img {
+            display: block;
             max-width: 100%;
+            height: auto;
         }
         .roi-canvas {
             position: absolute;
@@ -112,58 +104,111 @@
             cursor: crosshair;
             pointer-events: auto;
         }
-        .roi-zoom {
-            margin-top: 20px;
-            border: 2px solid #4a9eff;
-            border-radius: 8px;
-            background: #1a1a1a;
-            padding: 10px;
-        }
-        .roi-zoom canvas {
-            display: block;
-            margin: 10px auto;
-            border: 1px solid #444;
-        }
         .roi-controls {
+            margin-top: 15px;
             text-align: center;
+        }
+        .roi-status {
             margin-top: 10px;
+            color: #4a9eff;
+            font-weight: 500;
         }
-        .image-info {
-            padding: 15px;
+
+        /* Step 3: Focus Testing */
+        #step3 {
+            display: none;
         }
-        .lens-position {
-            font-size: 18px;
+        .focus-test-area {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .roi-display {
+            flex: 1;
+            text-align: center;
+        }
+        .roi-zoom-canvas {
+            border: 3px solid #4a9eff;
+            border-radius: 8px;
+            background: #000;
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 4px 20px rgba(74, 158, 255, 0.3);
+        }
+        .lens-position-display {
+            margin-top: 20px;
+            font-size: 24px;
             font-weight: bold;
             color: #4a9eff;
         }
-        .auto-label {
-            color: #ff8c42;
+
+        .focus-controls {
+            flex: 0 0 350px;
+            background: #2a2a2a;
+            padding: 25px;
+            border-radius: 8px;
         }
-        .timestamp {
-            font-size: 12px;
-            color: #888;
-            margin-top: 5px;
+        .focus-controls h3 {
+            margin-top: 0;
+            color: #4a9eff;
         }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            justify-content: center;
-            align-items: center;
+        .coarse-controls {
+            margin-bottom: 25px;
         }
-        .modal.show {
+        .coarse-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .coarse-buttons button {
+            padding: 10px 5px;
+            font-size: 13px;
+        }
+        .fine-controls {
+            margin-bottom: 25px;
+        }
+        .fine-adjust {
             display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px;
         }
-        .modal img {
-            max-width: 95%;
-            max-height: 95%;
-            object-fit: contain;
+        .arrow-btn {
+            font-size: 20px;
+            padding: 10px 20px;
+            background: #555;
         }
+        .arrow-btn:hover {
+            background: #666;
+        }
+        .current-position {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4a9eff;
+            min-width: 60px;
+            text-align: center;
+        }
+        .step-size {
+            text-align: center;
+            margin-top: 10px;
+            color: #888;
+            font-size: 13px;
+        }
+        .reset-controls {
+            margin-top: 25px;
+            padding-top: 25px;
+            border-top: 1px solid #444;
+        }
+        .reset-controls button {
+            width: 100%;
+            background: #666;
+        }
+        .reset-controls button:hover {
+            background: #777;
+        }
+
         .loader {
             display: inline-block;
             width: 16px;
@@ -182,124 +227,114 @@
     </style>
 </head>
 <body>
-    <h1>🔍 Focus Test - ArduCam IMX519</h1>
+    <h1>🔍 Focus Test - Persistent ROI</h1>
 
-    <div class="controls">
-        <h2>Capture Test Images</h2>
-        <p>Click a preset lens position to capture a test image. ArduCam IMX519 effective range: 0.0-6.5</p>
-
-        <div class="preset-buttons">
-            <button onclick="captureAtPosition(0.0)">0.0 (Close)</button>
-            <button onclick="captureAtPosition(0.5)">0.5</button>
-            <button onclick="captureAtPosition(1.0)">1.0</button>
-            <button onclick="captureAtPosition(2.0)">2.0</button>
-            <button onclick="captureAtPosition(3.0)">3.0</button>
-            <button onclick="captureAtPosition(4.0)">4.0</button>
-            <button onclick="captureAtPosition(5.0)">5.0</button>
-            <button onclick="captureAtPosition(6.0)">6.0 (Far)</button>
+    <!-- Step 1: Initialize -->
+    <div id="step1">
+        <div class="workflow-step">
+            <strong>Workflow:</strong> Initialize → Select ROI on mountain peaks → Adjust focus until sharp
         </div>
-
-        <button class="auto-focus" onclick="captureAutofocus()">🎯 Autofocus (Detect Position)</button>
-
-        <div class="custom-input">
-            <input type="number" id="customPosition" placeholder="Custom position (0.0-6.5)" step="0.1" min="0" max="6.5">
-            <button onclick="captureCustomPosition()">Capture Custom</button>
-        </div>
-
-        <div id="status" class="status" style="display: none;"></div>
+        <button class="primary" onclick="initialize()">🎯 Initialize (Capture with Auto Settings)</button>
+        <div id="status1" class="status" style="display: none;"></div>
     </div>
 
-    <h2>Captured Images</h2>
-    <button onclick="loadImages()">🔄 Refresh Images</button>
-    <div id="images" class="images-grid"></div>
+    <!-- Step 2: Select ROI -->
+    <div id="step2">
+        <h2>Step 2: Select Region of Interest</h2>
+        <p>Click and drag on the mountain peaks to define your ROI, then lock it.</p>
 
-    <h2>Persistent ROI Focus Tester</h2>
-    <p><strong>Workflow:</strong> 1) Load reference image, 2) Define ROI on mountain peaks, 3) Lock ROI, 4) Capture with different focus settings and see same region automatically.</p>
-
-    <div id="roiInspector">
-        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-            <!-- Reference Image with ROI Selection -->
-            <div style="flex: 1; min-width: 400px;">
-                <h3>Reference Image & ROI Selection</h3>
-                <div class="roi-container" id="roiContainer" style="display: none;">
-                    <img id="roiImage" src="" style="max-width: 100%; display: block;">
+        <div class="roi-selection-area">
+            <div class="reference-panel">
+                <h3>Reference Image</h3>
+                <div class="roi-container" id="roiContainer">
+                    <img id="roiImage" src="">
                     <canvas id="roiCanvas" class="roi-canvas"></canvas>
                 </div>
-                <div class="roi-controls" style="margin-top: 10px;">
+                <div class="roi-controls">
                     <button onclick="lockROI()" id="lockButton" disabled>🔒 Lock ROI</button>
-                    <button onclick="unlockROI()" id="unlockButton" disabled>🔓 Unlock & Reset</button>
-                    <span id="roiStatus" style="margin-left: 10px; color: #888;"></span>
+                    <div class="roi-status" id="roiStatus"></div>
                 </div>
             </div>
 
-            <!-- Live Focus Test Preview -->
-            <div style="flex: 1; min-width: 400px;">
-                <h3>Live Focus Preview (ROI Only)</h3>
-                <div id="roiZoom" class="roi-zoom" style="display: none;">
-                    <canvas id="zoomCanvas"></canvas>
-                    <div style="text-align: center; margin-top: 10px;">
-                        <strong id="currentLensPos">Lens Position: --</strong>
-                    </div>
-                </div>
-                <p id="roiPlaceholder" style="color: #888; text-align: center;">Define and lock an ROI to start testing focus</p>
+            <div style="flex: 1;">
+                <h3>ROI Preview</h3>
+                <canvas id="previewCanvas" style="max-width: 100%; border: 2px solid #444; border-radius: 8px; background: #000;"></canvas>
+                <p style="color: #888; margin-top: 10px;">Draw a selection on the reference image to see preview</p>
             </div>
         </div>
 
-        <!-- Quick Focus Controls -->
-        <div style="margin-top: 20px; background: #2a2a2a; padding: 20px; border-radius: 8px;">
-            <h3>Quick Focus Test (with locked ROI)</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
-                <button onclick="captureAtPositionAndShowROI(0.0)" id="testBtn0">Test 0.0</button>
-                <button onclick="captureAtPositionAndShowROI(0.5)" id="testBtn1">Test 0.5</button>
-                <button onclick="captureAtPositionAndShowROI(1.0)" id="testBtn2">Test 1.0</button>
-                <button onclick="captureAtPositionAndShowROI(2.0)" id="testBtn3">Test 2.0</button>
-                <button onclick="captureAtPositionAndShowROI(3.0)" id="testBtn4">Test 3.0</button>
-                <button onclick="captureAtPositionAndShowROI(4.0)" id="testBtn5">Test 4.0</button>
-                <button onclick="captureAtPositionAndShowROI(5.0)" id="testBtn6">Test 5.0</button>
-                <button onclick="captureAtPositionAndShowROI(6.0)" id="testBtn7">Test 6.0</button>
-            </div>
-            <div style="margin-top: 15px; display: flex; gap: 10px;">
-                <input type="number" id="customFocusPosition" placeholder="Custom (0.0-6.5)" step="0.1" min="0" max="6.5" style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #444; background: #333; color: #f0f0f0;">
-                <button onclick="captureCustomFocusPosition()" style="flex: 0 0 auto;">Test Custom</button>
-            </div>
-        </div>
+        <div id="status2" class="status" style="display: none;"></div>
     </div>
 
-    <div id="modal" class="modal" onclick="closeModal()">
-        <img id="modalImage" src="" alt="Full size image">
+    <!-- Step 3: Focus Testing -->
+    <div id="step3">
+        <h2>Step 3: Find Optimal Focus</h2>
+        <p>Use coarse controls to get close, then fine-tune with arrows. Watch the ROI for maximum sharpness.</p>
+
+        <div class="focus-test-area">
+            <div class="roi-display">
+                <h3>ROI Live View (4x Zoom)</h3>
+                <canvas id="zoomCanvas" class="roi-zoom-canvas"></canvas>
+                <div class="lens-position-display" id="lensPositionDisplay">Lens Position: --</div>
+            </div>
+
+            <div class="focus-controls">
+                <h3>Focus Controls</h3>
+
+                <div class="coarse-controls">
+                    <h4 style="margin-bottom: 8px;">Coarse Adjust (Jump to position)</h4>
+                    <div class="coarse-buttons">
+                        <button onclick="jumpToPosition(0.0)">0.0</button>
+                        <button onclick="jumpToPosition(1.0)">1.0</button>
+                        <button onclick="jumpToPosition(2.0)">2.0</button>
+                        <button onclick="jumpToPosition(3.0)">3.0</button>
+                        <button onclick="jumpToPosition(4.0)">4.0</button>
+                        <button onclick="jumpToPosition(5.0)">5.0</button>
+                        <button onclick="jumpToPosition(6.0)">6.0</button>
+                        <button onclick="jumpToPosition(6.5)">6.5</button>
+                    </div>
+                </div>
+
+                <div class="fine-controls">
+                    <h4 style="margin-bottom: 8px;">Fine Adjust</h4>
+                    <div class="fine-adjust">
+                        <button class="arrow-btn" onclick="adjustFocus(-0.5)">◄◄</button>
+                        <button class="arrow-btn" onclick="adjustFocus(-0.1)">◄</button>
+                        <span class="current-position" id="currentPosition">--</span>
+                        <button class="arrow-btn" onclick="adjustFocus(0.1)">►</button>
+                        <button class="arrow-btn" onclick="adjustFocus(0.5)">►►</button>
+                    </div>
+                    <div class="step-size">◄ = -0.1 | ◄◄ = -0.5 | ► = +0.1 | ►► = +0.5</div>
+                </div>
+
+                <div class="reset-controls">
+                    <button onclick="resetWorkflow()">🔄 Start Over</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="status3" class="status" style="display: none;"></div>
     </div>
 
     <script>
         const API_BASE = '';  // Same origin
 
-        async function captureAtPosition(lensPosition) {
-            showStatus(`Capturing at lens position ${lensPosition}...`, 'info');
-            disableButtons(true);
+        let state = {
+            currentLensPosition: null,
+            roiImage: null,
+            isDrawing: false,
+            startX: 0,
+            startY: 0,
+            endX: 0,
+            endY: 0,
+            locked: false,
+            lockedBounds: null  // {x, y, width, height, scaleX, scaleY}
+        };
 
-            try {
-                const response = await fetch(`${API_BASE}/focus-test?lens_position=${lensPosition}`, {
-                    method: 'POST'
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const result = await response.json();
-                showStatus(`✓ Captured at lens position ${lensPosition}`, 'success');
-
-                // Reload images after a brief delay
-                setTimeout(loadImages, 500);
-            } catch (error) {
-                showStatus(`✗ Capture failed: ${error.message}`, 'error');
-            } finally {
-                disableButtons(false);
-            }
-        }
-
-        async function captureAutofocus() {
-            showStatus('Capturing with autofocus...', 'info');
-            disableButtons(true);
+        // Step 1: Initialize with auto capture
+        async function initialize() {
+            showStatus('status1', 'Capturing initial image with auto settings...', 'info');
+            disableButton('Initialize button', true);
 
             try {
                 const response = await fetch(`${API_BASE}/focus-test/auto`, {
@@ -311,263 +346,155 @@
                 }
 
                 const result = await response.json();
-                const detectedPos = result.lens_position ? result.lens_position.toFixed(2) : 'unknown';
-                showStatus(`✓ Autofocus captured - detected lens position: ${detectedPos}`, 'success');
+                state.currentLensPosition = result.lens_position || 3.0;
 
-                setTimeout(loadImages, 500);
+                showStatus('status1', `✓ Captured successfully (lens: ${state.currentLensPosition.toFixed(2)})`, 'success');
+
+                // Load the captured image
+                const imageUrl = `${API_BASE}/images/focus-test/${result.filename}`;
+                loadReferenceImage(imageUrl);
+
+                // Move to step 2
+                setTimeout(() => {
+                    document.getElementById('step1').style.display = 'none';
+                    document.getElementById('step2').style.display = 'block';
+                }, 500);
+
             } catch (error) {
-                showStatus(`✗ Autofocus capture failed: ${error.message}`, 'error');
-            } finally {
-                disableButtons(false);
+                showStatus('status1', `✗ Capture failed: ${error.message}`, 'error');
+                disableButton('Initialize button', false);
             }
         }
 
-        async function captureCustomPosition() {
-            const input = document.getElementById('customPosition');
-            const lensPosition = parseFloat(input.value);
-
-            if (isNaN(lensPosition) || lensPosition < 0 || lensPosition > 6.5) {
-                showStatus('✗ Please enter a valid lens position (0.0-6.5)', 'error');
-                return;
-            }
-
-            await captureAtPosition(lensPosition);
-        }
-
-        async function loadImages() {
-            try {
-                const response = await fetch(`${API_BASE}/focus-test/images`);
-                const data = await response.json();
-
-                const imagesDiv = document.getElementById('images');
-
-                if (data.images.length === 0) {
-                    imagesDiv.innerHTML = '<p style="color: #888;">No images captured yet. Click a button above to capture test images.</p>';
-                    return;
-                }
-
-                imagesDiv.innerHTML = data.images.map(img => {
-                    const isAuto = img.filename.includes('_auto_');
-                    const lensLabel = isAuto
-                        ? `<span class="auto-label">Auto (${img.lens_position !== null ? img.lens_position.toFixed(2) : '?'})</span>`
-                        : `Lens ${img.lens_position !== null ? img.lens_position.toFixed(1) : '?'}`;
-
-                    const timestamp = new Date(img.modified).toLocaleString();
-
-                    return `
-                        <div class="image-card">
-                            <img src="${API_BASE}${img.url}" alt="${img.filename}"
-                                 onclick="loadImageForROI('${API_BASE}${img.url}', '${lensLabel}')"
-                                 ondblclick="openModal('${API_BASE}${img.url}')">
-                            <div class="image-info">
-                                <div class="lens-position">${lensLabel}</div>
-                                <div class="timestamp">${timestamp}</div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            } catch (error) {
-                console.error('Failed to load images:', error);
-                showStatus(`✗ Failed to load images: ${error.message}`, 'error');
-            }
-        }
-
-        function showStatus(message, type) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.textContent = message;
-            statusDiv.className = `status ${type}`;
-            statusDiv.style.display = 'block';
-        }
-
-        function disableButtons(disabled) {
+        function disableButton(label, disabled) {
+            // Simplified button disabling
             document.querySelectorAll('button').forEach(btn => {
-                btn.disabled = disabled;
+                if (label === 'Initialize button' && btn.textContent.includes('Initialize')) {
+                    btn.disabled = disabled;
+                }
             });
         }
 
-        function openModal(imageSrc) {
-            const modal = document.getElementById('modal');
-            const modalImage = document.getElementById('modalImage');
-            modalImage.src = imageSrc;
-            modal.classList.add('show');
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('modal');
-            modal.classList.remove('show');
-        }
-
-        // ROI Selection and Zoom functionality
-        let roiState = {
-            image: null,
-            isDrawing: false,
-            startX: 0,
-            startY: 0,
-            endX: 0,
-            endY: 0,
-            locked: false,
-            lockedBounds: null  // {x, y, width, height, scaleX, scaleY}
-        };
-
-        function loadImageForROI(imageSrc, lensLabel) {
+        // Step 2: Load reference image and set up ROI selection
+        function loadReferenceImage(imageUrl) {
             const roiImage = document.getElementById('roiImage');
-            const roiContainer = document.getElementById('roiContainer');
-            const canvas = document.getElementById('roiCanvas');
+            const roiCanvas = document.getElementById('roiCanvas');
 
-            // Load the image
             roiImage.onload = function() {
-                // Show container
-                roiContainer.style.display = 'block';
+                // Set canvas to match image display dimensions
+                roiCanvas.width = roiImage.width;
+                roiCanvas.height = roiImage.height;
+                roiCanvas.style.width = roiImage.width + 'px';
+                roiCanvas.style.height = roiImage.height + 'px';
 
-                // Set canvas to match image dimensions
-                canvas.width = roiImage.width;
-                canvas.height = roiImage.height;
+                state.roiImage = roiImage;
 
-                // Position canvas over image
-                canvas.style.width = roiImage.width + 'px';
-                canvas.style.height = roiImage.height + 'px';
-
-                // Store the image for cropping
-                roiState.image = roiImage;
-
-                // Clear any previous selection
-                clearROI();
-
-                showStatus(`✓ Loaded ${lensLabel} - Click and drag to select mountain peaks for zoom`, 'success');
-
-                // Scroll to ROI inspector
-                document.getElementById('roiInspector').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                showStatus('status2', '✓ Image loaded - Draw a rectangle on the mountain peaks', 'success');
             };
 
-            roiImage.src = imageSrc;
+            roiImage.src = imageUrl;
         }
 
-        function clearROI() {
-            const canvas = document.getElementById('roiCanvas');
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            document.getElementById('roiZoom').style.display = 'none';
-
-            roiState.isDrawing = false;
-            roiState.startX = 0;
-            roiState.startY = 0;
-            roiState.endX = 0;
-            roiState.endY = 0;
-        }
-
-        // Set up canvas event listeners
+        // ROI Selection - Canvas event handlers
         const roiCanvas = document.getElementById('roiCanvas');
 
         roiCanvas.addEventListener('mousedown', (e) => {
+            if (state.locked) return;
+
             const rect = roiCanvas.getBoundingClientRect();
-            roiState.isDrawing = true;
-            roiState.startX = e.clientX - rect.left;
-            roiState.startY = e.clientY - rect.top;
+            state.isDrawing = true;
+            state.startX = e.clientX - rect.left;
+            state.startY = e.clientY - rect.top;
         });
 
         roiCanvas.addEventListener('mousemove', (e) => {
-            if (!roiState.isDrawing) return;
+            if (!state.isDrawing || state.locked) return;
 
             const rect = roiCanvas.getBoundingClientRect();
             const ctx = roiCanvas.getContext('2d');
 
-            roiState.endX = e.clientX - rect.left;
-            roiState.endY = e.clientY - rect.top;
+            state.endX = e.clientX - rect.left;
+            state.endY = e.clientY - rect.top;
 
             // Clear and redraw selection rectangle
             ctx.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
             ctx.strokeStyle = '#4a9eff';
             ctx.lineWidth = 2;
             ctx.strokeRect(
-                roiState.startX,
-                roiState.startY,
-                roiState.endX - roiState.startX,
-                roiState.endY - roiState.startY
+                state.startX,
+                state.startY,
+                state.endX - state.startX,
+                state.endY - state.startY
             );
         });
 
         roiCanvas.addEventListener('mouseup', (e) => {
-            if (!roiState.isDrawing || roiState.locked) return;
+            if (!state.isDrawing || state.locked) return;
 
-            roiState.isDrawing = false;
+            state.isDrawing = false;
 
             const rect = roiCanvas.getBoundingClientRect();
-            roiState.endX = e.clientX - rect.left;
-            roiState.endY = e.clientY - rect.top;
+            state.endX = e.clientX - rect.left;
+            state.endY = e.clientY - rect.top;
 
-            // Enable lock button
+            // Enable lock button and show preview
             document.getElementById('lockButton').disabled = false;
-
-            // Draw zoomed region
-            drawZoomedRegion();
+            drawPreview();
         });
 
-        function drawZoomedRegion() {
-            if (!roiState.image) return;
+        function drawPreview() {
+            if (!state.roiImage) return;
 
-            // Calculate selection bounds
-            const x = Math.min(roiState.startX, roiState.endX);
-            const y = Math.min(roiState.startY, roiState.endY);
-            const width = Math.abs(roiState.endX - roiState.startX);
-            const height = Math.abs(roiState.endY - roiState.startY);
+            const x = Math.min(state.startX, state.endX);
+            const y = Math.min(state.startY, state.endY);
+            const width = Math.abs(state.endX - state.startX);
+            const height = Math.abs(state.endY - state.startY);
 
             if (width < 10 || height < 10) {
-                showStatus('✗ Selection too small - drag a larger region', 'error');
+                showStatus('status2', '✗ Selection too small - drag a larger region', 'error');
                 return;
             }
 
-            // Get the actual image dimensions vs display dimensions
-            const scaleX = roiState.image.naturalWidth / roiState.image.width;
-            const scaleY = roiState.image.naturalHeight / roiState.image.height;
+            const scaleX = state.roiImage.naturalWidth / state.roiImage.width;
+            const scaleY = state.roiImage.naturalHeight / state.roiImage.height;
 
-            // Calculate source coordinates in the original image
             const srcX = x * scaleX;
             const srcY = y * scaleY;
             const srcWidth = width * scaleX;
             const srcHeight = height * scaleY;
 
-            // Set up zoom canvas
-            const zoomCanvas = document.getElementById('zoomCanvas');
-            const ZOOM_FACTOR = 2; // 2x magnification
-            zoomCanvas.width = width * ZOOM_FACTOR;
-            zoomCanvas.height = height * ZOOM_FACTOR;
+            const previewCanvas = document.getElementById('previewCanvas');
+            previewCanvas.width = width * 2;
+            previewCanvas.height = height * 2;
 
-            const zoomCtx = zoomCanvas.getContext('2d');
-
-            // Draw the cropped and zoomed region
-            zoomCtx.drawImage(
-                roiState.image,
-                srcX, srcY, srcWidth, srcHeight,  // Source rectangle
-                0, 0, zoomCanvas.width, zoomCanvas.height  // Destination rectangle
+            const ctx = previewCanvas.getContext('2d');
+            ctx.drawImage(
+                state.roiImage,
+                srcX, srcY, srcWidth, srcHeight,
+                0, 0, previewCanvas.width, previewCanvas.height
             );
 
-            // Show zoom container
-            document.getElementById('roiZoom').style.display = 'block';
-
-            showStatus(`✓ Zoomed ${width}x${height}px region at ${ZOOM_FACTOR}x magnification`, 'success');
+            document.getElementById('roiStatus').textContent = `Selection: ${width}×${height}px`;
         }
 
-        // Lock/Unlock ROI functions
         function lockROI() {
-            if (!roiState.image) return;
+            if (!state.roiImage) return;
 
-            // Calculate and save ROI bounds
-            const x = Math.min(roiState.startX, roiState.endX);
-            const y = Math.min(roiState.startY, roiState.endY);
-            const width = Math.abs(roiState.endX - roiState.startX);
-            const height = Math.abs(roiState.endY - roiState.startY);
+            const x = Math.min(state.startX, state.endX);
+            const y = Math.min(state.startY, state.endY);
+            const width = Math.abs(state.endX - state.startX);
+            const height = Math.abs(state.endY - state.startY);
 
             if (width < 10 || height < 10) {
-                showStatus('✗ ROI too small to lock', 'error');
+                showStatus('status2', '✗ ROI too small to lock', 'error');
                 return;
             }
 
-            const scaleX = roiState.image.naturalWidth / roiState.image.width;
-            const scaleY = roiState.image.naturalHeight / roiState.image.height;
+            const scaleX = state.roiImage.naturalWidth / state.roiImage.width;
+            const scaleY = state.roiImage.naturalHeight / state.roiImage.height;
 
-            roiState.locked = true;
-            roiState.lockedBounds = {
+            state.locked = true;
+            state.lockedBounds = {
                 x: x,
                 y: y,
                 width: width,
@@ -576,53 +503,64 @@
                 scaleY: scaleY
             };
 
-            // Update UI
             document.getElementById('lockButton').disabled = true;
-            document.getElementById('unlockButton').disabled = false;
             document.getElementById('roiStatus').textContent = `🔒 Locked (${width}×${height}px)`;
-            document.getElementById('roiPlaceholder').style.display = 'none';
 
-            // Disable test buttons during lock
-            for (let i = 0; i < 8; i++) {
-                document.getElementById(`testBtn${i}`).disabled = false;
-            }
+            showStatus('status2', '✓ ROI locked! Moving to focus testing...', 'success');
 
-            showStatus('✓ ROI locked - Now test different focus positions', 'success');
+            // Move to step 3
+            setTimeout(() => {
+                document.getElementById('step2').style.display = 'none';
+                document.getElementById('step3').style.display = 'block';
+
+                // Display the locked ROI from the reference image
+                displayROI(state.roiImage, state.currentLensPosition);
+            }, 800);
         }
 
-        function unlockROI() {
-            roiState.locked = false;
-            roiState.lockedBounds = null;
+        // Step 3: Focus testing
+        function displayROI(image, lensPosition) {
+            if (!state.lockedBounds) return;
 
-            // Clear canvas
-            const canvas = document.getElementById('roiCanvas');
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const bounds = state.lockedBounds;
+            const srcX = bounds.x * bounds.scaleX;
+            const srcY = bounds.y * bounds.scaleY;
+            const srcWidth = bounds.width * bounds.scaleX;
+            const srcHeight = bounds.height * bounds.scaleY;
 
-            // Update UI
-            document.getElementById('lockButton').disabled = false;
-            document.getElementById('unlockButton').disabled = true;
-            document.getElementById('roiStatus').textContent = '';
-            document.getElementById('roiZoom').style.display = 'none';
-            document.getElementById('roiPlaceholder').style.display = 'block';
+            const zoomCanvas = document.getElementById('zoomCanvas');
+            const ZOOM_FACTOR = 4;  // 4x magnification for better detail
+            zoomCanvas.width = bounds.width * ZOOM_FACTOR;
+            zoomCanvas.height = bounds.height * ZOOM_FACTOR;
 
-            // Disable test buttons
-            for (let i = 0; i < 8; i++) {
-                document.getElementById(`testBtn${i}`).disabled = true;
-            }
+            const ctx = zoomCanvas.getContext('2d');
+            ctx.drawImage(
+                image,
+                srcX, srcY, srcWidth, srcHeight,
+                0, 0, zoomCanvas.width, zoomCanvas.height
+            );
 
-            showStatus('✓ ROI unlocked - Draw a new selection', 'success');
+            document.getElementById('lensPositionDisplay').textContent = `Lens Position: ${lensPosition.toFixed(2)}`;
+            document.getElementById('currentPosition').textContent = lensPosition.toFixed(1);
         }
 
-        // Capture with locked ROI and auto-display
-        async function captureAtPositionAndShowROI(lensPosition) {
-            if (!roiState.locked) {
-                showStatus('✗ Please lock an ROI first', 'error');
-                return;
+        async function jumpToPosition(lensPosition) {
+            await captureAndDisplayROI(lensPosition);
+        }
+
+        async function adjustFocus(delta) {
+            if (state.currentLensPosition === null) {
+                state.currentLensPosition = 3.0;
             }
 
-            showStatus(`Capturing at lens position ${lensPosition}...`, 'info');
-            disableButtons(true);
+            let newPosition = state.currentLensPosition + delta;
+            newPosition = Math.max(0, Math.min(6.5, newPosition));  // Clamp to valid range
+
+            await captureAndDisplayROI(newPosition);
+        }
+
+        async function captureAndDisplayROI(lensPosition) {
+            showStatus('status3', `Capturing at lens position ${lensPosition.toFixed(2)}...`, 'info');
 
             try {
                 const response = await fetch(`${API_BASE}/focus-test?lens_position=${lensPosition}`, {
@@ -634,72 +572,57 @@
                 }
 
                 const result = await response.json();
+                state.currentLensPosition = lensPosition;
 
-                // Load the new image and extract the locked ROI
+                // Load the new image and display ROI
                 const newImage = new Image();
                 newImage.onload = function() {
-                    displayLockedROI(newImage, lensPosition);
-                    showStatus(`✓ Captured at ${lensPosition}`, 'success');
+                    displayROI(newImage, lensPosition);
+                    showStatus('status3', `✓ Captured at ${lensPosition.toFixed(2)}`, 'success');
                 };
                 newImage.src = `${API_BASE}/images/focus-test/${result.filename}`;
 
             } catch (error) {
-                showStatus(`✗ Capture failed: ${error.message}`, 'error');
-            } finally {
-                disableButtons(false);
+                showStatus('status3', `✗ Capture failed: ${error.message}`, 'error');
             }
         }
 
-        async function captureCustomFocusPosition() {
-            const input = document.getElementById('customFocusPosition');
-            const lensPosition = parseFloat(input.value);
+        function resetWorkflow() {
+            // Reset state
+            state = {
+                currentLensPosition: null,
+                roiImage: null,
+                isDrawing: false,
+                startX: 0,
+                startY: 0,
+                endX: 0,
+                endY: 0,
+                locked: false,
+                lockedBounds: null
+            };
 
-            if (isNaN(lensPosition) || lensPosition < 0 || lensPosition > 6.5) {
-                showStatus('✗ Please enter a valid lens position (0.0-6.5)', 'error');
-                return;
-            }
+            // Clear canvases
+            const roiCanvas = document.getElementById('roiCanvas');
+            const ctx = roiCanvas.getContext('2d');
+            ctx.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
 
-            await captureAtPositionAndShowROI(lensPosition);
+            // Reset UI
+            document.getElementById('step3').style.display = 'none';
+            document.getElementById('step2').style.display = 'none';
+            document.getElementById('step1').style.display = 'block';
+
+            showStatus('status1', 'Ready to start over', 'info');
+            setTimeout(() => {
+                document.getElementById('status1').style.display = 'none';
+            }, 2000);
         }
 
-        function displayLockedROI(image, lensPosition) {
-            if (!roiState.lockedBounds) return;
-
-            const bounds = roiState.lockedBounds;
-
-            // Calculate source coordinates using locked scale factors
-            const srcX = bounds.x * bounds.scaleX;
-            const srcY = bounds.y * bounds.scaleY;
-            const srcWidth = bounds.width * bounds.scaleX;
-            const srcHeight = bounds.height * bounds.scaleY;
-
-            // Set up zoom canvas
-            const zoomCanvas = document.getElementById('zoomCanvas');
-            const ZOOM_FACTOR = 2;
-            zoomCanvas.width = bounds.width * ZOOM_FACTOR;
-            zoomCanvas.height = bounds.height * ZOOM_FACTOR;
-
-            const zoomCtx = zoomCanvas.getContext('2d');
-
-            // Draw the cropped and zoomed region
-            zoomCtx.drawImage(
-                image,
-                srcX, srcY, srcWidth, srcHeight,  // Source rectangle
-                0, 0, zoomCanvas.width, zoomCanvas.height  // Destination rectangle
-            );
-
-            // Show zoom container
-            document.getElementById('roiZoom').style.display = 'block';
-            document.getElementById('currentLensPos').textContent = `Lens Position: ${lensPosition.toFixed(1)}`;
+        function showStatus(elementId, message, type) {
+            const statusDiv = document.getElementById(elementId);
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
         }
-
-        // Initialize buttons as disabled
-        for (let i = 0; i < 8; i++) {
-            document.getElementById(`testBtn${i}`).disabled = true;
-        }
-
-        // Load images on page load
-        loadImages();
     </script>
 </body>
 </html>
