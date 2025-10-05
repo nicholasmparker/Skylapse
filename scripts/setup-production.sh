@@ -15,8 +15,17 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    echo "❌ Docker Compose is not installed. Please install Docker Compose first."
+# Detect which docker compose command is available
+# Prefer "docker compose" (plugin) over "docker-compose" (standalone)
+if docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+    echo "✓ Using docker compose (plugin)"
+elif command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+    echo "✓ Using docker-compose (standalone)"
+else
+    echo "❌ Docker Compose is not installed."
+    echo "   Install with: sudo apt-get install docker-compose-plugin"
     exit 1
 fi
 
@@ -243,12 +252,12 @@ read -p "Press Enter to continue after setting up SSH access..." </dev/tty
 # Pull images
 echo ""
 echo "📦 Pulling Docker images..."
-docker-compose -f docker-compose.prod.yml pull
+$DOCKER_COMPOSE -f docker-compose.prod.yml pull
 
 # Start services
 echo ""
 echo "🚀 Starting services..."
-docker-compose -f docker-compose.prod.yml up -d
+$DOCKER_COMPOSE -f docker-compose.prod.yml up -d
 
 echo ""
 echo "✅ Skylapse is now running!"
@@ -262,11 +271,11 @@ echo ""
 echo "📝 Next steps:"
 echo "  1. Edit backend/config.json to configure schedules"
 echo "  2. Update location in backend/config.json"
-echo "  3. Restart backend: docker-compose -f docker-compose.prod.yml restart backend"
+echo "  3. Restart backend: docker compose -f docker-compose.prod.yml restart backend"
 echo ""
 echo "📋 Useful commands:"
-echo "  View logs:    docker-compose -f docker-compose.prod.yml logs -f"
-echo "  Stop:         docker-compose -f docker-compose.prod.yml down"
-echo "  Update:       docker-compose -f docker-compose.prod.yml pull && docker-compose -f docker-compose.prod.yml up -d"
+echo "  View logs:    docker compose -f docker-compose.prod.yml logs -f"
+echo "  Stop:         docker compose -f docker-compose.prod.yml down"
+echo "  Update:       docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d"
 echo ""
 echo "📖 Full documentation: https://github.com/nicholasmparker/skylapse"
