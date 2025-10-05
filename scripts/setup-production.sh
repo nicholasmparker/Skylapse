@@ -175,7 +175,7 @@ cat > backend/config.json <<'EOF'
 {
   "schedules": {
     "golden_hour": {
-      "type": "relative_solar",
+      "type": "solar_relative",
       "events": ["sunrise", "sunset"],
       "offset_minutes": [-60, -60],
       "duration_minutes": 120,
