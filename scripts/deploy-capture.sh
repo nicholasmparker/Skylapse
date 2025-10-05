@@ -3,16 +3,17 @@
 # Deploy capture service to Raspberry Pi
 #
 # Usage:
-#   ./scripts/deploy-capture.sh [pi_host]
+#   ./scripts/deploy-capture.sh [pi_host] [pi_user] [primary_backend]
 #
 # Example:
-#   ./scripts/deploy-capture.sh helios.local
+#   ./scripts/deploy-capture.sh helios.local nicholasmparker http://192.168.0.149:8082
 #
 
 set -e
 
 PI_HOST="${1:-helios.local}"
 PI_USER="${2:-nicholasmparker}"  # Updated: actual username is nicholasmparker
+PRIMARY_BACKEND="${3:-}"  # Optional: PRIMARY_BACKEND URL
 REMOTE_DIR="/home/${PI_USER}/skylapse-capture"
 
 echo "🚀 Deploying Skylapse Capture to ${PI_HOST}..."
@@ -91,7 +92,13 @@ ssh "${PI_USER}@${PI_HOST}" "sudo systemctl stop skylapse-capture || true"
 
 # Create systemd service
 echo "📝 Creating systemd service..."
-ssh "${PI_USER}@${PI_HOST}" "sudo tee /etc/systemd/system/skylapse-capture.service > /dev/null << 'EOF'
+ENV_LINE=""
+if [ -n "${PRIMARY_BACKEND}" ]; then
+    ENV_LINE="Environment=\"PRIMARY_BACKEND=${PRIMARY_BACKEND}\""
+    echo "   Setting PRIMARY_BACKEND=${PRIMARY_BACKEND}"
+fi
+
+ssh "${PI_USER}@${PI_HOST}" "sudo tee /etc/systemd/system/skylapse-capture.service > /dev/null << EOF
 [Unit]
 Description=Skylapse Capture Service
 After=network.target
@@ -101,6 +108,7 @@ Type=simple
 User=${PI_USER}
 WorkingDirectory=${REMOTE_DIR}
 Environment=\"PYTHONUNBUFFERED=1\"
+${ENV_LINE}
 ExecStart=${REMOTE_DIR}/venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8080
 Restart=always
 RestartSec=10

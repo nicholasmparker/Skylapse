@@ -174,20 +174,37 @@ echo "📝 Creating backend/config.json..."
 cat > backend/config.json <<'EOF'
 {
   "schedules": {
-    "golden_hour": {
+    "sunrise": {
       "enabled": true,
       "type": "solar_relative",
       "anchor": "sunrise",
-      "offset_minutes": -60,
-      "duration_minutes": 120,
-      "interval_seconds": 30,
+      "offset_minutes": -30,
+      "duration_minutes": 60,
+      "interval_seconds": 5,
       "profile": "D"
+    },
+    "sunset": {
+      "enabled": true,
+      "type": "solar_relative",
+      "anchor": "sunset",
+      "offset_minutes": -30,
+      "duration_minutes": 60,
+      "interval_seconds": 5,
+      "profile": "D"
+    },
+    "all_day": {
+      "enabled": true,
+      "type": "time_of_day",
+      "start_time": "06:30",
+      "end_time": "21:30",
+      "interval_seconds": 5,
+      "profile": "A"
     }
   },
   "location": {
-    "latitude": 37.7749,
-    "longitude": -122.4194,
-    "timezone": "America/Los_Angeles"
+    "latitude": 39.6333,
+    "longitude": -105.3167,
+    "timezone": "America/Denver"
   },
   "pi": {
     "host": "192.168.0.124",

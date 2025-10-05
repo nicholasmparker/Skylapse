@@ -427,13 +427,15 @@ async def should_capture_now(
         if seconds_since_last < interval:
             return False  # Too soon since last capture
 
-    # Check schedule type and time window
-    if ScheduleType.is_solar(schedule_name):
+    # Check schedule type and time window using the "type" field
+    schedule_type = schedule_config.get("type")
+
+    if schedule_type == "solar_relative":
         # Solar-based schedule
         window = solar_calc.get_schedule_window(schedule_config, current_time)
         return window["start"] <= current_time <= window["end"]
 
-    elif schedule_name == ScheduleType.DAYTIME:
+    elif schedule_type == "time_of_day":
         # Time-of-day schedule
         start_time, end_time = parse_time_range(schedule_config, schedule_name)
 
