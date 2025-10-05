@@ -289,7 +289,7 @@ class ExposureCalculator:
         Apply profile-specific modifications to base settings.
 
         Profile A: Auto WB (AwbMode=0), no HDR
-        Profile B: Daylight WB (AwbMode=1), no HDR
+        Profile B: Ultra-Vibrant Warm WB + Maximum Sharpness/Saturation (2.0/1.3/1.2)
         Profile C: Underexposed Daylight WB, highlight protection
         Profile D: Cloudy WB (AwbMode=2), natural sunset colors
         Profile E: EXPERIMENTAL Adaptive WB ramping (lux + time based)
@@ -326,11 +326,28 @@ class ExposureCalculator:
             )
 
         elif profile == "b":
-            # Profile B: Fixed Daylight WB
-            settings["awb_mode"] = 1  # Daylight white balance
+            # Profile B: EXPERIMENTAL Ultra-Vibrant Warm WB + Maximum Sharpness/Saturation
+            # Embraces dramatic warm tones with boosted saturation and sharpness
+            # More aggressive than Profile G for bold, vibrant timelapses
+            # Manual focus optimized for distant mountain peaks
+            wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="warm")
+            settings["awb_mode"] = 6  # Custom WB
+            settings["wb_temp"] = wb_temp  # Warm color temperature
             settings["hdr_mode"] = 0  # No HDR
             settings["bracket_count"] = 1  # Single shot
-            logger.debug(f"Profile B (Daylight WB): {settings}")
+
+            # Focus for landscapes
+            settings["af_mode"] = 0  # Manual focus
+            settings["lens_position"] = 2.45  # Optimal focus for distant landscapes
+
+            # Ultra-vibrant landscape enhancements
+            settings["sharpness"] = 2.0  # Maximum edge definition (vs 1.5 in G)
+            settings["contrast"] = 1.3  # Strong contrast (vs 1.15 in G)
+            settings["saturation"] = 1.2  # Boosted color intensity (vs 1.05 in G)
+
+            logger.info(
+                f"🎨 Profile B (Ultra-Vibrant + Sharp): WB={wb_temp}K, Saturation=1.2, Sharpness=2.0"
+            )
 
         elif profile == "c":
             # Profile C: EXPERIMENTAL Conservative adaptive curve
