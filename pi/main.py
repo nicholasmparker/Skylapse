@@ -461,14 +461,19 @@ async def capture_photo(settings: CaptureSettings):
                 # Single shot capture
                 image_path = str(output_dir / f"capture_{timestamp}.jpg")
 
-                # Check if using auto mode (ISO=0 means full auto)
+                # === STEP 1: Start with clean defaults ===
+                controls = {
+                    "Sharpness": 1.0,
+                    "Contrast": 1.0,
+                    "Saturation": 1.0,
+                }
+
+                # === STEP 2: Add mode-specific settings ===
                 if settings.iso == 0:
-                    # Full auto mode - let camera decide everything
-                    controls = {
-                        "AwbMode": settings.awb_mode,  # Still respect WB setting
-                        "AeEnable": True,  # Enable auto-exposure
-                        "ExposureValue": settings.exposure_compensation,  # EV comp even in auto
-                    }
+                    # Full auto mode - camera decides exposure
+                    controls["AwbMode"] = settings.awb_mode
+                    controls["AeEnable"] = True
+                    controls["ExposureValue"] = settings.exposure_compensation
 
                     # Add metering mode if specified
                     if settings.ae_metering_mode is not None:
@@ -485,11 +490,9 @@ async def capture_photo(settings: CaptureSettings):
                 else:
                     # Manual exposure mode
                     shutter_us = parse_shutter_speed(settings.shutter_speed)
-                    controls = {
-                        "ExposureTime": shutter_us,
-                        "AnalogueGain": settings.iso / 100.0,
-                        "AwbMode": settings.awb_mode,
-                    }
+                    controls["ExposureTime"] = shutter_us
+                    controls["AnalogueGain"] = settings.iso / 100.0
+                    controls["AwbMode"] = settings.awb_mode
 
                     # Add custom WB temperature if using custom mode (awb_mode=6)
                     if settings.awb_mode == 6 and settings.wb_temp:
@@ -504,7 +507,15 @@ async def capture_photo(settings: CaptureSettings):
                     if settings.exposure_compensation != 0.0:
                         controls["ExposureValue"] = settings.exposure_compensation
 
-                # Apply focus controls (works for both auto and manual exposure)
+                # === STEP 3: Apply profile overrides for enhancement ===
+                if settings.sharpness is not None:
+                    controls["Sharpness"] = settings.sharpness
+                if settings.contrast is not None:
+                    controls["Contrast"] = settings.contrast
+                if settings.saturation is not None:
+                    controls["Saturation"] = settings.saturation
+
+                # === STEP 4: Apply focus controls (both modes) ===
                 if settings.af_mode is not None:
                     controls["AfMode"] = settings.af_mode
                     if settings.af_mode == 0 and settings.lens_position is not None:
@@ -529,12 +540,7 @@ async def capture_photo(settings: CaptureSettings):
                     )
                     logger.info(f"🔍 Manual focus: {focus_desc}")
 
-                # Apply image enhancement (always set to ensure clean state)
-                # Default to 1.0 if not specified (camera defaults)
-                controls["Sharpness"] = settings.sharpness if settings.sharpness is not None else 1.0
-                controls["Contrast"] = settings.contrast if settings.contrast is not None else 1.0
-                controls["Saturation"] = settings.saturation if settings.saturation is not None else 1.0
-
+                # === STEP 5: Apply controls and capture ===
                 camera.set_controls(controls)
                 camera.capture_file(image_path)
                 logger.info(f"✓ Capture complete: {image_path}")
