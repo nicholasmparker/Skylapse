@@ -529,13 +529,11 @@ async def capture_photo(settings: CaptureSettings):
                     )
                     logger.info(f"🔍 Manual focus: {focus_desc}")
 
-                # Apply image enhancement if specified
-                if settings.sharpness is not None:
-                    controls["Sharpness"] = settings.sharpness
-                if settings.contrast is not None:
-                    controls["Contrast"] = settings.contrast
-                if settings.saturation is not None:
-                    controls["Saturation"] = settings.saturation
+                # Apply image enhancement (always set to ensure clean state)
+                # Default to 1.0 if not specified (camera defaults)
+                controls["Sharpness"] = settings.sharpness if settings.sharpness is not None else 1.0
+                controls["Contrast"] = settings.contrast if settings.contrast is not None else 1.0
+                controls["Saturation"] = settings.saturation if settings.saturation is not None else 1.0
 
                 camera.set_controls(controls)
                 camera.capture_file(image_path)
