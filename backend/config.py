@@ -10,7 +10,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +183,33 @@ class Config:
     def get_pi_config(self) -> Dict[str, Any]:
         """Get Raspberry Pi configuration"""
         return self.config["pi"]
+
+    def get_profiles(self) -> Dict[str, Any]:
+        """Get all profile definitions"""
+        return self.config.get("profiles", {})
+
+    def get_profile(self, profile_id: str) -> Dict[str, Any]:
+        """Get a specific profile definition"""
+        return self.config.get("profiles", {}).get(profile_id, {})
+
+    def get_active_profiles(self) -> List[str]:
+        """Get list of enabled profile IDs"""
+        profiles = self.config.get("profiles", {})
+        return [pid for pid, pdata in profiles.items() if pdata.get("enabled", True)]
+
+    def get_schedule_profiles(self, schedule_name: str) -> List[str]:
+        """
+        Get profiles for a specific schedule.
+        Falls back to all active profiles if schedule doesn't specify profiles.
+        """
+        schedule = self.get_schedule(schedule_name)
+        profiles = schedule.get("profiles", [])
+
+        # If schedule doesn't specify profiles, use all active profiles
+        if not profiles:
+            profiles = self.get_active_profiles()
+
+        return profiles
 
 
 # Example usage

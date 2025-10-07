@@ -154,13 +154,6 @@ async def scheduler_loop(app: FastAPI):
     # Track last timelapse generation per schedule (in-memory for session, reset on restart)
     last_timelapse_dates = {}  # Prevents duplicate timelapse jobs within same backend session
 
-    # Production profiles for sunset/sunrise timelapses
-    # A: Pure auto baseline
-    # B: Ultra-vibrant warm WB with maximum sharpness/saturation
-    # D: Warm WB with manual focus for landscapes
-    # G: Adaptive EV (prevents overexposure)
-    profiles = ["a", "b", "d", "g"]
-
     while True:
         try:
             # Get current time in local timezone
@@ -171,8 +164,11 @@ async def scheduler_loop(app: FastAPI):
             schedules = config.config.get("schedules", {})
 
             for schedule_name, schedule_config in schedules.items():
+                # Get profiles for this specific schedule from config
+                schedule_profiles = config.get_schedule_profiles(schedule_name)
+
                 logger.info(
-                    f"🔍 Checking schedule: {schedule_name}, enabled={schedule_config.get('enabled', True)}"
+                    f"🔍 Checking schedule: {schedule_name}, enabled={schedule_config.get('enabled', True)}, profiles={schedule_profiles}"
                 )
 
                 if not schedule_config.get("enabled", True):
@@ -207,7 +203,10 @@ async def scheduler_loop(app: FastAPI):
 
                 # Check if schedule just transitioned from active to inactive
                 # We check the first profile as representative (all profiles share same schedule)
-                was_active = db.get_was_active(profiles[0], date_str, schedule_name)
+                if schedule_profiles:
+                    was_active = db.get_was_active(schedule_profiles[0], date_str, schedule_name)
+                else:
+                    was_active = False
 
                 if was_active and not is_active:
                     # Schedule ended - mark sessions complete and enqueue timelapse jobs
@@ -219,7 +218,7 @@ async def scheduler_loop(app: FastAPI):
                             f"- marking sessions complete and generating timelapses"
                         )
 
-                        for profile in profiles:
+                        for profile in schedule_profiles:
                             # Construct session_id (matches format from get_or_create_session)
                             session_id = f"{profile}_{date_str.replace('-', '')}_{schedule_name}"
 
@@ -242,7 +241,7 @@ async def scheduler_loop(app: FastAPI):
 
                 # Update was_active state in database for all profiles
                 # This persists the state across backend restarts
-                for profile in profiles:
+                for profile in schedule_profiles:
                     db.update_was_active(profile, date_str, schedule_name, is_active)
 
                 should_capture = await should_capture_now(
@@ -250,12 +249,12 @@ async def scheduler_loop(app: FastAPI):
                 )
 
                 if should_capture:
-                    # Capture ALL profiles in rapid sequence
-                    logger.info(f"📸 Triggering capture burst for {schedule_name} - all 7 profiles")
+                    # Capture all configured profiles in rapid sequence
+                    logger.info(f"📸 Triggering capture burst for {schedule_name} - {len(schedule_profiles)} profiles: {schedule_profiles}")
 
                     date_str = current_time.strftime("%Y-%m-%d")
 
-                    for profile in profiles:
+                    for profile in schedule_profiles:
                         # Get or create session for this profile/date/schedule
                         session_id = db.get_or_create_session(profile, date_str, schedule_name)
 
@@ -750,16 +749,8 @@ async def get_all_profiles(request: Request):
     config = request.app.state.config
     pi_host = config.get("pi.host")
 
-    # Profile descriptions
-    descriptions = {
-        "a": "Pure Auto (No Bias)",
-        "b": "Daylight WB Fixed",
-        "c": "Conservative Adaptive",
-        "d": "Warm Dramatic",
-        "e": "Balanced Adaptive",
-        "f": "Spot Metering (Mountains)",
-        "g": "Adaptive EV + Balanced WB",
-    }
+    # Get all profile definitions from config
+    all_profiles_config = config.get_profiles()
 
     profiles = []
     url_builder = get_url_builder()
@@ -767,7 +758,7 @@ async def get_all_profiles(request: Request):
 
     # Use database to get latest capture for each profile (FAST!)
     with db._get_connection() as conn:
-        for profile in ["a", "b", "c", "d", "e", "f", "g"]:
+        for profile_id, profile_data in all_profiles_config.items():
             # Query database for latest capture and total count
             # Profile is encoded in session_id (e.g., "d_20251002_daytime")
             latest = conn.execute(
@@ -779,7 +770,7 @@ async def get_all_profiles(request: Request):
                 ORDER BY c.timestamp DESC
                 LIMIT 1
                 """,
-                (profile,),
+                (profile_id,),
             ).fetchone()
 
             count = conn.execute(
@@ -789,8 +780,11 @@ async def get_all_profiles(request: Request):
                 JOIN sessions s ON c.session_id = s.session_id
                 WHERE s.profile = ?
                 """,
-                (profile,),
+                (profile_id,),
             ).fetchone()
+
+            # Get description from config, with fallback
+            description = profile_data.get("name", f"Profile {profile_id.upper()}")
 
             if latest:
                 # Extract just the filename from the full path
@@ -804,9 +798,9 @@ async def get_all_profiles(request: Request):
 
                 profiles.append(
                     {
-                        "profile": profile,
-                        "description": descriptions[profile],
-                        "image_url": url_builder.image(profile, filename, source="backend"),
+                        "profile": profile_id,
+                        "description": description,
+                        "image_url": url_builder.image(profile_id, filename, source="backend"),
                         "timestamp": timestamp_ms,
                         "image_count": count["count"] if count else 0,
                     }

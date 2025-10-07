@@ -280,153 +280,73 @@ class ExposureCalculator:
         schedule_type: str = None,
     ) -> Dict[str, Any]:
         """
-        Apply profile-specific modifications to base settings.
+        Apply profile-specific modifications using config data.
 
-        Profile A: Auto WB (AwbMode=0), no HDR
-        Profile B: Ultra-Vibrant Warm WB + Maximum Sharpness/Saturation (Sharp=8.0, Contrast=2.0, Sat=2.0)
-        Profile C: Underexposed Daylight WB, highlight protection
-        Profile D: Cloudy WB (AwbMode=2), natural sunset colors
-        Profile E: EXPERIMENTAL Adaptive WB ramping (lux + time based)
-        Profile F: Daylight WB + 3-shot HDR bracket
+        Profiles are now data-driven from config.json, allowing changes
+        without code rebuilds.
 
         Args:
             base_settings: Base ISO/shutter/EV/lux settings
-            profile: Profile identifier (a/b/c/d/e/f)
-            current_time: Current time (for Profile E ramping)
-            schedule_type: Schedule type (for Profile E context)
+            profile: Profile identifier (a/b/c/d/e/f/g)
+            current_time: Current time (for adaptive WB ramping)
+            schedule_type: Schedule type (for context)
 
         Returns:
-            Complete settings dict with profile, awb_mode, hdr_mode, bracket_count
+            Complete settings dict with profile-specific modifications
         """
+        from config import Config  # Import here to avoid circular dependency
+
+        config = Config()
+        profile_data = config.get_profile(profile)
+
+        if not profile_data:
+            logger.warning(f"Profile '{profile}' not found in config, using defaults")
+            settings = base_settings.copy()
+            settings["profile"] = profile
+            settings["awb_mode"] = 1
+            settings["hdr_mode"] = 0
+            settings["bracket_count"] = 1
+            return settings
+
         settings = base_settings.copy()
         settings["profile"] = profile
 
         # Extract and remove lux from settings (internal use only)
         lux = settings.pop("lux", None)
 
-        if profile == "a":
-            # Profile A: Pure Full Auto with Autofocus
-            # Fully automatic exposure, white balance, and focus
-            settings["iso"] = 0  # ISO=0 signals full auto mode to Pi
-            settings["shutter_speed"] = "auto"  # Placeholder (not used in auto mode)
-            settings["exposure_compensation"] = 0.0  # Pure auto, no bias
-            settings["awb_mode"] = 0  # Auto white balance
-            settings["hdr_mode"] = 0  # No HDR
-            settings["bracket_count"] = 1  # Single shot
-            settings["ae_metering_mode"] = 0  # Center-weighted metering
-            # Note: No lens_position set - camera uses autofocus
-            logger.debug(
-                f"Profile A (Pure Auto + Autofocus): EV{settings['exposure_compensation']:+.1f}"
-            )
+        # Apply base settings from profile config
+        profile_base = profile_data.get("settings", {}).get("base", {})
+        settings.update(profile_base)
 
-        elif profile == "b":
-            # Profile B: EXPERIMENTAL Ultra-Vibrant Warm WB + Maximum Sharpness/Saturation
-            # Embraces dramatic warm tones with boosted saturation and sharpness
-            # More aggressive than Profile G for bold, vibrant timelapses
-            # Manual focus optimized for distant mountain peaks
-            wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="warm")
+        # Apply adaptive WB if enabled
+        adaptive_wb = profile_data.get("settings", {}).get("adaptive_wb", {})
+        if adaptive_wb.get("enabled", False):
+            curve = adaptive_wb.get("curve", "balanced")
+            wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve=curve)
             settings["awb_mode"] = 6  # Custom WB
-            settings["wb_temp"] = wb_temp  # Warm color temperature
-            settings["hdr_mode"] = 0  # No HDR
-            settings["bracket_count"] = 1  # Single shot
+            settings["wb_temp"] = wb_temp
 
-            # Focus for landscapes
-            settings["af_mode"] = 0  # Manual focus
-            settings["lens_position"] = 2.45  # Optimal focus for distant landscapes
+        # Apply adaptive EV if enabled
+        adaptive_ev = profile_data.get("settings", {}).get("adaptive_ev", {})
+        if adaptive_ev.get("enabled", False) and lux is not None:
+            curve = adaptive_ev.get("curve", "adaptive")
+            ev_curve = EV_CURVES.get(curve, EV_CURVES["adaptive"])
+            ev_comp = interpolate_ev_from_lux(lux, ev_curve)
+            settings["exposure_compensation"] = ev_comp
 
-            # Ultra-vibrant landscape enhancements
-            settings["sharpness"] = 8.0  # Very sharp (50% of max 16.0)
-            settings["contrast"] = 2.0  # Strong contrast (default + 100%)
-            settings["saturation"] = 2.0  # Highly saturated colors (default + 100%)
-
-            logger.info(
-                f"🎨 Profile B (Ultra-Vibrant + Sharp): WB={wb_temp}K, Saturation=2.0, Contrast=2.0, Sharpness=8.0"
-            )
-
-        elif profile == "c":
-            # Profile C: EXPERIMENTAL Conservative adaptive curve
-            # Cooler baseline, protects highlights, subtle warmth progression
-            wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="conservative")
-            settings["awb_mode"] = 6  # Custom WB
-            settings["wb_temp"] = wb_temp  # Color temperature in Kelvin
-            settings["exposure_compensation"] = -0.3  # Slight underexposure for highlights
-            settings["hdr_mode"] = 0  # No HDR
-            settings["bracket_count"] = 1  # Single shot
-
-        elif profile == "d":
-            # Profile D: EXPERIMENTAL Warm/dramatic adaptive curve + Landscape Focus
-            # Embraces golden tones earlier, richer sunset colors
-            # Manual focus optimized for distant mountain peaks
-            wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="warm")
-            settings["awb_mode"] = 6  # Custom WB
-            settings["wb_temp"] = wb_temp  # Color temperature in Kelvin
-            settings["hdr_mode"] = 0  # No HDR
-            settings["bracket_count"] = 1  # Single shot
-            settings["af_mode"] = 0  # Manual focus
-            settings["lens_position"] = 2.45  # Optimal focus for distant landscapes
-
-        elif profile == "e":
-            # Profile E: EXPERIMENTAL Balanced adaptive curve
-            # Matches B when bright, natural warmth progression
-            wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="balanced")
-            settings["awb_mode"] = 6  # Custom WB
-            settings["wb_temp"] = wb_temp  # Color temperature in Kelvin
-            settings["hdr_mode"] = 0  # No HDR
-            settings["bracket_count"] = 1  # Single shot
-
-        elif profile == "f":
-            # Profile F: Auto-Exposure with Spot Metering for Mountains
-            # Meters lower-center region (where mountains are), ignores bright sky
-            settings["iso"] = 0  # ISO=0 signals full auto mode to Pi
-            settings["shutter_speed"] = "auto"  # Placeholder (not used in auto mode)
-            settings["exposure_compensation"] = +0.7  # Strong positive bias for darker mountains
-            settings["awb_mode"] = 1  # Daylight white balance for consistency
-            settings["hdr_mode"] = 0  # No HDR
-            settings["bracket_count"] = 1  # Single shot
-            settings["ae_metering_mode"] = 1  # Spot metering (center of frame)
-            logger.debug(
-                f"Profile F (Auto + Spot Metering for Mountains): EV{settings['exposure_compensation']:+.1f}"
-            )
-
-        elif profile == "g":
-            # Profile G: EXPERIMENTAL Adaptive EV + Balanced WB + Landscape Sharp
-            # Protects highlights in bright conditions, lifts shadows in low light
-            # Enhanced sharpness/contrast for distant mountains and clouds
-            # Manual focus optimized for distant mountain peaks
-            wb_temp = self._calculate_adaptive_wb_temp(current_time, lux=lux, curve="balanced")
-
-            # Calculate adaptive EV compensation based on lux
+        # Log profile application
+        profile_name = profile_data.get("name", f"Profile {profile.upper()}")
+        if adaptive_wb.get("enabled") or adaptive_ev.get("enabled"):
+            details = []
             if lux is not None:
-                ev_curve = EV_CURVES["adaptive"]
-                ev_comp = interpolate_ev_from_lux(lux, ev_curve)
-            else:
-                ev_comp = 0.0  # Fallback to neutral if no lux data
-
-            settings["awb_mode"] = 6  # Custom WB
-            settings["wb_temp"] = wb_temp  # Adaptive color temperature
-            settings["exposure_compensation"] = ev_comp  # Adaptive EV
-            settings["hdr_mode"] = 0  # No HDR
-            settings["bracket_count"] = 1  # Single shot
-
-            # Focus for landscapes
-            settings["af_mode"] = 0  # Manual focus
-            settings["lens_position"] = 2.45  # Optimal focus for distant landscapes
-
-            # Landscape enhancements for crisp mountains/clouds
-            settings["sharpness"] = 1.5  # Boost edge definition (default 1.0)
-            settings["contrast"] = 1.15  # Increase contrast slightly
-            settings["saturation"] = 1.05  # Subtle color boost
-
-            logger.info(
-                f"🎯 Profile G (Adaptive EV + Sharp): lux={lux:.0f} → EV{ev_comp:+.1f}, WB={wb_temp}K"
-            )
-
+                details.append(f"lux={lux:.0f}")
+            if adaptive_ev.get("enabled") and "exposure_compensation" in settings:
+                details.append(f"EV{settings['exposure_compensation']:+.1f}")
+            if adaptive_wb.get("enabled") and "wb_temp" in settings:
+                details.append(f"WB={settings['wb_temp']}K")
+            logger.info(f"📸 Profile {profile.upper()} ({profile_name}): {', '.join(details)}")
         else:
-            # Default fallback
-            settings["awb_mode"] = 1
-            settings["hdr_mode"] = 0
-            settings["bracket_count"] = 1
-            logger.warning(f"Unknown profile '{profile}', using defaults")
+            logger.debug(f"Profile {profile.upper()}: {profile_name}")
 
         return settings
 
