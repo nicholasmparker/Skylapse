@@ -228,6 +228,11 @@ class Config:
 
         return profiles
 
+    def reload(self):
+        """Reload configuration from disk"""
+        logger.info(f"Reloading configuration from {self.config_path}")
+        self.config = self._load_or_create_default()
+
 
 # Example usage
 if __name__ == "__main__":

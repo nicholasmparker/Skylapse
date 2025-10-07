@@ -1,0 +1,148 @@
+.config-editor {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.save-btn,
+.reload-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.save-btn {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.save-btn:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
+.save-btn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.reload-btn {
+  background-color: #2196F3;
+  color: white;
+}
+
+.reload-btn:hover:not(:disabled) {
+  background-color: #0b7dda;
+}
+
+.reload-btn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.config-textarea {
+  width: 100%;
+  height: 600px;
+  padding: 15px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  resize: vertical;
+  background-color: #f9f9f9;
+}
+
+.config-textarea:focus {
+  outline: none;
+  border-color: #2196F3;
+  background-color: white;
+}
+
+.error,
+.success,
+.validation-error {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.error {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef5350;
+}
+
+.success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #66bb6a;
+}
+
+.validation-error {
+  background-color: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ff9800;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  font-size: 18px;
+  color: #666;
+}
+
+.help {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  border-left: 4px solid #2196F3;
+}
+
+.help h3 {
+  margin-top: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.help ol {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.help li {
+  margin: 8px 0;
+  color: #555;
+}
+
+.help p {
+  margin: 10px 0 0 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.help strong {
+  color: #333;
+}

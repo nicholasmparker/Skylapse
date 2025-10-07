@@ -874,5 +874,65 @@ async def get_system_info(request: Request):
     }
 
 
+@app.get("/config")
+async def get_config(request: Request):
+    """Get current configuration"""
+    config = request.app.state.config
+    return config.config
+
+
+@app.post("/config")
+async def update_config(request: Request, new_config: dict):
+    """Validate and save new configuration"""
+    import json
+    from pathlib import Path
+
+    # Validate JSON structure - check for required keys
+    required_keys = ["profiles", "schedules", "location", "pi"]
+    for key in required_keys:
+        if key not in new_config:
+            raise HTTPException(status_code=400, detail=f"Missing required key: {key}")
+
+    # Validate profiles structure
+    if not isinstance(new_config["profiles"], dict):
+        raise HTTPException(status_code=400, detail="profiles must be an object")
+
+    # Validate schedules structure
+    if not isinstance(new_config["schedules"], dict):
+        raise HTTPException(status_code=400, detail="schedules must be an object")
+
+    # Validate location
+    location = new_config.get("location", {})
+    if not all(k in location for k in ["latitude", "longitude", "timezone"]):
+        raise HTTPException(status_code=400, detail="location must have latitude, longitude, and timezone")
+
+    # Validate pi config
+    pi = new_config.get("pi", {})
+    if not all(k in pi for k in ["host", "port"]):
+        raise HTTPException(status_code=400, detail="pi config must have host and port")
+
+    # Save to file
+    config_path = Path(__file__).parent / "config.json"
+    try:
+        with open(config_path, "w") as f:
+            json.dump(new_config, f, indent=2)
+
+        return {"status": "success", "message": "Configuration saved. Call /config/reload to apply changes."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save config: {str(e)}")
+
+
+@app.post("/config/reload")
+async def reload_config(request: Request):
+    """Reload configuration from file"""
+    config = request.app.state.config
+
+    try:
+        config.reload()
+        return {"status": "success", "message": "Configuration reloaded successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reload config: {str(e)}")
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8082)
