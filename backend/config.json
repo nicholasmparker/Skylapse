@@ -151,7 +151,8 @@
           "enabled": true,
           "curve": "adaptive"
         }
-      }
+      },
+      "video_filters": "unsharp=5:5:1.0:5:5:0.0,eq=contrast=1.1:saturation=1.05"
     }
   },
   "schedules": {

@@ -25,6 +25,8 @@ class ConfigValidator:
     VALID_SCHEDULE_TYPES = {"solar_relative", "time_of_day"}
     VALID_SOLAR_ANCHORS = {"sunrise", "sunset", "civil_dawn", "civil_dusk", "noon"}
     VALID_VIDEO_CODECS = {"libx264", "libx265", "h264_nvenc"}
+    VALID_WB_CURVES = {"balanced", "conservative", "warm"}
+    VALID_EV_CURVES = {"adaptive"}
 
     def __init__(self, config_path: str = "config.json"):
         self.config_path = config_path
@@ -55,7 +57,11 @@ class ConfigValidator:
 
         # Validate sections
         self._validate_location(config.get("location", {}))
-        self._validate_schedules(config.get("schedules", {}))
+        profiles = config.get("profiles", {})
+        schedules = config.get("schedules", {})
+        self._validate_profiles(profiles)
+        self._validate_schedules(schedules)
+        self._validate_schedule_profiles(schedules, profiles)
         self._validate_pi(config.get("pi", {}))
         self._validate_storage(config.get("storage", {}))
         self._validate_processing(config.get("processing", {}))
@@ -277,6 +283,109 @@ class ConfigValidator:
                     self.errors.append(f"processing.video_quality must be 0-51, got {quality}")
             except (ValueError, TypeError):
                 self.errors.append(f"processing.video_quality must be numeric, got {quality}")
+
+    def _validate_profiles(self, profiles: Dict[str, Any]):
+        """Validate profiles section."""
+        if not profiles:
+            self.errors.append("No profiles defined")
+            return
+
+        enabled_count = 0
+        for profile_id, profile_data in profiles.items():
+            # Validate profile ID format (single lowercase letter)
+            if not re.match(r'^[a-z]$', profile_id):
+                self.errors.append(
+                    f"Invalid profile ID: '{profile_id}' (must be single lowercase letter a-z)"
+                )
+
+            if not isinstance(profile_data, dict):
+                self.errors.append(f"Profile '{profile_id}' must be a dictionary")
+                continue
+
+            # Count enabled profiles
+            if profile_data.get("enabled", True):
+                enabled_count += 1
+
+            # Validate required fields
+            if "name" not in profile_data:
+                self.errors.append(f"Profile '{profile_id}' missing 'name'")
+
+            if "description" not in profile_data:
+                self.warnings.append(f"Profile '{profile_id}' missing 'description'")
+
+            if "settings" not in profile_data:
+                self.errors.append(f"Profile '{profile_id}' missing 'settings' section")
+                continue
+
+            settings = profile_data["settings"]
+
+            # Validate settings structure
+            if "base" not in settings:
+                self.errors.append(f"Profile '{profile_id}' missing 'settings.base'")
+
+            if "adaptive_wb" not in settings:
+                self.warnings.append(f"Profile '{profile_id}' missing 'settings.adaptive_wb'")
+            else:
+                wb = settings["adaptive_wb"]
+                if wb.get("enabled"):
+                    curve = wb.get("curve")
+                    if not curve:
+                        self.errors.append(
+                            f"Profile '{profile_id}' has adaptive_wb enabled but no curve specified"
+                        )
+                    elif curve not in self.VALID_WB_CURVES:
+                        self.errors.append(
+                            f"Profile '{profile_id}' has invalid WB curve: '{curve}' "
+                            f"(must be one of {self.VALID_WB_CURVES})"
+                        )
+
+            if "adaptive_ev" not in settings:
+                self.warnings.append(f"Profile '{profile_id}' missing 'settings.adaptive_ev'")
+            else:
+                ev = settings["adaptive_ev"]
+                if ev.get("enabled"):
+                    curve = ev.get("curve")
+                    if not curve:
+                        self.errors.append(
+                            f"Profile '{profile_id}' has adaptive_ev enabled but no curve specified"
+                        )
+                    elif curve not in self.VALID_EV_CURVES:
+                        self.errors.append(
+                            f"Profile '{profile_id}' has invalid EV curve: '{curve}' "
+                            f"(must be one of {self.VALID_EV_CURVES})"
+                        )
+
+        if enabled_count == 0:
+            self.warnings.append("No profiles are enabled")
+
+    def _validate_schedule_profiles(self, schedules: Dict[str, Any], profiles: Dict[str, Any]):
+        """Validate that schedule profiles reference existing profile IDs."""
+        for schedule_name, schedule in schedules.items():
+            profile_list = schedule.get("profiles", [])
+
+            if not isinstance(profile_list, list):
+                self.errors.append(
+                    f"Schedule '{schedule_name}' profiles must be a list, got {type(profile_list).__name__}"
+                )
+                continue
+
+            # Check each profile reference
+            for profile_id in profile_list:
+                if profile_id not in profiles:
+                    self.errors.append(
+                        f"Schedule '{schedule_name}' references non-existent profile '{profile_id}'"
+                    )
+                elif not profiles[profile_id].get("enabled", True):
+                    self.warnings.append(
+                        f"Schedule '{schedule_name}' references disabled profile '{profile_id}'"
+                    )
+
+            # Warn about duplicates
+            if len(profile_list) != len(set(profile_list)):
+                duplicates = [p for p in profile_list if profile_list.count(p) > 1]
+                self.warnings.append(
+                    f"Schedule '{schedule_name}' has duplicate profiles: {set(duplicates)}"
+                )
 
 
 def validate_config(config_path: str = "config.json") -> Dict[str, Any]:

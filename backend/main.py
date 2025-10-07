@@ -853,7 +853,7 @@ async def get_system_info(request: Request):
             "host": pi_config["host"],
             "port": pi_config["port"],
             "status": pi_status,
-            "profiles_configured": ["a", "b", "c", "d", "e", "f", "g"],
+            "profiles_configured": list(config.get_profiles().keys()),
         },
         "system": {"backend_version": "2.0.0", "mode": "development", "scheduler_running": True},
     }

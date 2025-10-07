@@ -172,13 +172,15 @@ def generate_timelapse(
                 preset["preset"],
             ]
 
-        # Profile G: Add post-processing filters for enhanced landscape sharpness
-        if profile == "g":
-            # unsharp: Sharpen mountains and clouds (luma only)
-            # eq: Boost contrast and saturation slightly
-            filter_chain = "unsharp=5:5:1.0:5:5:0.0,eq=contrast=1.1:saturation=1.05"
-            ffmpeg_cmd.extend(["-vf", filter_chain])
-            logger.info(f"Applying Profile G post-processing: {filter_chain}")
+        # Apply profile-specific video filters if defined in config
+        from config import Config
+        config = Config()
+        profile_data = config.get_profile(profile)
+        video_filters = profile_data.get("video_filters")
+
+        if video_filters:
+            ffmpeg_cmd.extend(["-vf", video_filters])
+            logger.info(f"Applying Profile {profile.upper()} video filters: {video_filters}")
 
         ffmpeg_cmd.append(str(output_path))
 

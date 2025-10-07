@@ -201,6 +201,7 @@ class Config:
         """
         Get profiles for a specific schedule.
         Falls back to all active profiles if schedule doesn't specify profiles.
+        Filters out non-existent and disabled profiles.
         """
         schedule = self.get_schedule(schedule_name)
         profiles = schedule.get("profiles", [])
@@ -208,6 +209,22 @@ class Config:
         # If schedule doesn't specify profiles, use all active profiles
         if not profiles:
             profiles = self.get_active_profiles()
+        else:
+            # Filter to only profiles that exist and are enabled
+            all_profiles = self.get_profiles()
+            valid_profiles = [
+                p for p in profiles
+                if p in all_profiles and all_profiles[p].get("enabled", True)
+            ]
+
+            # Log warning if any profiles were filtered out
+            if len(valid_profiles) < len(profiles):
+                invalid = set(profiles) - set(valid_profiles)
+                logger.warning(
+                    f"Schedule '{schedule_name}' references invalid/disabled profiles: {invalid}"
+                )
+
+            profiles = valid_profiles
 
         return profiles
 
