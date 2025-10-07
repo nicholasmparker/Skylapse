@@ -18,6 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration from environment
+TRANSFER_ENABLED = os.getenv("TRANSFER_ENABLED", "true").lower() in ("true", "1", "yes")
 PI_HOST = os.getenv("PI_HOST", "helios.local")
 PI_USER = os.getenv("PI_USER", "nicholasmparker")
 PI_SOURCE = os.getenv("PI_SOURCE", "~/skylapse-images/")
@@ -140,6 +141,11 @@ def get_transfer_stats():
 
 def run_transfer_loop():
     """Main transfer loop - runs continuously"""
+    if not TRANSFER_ENABLED:
+        logger.info("🚫 Image Transfer Service Disabled (TRANSFER_ENABLED=false)")
+        logger.info("Set TRANSFER_ENABLED=true in .env to enable image transfers from Pi")
+        return
+
     logger.info("🚀 Image Transfer Service Starting")
     logger.info(f"Source: {PI_USER}@{PI_HOST}:{PI_SOURCE}")
     logger.info(f"Destination: {LOCAL_DEST}")

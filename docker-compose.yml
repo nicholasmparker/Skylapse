@@ -33,6 +33,7 @@ services:
       - ${SKYLAPSE_IMAGES_PATH:-./data/images}:/data/images
       - ~/.ssh:/root/.ssh:ro
     environment:
+      - TRANSFER_ENABLED=${TRANSFER_ENABLED:-true}
       - PI_HOST=${PI_HOST:-192.168.0.124}
       - PI_USER=${PI_USER:-nicholasmparker}
       - PI_SOURCE=${PI_SOURCE:-~/skylapse-images/}

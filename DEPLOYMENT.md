@@ -59,7 +59,7 @@ cd ~/Projects/skylapse
 - **Frontend** (port 3000): Web UI for monitoring and timelapse generation
 - **Worker**: Background timelapse processing (RQ)
 - **Redis** (port 6379): Task queue
-- **Transfer**: SSH-based image sync from Pi every 5 minutes
+- **Transfer**: SSH-based image sync from Pi every 5 minutes (enable with `TRANSFER_ENABLED=true`)
 
 ### Raspberry Pi Service (systemd)
 - **Capture Service** (port 8080): Camera control and image capture
@@ -130,6 +130,7 @@ FRONTEND_PORT=3000
 VITE_BACKEND_URL=http://192.168.0.51:8082
 
 # Transfer Service
+TRANSFER_ENABLED=true
 TRANSFER_INTERVAL_MINUTES=5
 DELETE_AFTER_DAYS=1
 EOF
@@ -513,6 +514,7 @@ You can run multiple backends (dev, staging, production) but **only one can be p
 ```bash
 # .env
 BACKEND_NAME=dev
+TRANSFER_ENABLED=false  # Let production backend handle transfers
 # Don't set as PRIMARY_BACKEND on Pi
 ```
 
@@ -520,12 +522,29 @@ BACKEND_NAME=dev
 ```bash
 # .env
 BACKEND_NAME=dagon
+TRANSFER_ENABLED=true  # Enable image transfers from Pi
 
 # Deploy to Pi as primary
 ./scripts/deploy-capture.sh helios.local nicholasmparker dagon
 ```
 
 The Pi will only accept captures from `dagon`. Your laptop's dev backend can read status but can't trigger captures.
+
+**OR** if laptop is coordinating captures for testing:
+```bash
+# Laptop .env
+BACKEND_NAME=dev
+TRANSFER_ENABLED=false  # Disable to prevent duplicate transfers
+
+# dagon .env
+BACKEND_NAME=dagon
+TRANSFER_ENABLED=true  # Keep enabled to receive images
+
+# Deploy laptop as primary
+./scripts/deploy-capture.sh helios.local nicholasmparker dev
+```
+
+Now laptop coordinates captures, but dagon's transfer service still pulls images from Pi (avoiding duplication).
 
 ---
 
@@ -552,6 +571,7 @@ The Pi will only accept captures from `dagon`. Your laptop's dev backend can rea
 | `BACKEND_NAME` | `dagon` | Name of this backend instance |
 | `FRONTEND_PORT` | `3000` | Frontend port |
 | `VITE_BACKEND_URL` | `http://192.168.0.51:8082` | Backend URL (for frontend) |
+| `TRANSFER_ENABLED` | `true` | Enable/disable image transfer from Pi |
 | `TRANSFER_INTERVAL_MINUTES` | `5` | Transfer interval |
 | `DELETE_AFTER_DAYS` | `1` | Keep images on Pi for N days |
 
