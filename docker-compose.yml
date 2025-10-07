@@ -9,6 +9,7 @@ services:
       - "${BACKEND_PORT:-8082}:8082"
     volumes:
       - ./backend:/app
+      - ./shared:/app/shared
       - ./backend/data:/app/data
       - ${SKYLAPSE_IMAGES_PATH:-./data/images}:/data/images
       - ${SKYLAPSE_TIMELAPSES_PATH:-./data/timelapses}:/data/timelapses
@@ -55,6 +56,7 @@ services:
     command: rq worker --url redis://redis:6379 timelapse
     volumes:
       - ./backend:/app
+      - ./shared:/app/shared
       - ${SKYLAPSE_IMAGES_PATH:-./data/images}:/data/images
       - ${SKYLAPSE_TIMELAPSES_PATH:-./data/timelapses}:/data/timelapses
       - ${SKYLAPSE_DB_PATH:-./data/db}:/data/db

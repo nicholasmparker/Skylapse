@@ -12,9 +12,6 @@ from datetime import datetime
 from datetime import time as dt_time
 from pathlib import Path
 
-# Add backend to path
-sys.path.insert(0, str(Path(__file__).parent))
-
 from config import Config
 from main import parse_time_range
 

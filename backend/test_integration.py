@@ -4,14 +4,9 @@ Minimal Integration Tests for Skylapse Backend
 Quick smoke tests to verify core functionality.
 """
 
-import sys
 from datetime import datetime
-from pathlib import Path
 
 import pytest
-
-# Add backend to path
-sys.path.insert(0, str(Path(__file__).parent))
 
 from config import Config
 from exposure import ExposureCalculator

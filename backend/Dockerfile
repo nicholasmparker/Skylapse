@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy shared utilities
-COPY shared /shared
+# Copy shared utilities (into app directory for proper imports)
+COPY shared /app/shared
 
 # Copy backend source
 COPY backend .

@@ -5,17 +5,11 @@ Calculates optimal camera settings based on camera metering + profile adjustment
 """
 
 import logging
-import sys
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 import httpx
 from schedule_types import ScheduleType
-
-# Add parent directory to path for shared module access
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from shared.wb_curves import EV_CURVES, WB_CURVES, interpolate_ev_from_lux, interpolate_wb_from_lux
 
 logger = logging.getLogger(__name__)
