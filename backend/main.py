@@ -24,7 +24,7 @@ from config import Config
 from config_validator import ConfigValidationError, validate_config
 from database import SessionDatabase
 from exposure import ExposureCalculator
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -886,51 +886,69 @@ async def update_config(request: Request, new_config: dict):
     """Validate and save new configuration"""
     import json
     from pathlib import Path
+    from config_validator import ConfigValidator, ConfigValidationError
 
-    # Validate JSON structure - check for required keys
-    required_keys = ["profiles", "schedules", "location", "pi"]
-    for key in required_keys:
-        if key not in new_config:
-            raise HTTPException(status_code=400, detail=f"Missing required key: {key}")
+    config = request.app.state.config
+    temp_path = config.config_path.with_suffix('.json.tmp')
 
-    # Validate profiles structure
-    if not isinstance(new_config["profiles"], dict):
-        raise HTTPException(status_code=400, detail="profiles must be an object")
-
-    # Validate schedules structure
-    if not isinstance(new_config["schedules"], dict):
-        raise HTTPException(status_code=400, detail="schedules must be an object")
-
-    # Validate location
-    location = new_config.get("location", {})
-    if not all(k in location for k in ["latitude", "longitude", "timezone"]):
-        raise HTTPException(status_code=400, detail="location must have latitude, longitude, and timezone")
-
-    # Validate pi config
-    pi = new_config.get("pi", {})
-    if not all(k in pi for k in ["host", "port"]):
-        raise HTTPException(status_code=400, detail="pi config must have host and port")
-
-    # Save to file
-    config_path = Path(__file__).parent / "config.json"
     try:
-        with open(config_path, "w") as f:
+        # Write config to temp file
+        with open(temp_path, 'w') as f:
             json.dump(new_config, f, indent=2)
 
+        # Validate using comprehensive ConfigValidator
+        validator = ConfigValidator(str(temp_path))
+        validator.validate()
+
+        # Validation passed - use Config.save() for atomic write
+        config.config = new_config
+        config.save()
+
+        # Clean up temp file
+        temp_path.unlink(missing_ok=True)
+
+        logger.info(f"Configuration saved successfully from {request.client.host}")
+
         return {"status": "success", "message": "Configuration saved. Call /config/reload to apply changes."}
+
+    except ConfigValidationError as e:
+        # Clean up temp file
+        temp_path.unlink(missing_ok=True)
+        logger.warning(f"Config validation failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
     except Exception as e:
+        # Clean up temp file
+        temp_path.unlink(missing_ok=True)
+        logger.error(f"Failed to save config: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to save config: {str(e)}")
 
 
 @app.post("/config/reload")
 async def reload_config(request: Request):
     """Reload configuration from file"""
+    from config_validator import ConfigValidator, ConfigValidationError
+
     config = request.app.state.config
 
     try:
+        # Validate config file BEFORE reloading into memory
+        validator = ConfigValidator(str(config.config_path))
+        validator.validate()
+
+        # Only reload if validation passes
         config.reload()
+
+        logger.info(f"Configuration reloaded successfully from {request.client.host}")
+
         return {"status": "success", "message": "Configuration reloaded successfully"}
+
+    except ConfigValidationError as e:
+        logger.warning(f"Config validation failed on reload: {e}")
+        raise HTTPException(status_code=400, detail=f"Config validation failed: {str(e)}")
+
     except Exception as e:
+        logger.error(f"Failed to reload config: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to reload config: {str(e)}")
 
 

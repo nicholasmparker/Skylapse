@@ -70,8 +70,20 @@ function ConfigEditor() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || `Save failed: ${response.statusText}`)
+        let errorMessage = `Save failed: ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.detail || errorMessage
+        } catch {
+          // Response wasn't JSON, try to get text
+          try {
+            const errorText = await response.text()
+            if (errorText) errorMessage = errorText
+          } catch {
+            // Use default error message
+          }
+        }
+        throw new Error(errorMessage)
       }
 
       const result = await response.json()
@@ -84,6 +96,14 @@ function ConfigEditor() {
   }
 
   const handleReload = async () => {
+    // Confirm before reloading
+    if (!window.confirm(
+      'Reload configuration now?\n\n' +
+      'This will apply changes to the running system and may affect active captures.'
+    )) {
+      return
+    }
+
     setError(null)
     setSuccess(null)
     setReloading(true)
@@ -94,8 +114,20 @@ function ConfigEditor() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || `Reload failed: ${response.statusText}`)
+        let errorMessage = `Reload failed: ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.detail || errorMessage
+        } catch {
+          // Response wasn't JSON, try to get text
+          try {
+            const errorText = await response.text()
+            if (errorText) errorMessage = errorText
+          } catch {
+            // Use default error message
+          }
+        }
+        throw new Error(errorMessage)
       }
 
       const result = await response.json()
