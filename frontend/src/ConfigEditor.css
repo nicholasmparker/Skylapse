@@ -79,6 +79,7 @@
   background-color: white;
 }
 
+.warning-banner,
 .error,
 .success,
 .validation-error {
@@ -86,6 +87,13 @@
   margin-bottom: 16px;
   border-radius: 4px;
   font-size: 14px;
+}
+
+.warning-banner {
+  background-color: #fff8e1;
+  color: #f57c00;
+  border: 1px solid #ffb74d;
+  border-left: 4px solid #f57c00;
 }
 
 .error {

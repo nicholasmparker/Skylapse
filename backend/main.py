@@ -874,9 +874,23 @@ async def get_system_info(request: Request):
     }
 
 
+# ============================================================================
+# CONFIGURATION EDITOR ENDPOINTS
+# ============================================================================
+# WARNING: These endpoints have NO AUTHENTICATION
+# - Safe for development on trusted networks
+# - MUST ADD AUTH before production deployment (API key, session auth, etc)
+# - Anyone with network access can view/modify configuration
+# ============================================================================
+
 @app.get("/config")
 async def get_config(request: Request):
-    """Get current configuration"""
+    """
+    Get current configuration.
+
+    WARNING: No authentication - suitable for development only.
+    Add authentication before production deployment.
+    """
     config = request.app.state.config
     return config.config
 

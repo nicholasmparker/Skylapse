@@ -1385,6 +1385,88 @@ http://localhost:8082/timelapses/profile-a_20251001_sunset.mp4
 
 ---
 
+### Configuration Management
+
+⚠️ **WARNING: NO AUTHENTICATION** - These endpoints are intended for development environments only. Add authentication (API key, session auth, IP whitelist, etc.) before deploying to production.
+
+#### GET `/config`
+
+Get the current system configuration.
+
+**Response**
+
+```json
+{
+  "profiles": { ... },
+  "schedules": { ... },
+  "location": {
+    "latitude": 39.6333,
+    "longitude": -105.3167,
+    "timezone": "America/Denver"
+  },
+  "pi": {
+    "host": "192.168.0.124",
+    "port": 8080
+  }
+}
+```
+
+#### POST `/config`
+
+Save and validate a new configuration.
+
+**Request Body**
+
+Complete configuration object (same structure as GET response)
+
+**Validation**: Comprehensive validation including:
+- Required sections (profiles, schedules, location, pi)
+- Latitude/longitude ranges (-90 to 90, -180 to 180)
+- Valid timezone strings
+- Valid schedule types and parameters
+- Profile structure and references
+- And 50+ other semantic checks
+
+**Success Response**
+
+```json
+{
+  "status": "success",
+  "message": "Configuration saved. Call /config/reload to apply changes."
+}
+```
+
+**Error Response (400 Bad Request)**
+
+```json
+{
+  "detail": "Configuration validation failed:\n  - Invalid latitude: 91 (must be -90 to 90)\n  - Invalid timezone: Fake/City"
+}
+```
+
+#### POST `/config/reload`
+
+Reload configuration from disk and apply to running system.
+
+**Note**: Validates configuration before reloading to prevent crashes. Some changes (location, Pi host) may require full backend restart to take effect.
+
+**Success Response**
+
+```json
+{
+  "status": "success",
+  "message": "Configuration reloaded successfully"
+}
+```
+
+**Security Notes**:
+- No authentication on these endpoints
+- Suitable for development on trusted networks
+- **MUST ADD AUTH** before production deployment
+- Anyone with network access can view/modify configuration
+
+---
+
 ## Support & Contributing
 
 ### Documentation

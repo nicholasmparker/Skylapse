@@ -170,6 +170,11 @@ function ConfigEditor() {
         </div>
       </div>
 
+      <div className="warning-banner">
+        <strong>⚠️ Development Mode:</strong> No authentication on config endpoints.
+        Add authentication before production deployment.
+      </div>
+
       {error && <div className="error">{error}</div>}
       {success && <div className="success">{success}</div>}
       {validationError && <div className="validation-error">JSON Error: {validationError}</div>}
