@@ -258,9 +258,17 @@ async def scheduler_loop(app: FastAPI):
                         # Get or create session for this profile/date/schedule
                         session_id = db.get_or_create_session(profile, date_str, schedule_name)
 
+                        # Determine exposure schedule type for calculator
+                        # Use schedule name if it's a known type (sunrise/sunset),
+                        # otherwise map time_of_day schedules to 'daytime'
+                        if schedule_name in [ScheduleType.SUNRISE, ScheduleType.SUNSET]:
+                            exposure_schedule_type = schedule_name
+                        else:
+                            exposure_schedule_type = ScheduleType.DAYTIME
+
                         # Calculate exposure settings for this profile
                         settings = await exposure_calc.calculate_settings(
-                            schedule_name, current_time, profile=profile
+                            exposure_schedule_type, current_time, profile=profile
                         )
 
                         # DEBUG: Log all settings being sent to Pi
