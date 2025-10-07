@@ -4,15 +4,145 @@ Background Tasks for Timelapse Generation
 These tasks run in RQ worker containers, processing images into videos.
 """
 
+import json
 import logging
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 from database import SessionDatabase
 
 logger = logging.getLogger(__name__)
+
+
+def _build_debug_overlay(
+    session_id: str, debug_config: Dict, fps: int = 30
+) -> Optional[str]:
+    """
+    Build ffmpeg drawtext filter for debug overlay showing camera settings.
+
+    Args:
+        session_id: Session ID to query capture metadata
+        debug_config: Debug configuration from schedule
+        fps: Frames per second (for frame number calculation)
+
+    Returns:
+        ffmpeg filter string or None if debug disabled
+    """
+    if not debug_config.get("enabled", False):
+        return None
+
+    # Query all capture metadata from database
+    db = SessionDatabase()
+    with db._get_connection() as conn:
+        results = conn.execute(
+            """
+            SELECT
+                filename, timestamp, profile, iso, shutter_speed,
+                exposure_compensation, lux, wb_temp, wb_mode,
+                hdr_mode, bracket_count, ae_metering_mode,
+                af_mode, lens_position, sharpness, contrast, saturation
+            FROM captures
+            WHERE session_id = ?
+            ORDER BY timestamp ASC
+            """,
+            (session_id,),
+        ).fetchall()
+
+    if not results:
+        logger.warning(f"No capture metadata found for session {session_id}")
+        return None
+
+    # Build drawtext filter for each frame
+    # Format: Frame N: ISO 200 | 1/500s | EV+0.3 | 5200K | F:2.45mm | S:1.5 C:1.15 Sat:1.05 | Lux:1250
+    font_size = debug_config.get("font_size", 16)
+    position = debug_config.get("position", "bottom-left")
+    background = debug_config.get("background", True)
+
+    # Position coordinates (with padding)
+    if position == "bottom-left":
+        x, y = 10, "h-th-10"
+    elif position == "top-left":
+        x, y = 10, 10
+    elif position == "bottom-right":
+        x, y = "w-tw-10", "h-th-10"
+    else:  # top-right
+        x, y = "w-tw-10", 10
+
+    # Build text for each frame
+    drawtext_filters = []
+    for frame_idx, row in enumerate(results):
+        # Format capture settings into compact overlay text
+        parts = [f"Frame {frame_idx+1}/{len(results)}"]
+
+        if row["profile"]:
+            parts.append(f"Profile {row['profile'].upper()}")
+
+        if row["iso"]:
+            parts.append(f"ISO {row['iso']}")
+
+        if row["shutter_speed"]:
+            parts.append(row["shutter_speed"])
+
+        if row["exposure_compensation"] is not None:
+            parts.append(f"EV{row['exposure_compensation']:+.1f}")
+
+        if row["wb_temp"]:
+            parts.append(f"{row['wb_temp']}K")
+
+        if row["lens_position"] is not None:
+            parts.append(f"F:{row['lens_position']:.2f}mm")
+
+        # Enhancement settings on second line
+        enhancements = []
+        if row["sharpness"] is not None:
+            enhancements.append(f"S:{row['sharpness']:.1f}")
+        if row["contrast"] is not None:
+            enhancements.append(f"C:{row['contrast']:.2f}")
+        if row["saturation"] is not None:
+            enhancements.append(f"Sat:{row['saturation']:.2f}")
+
+        if row["lux"] is not None:
+            parts.append(f"Lux:{row['lux']:.0f}")
+
+        # Combine into text
+        line1 = " | ".join(parts)
+        line2 = " ".join(enhancements) if enhancements else ""
+
+        # Escape special characters for ffmpeg
+        line1 = line1.replace(":", "\\:")
+        line2 = line2.replace(":", "\\:")
+
+        # Build drawtext filter with frame timing
+        # Show this text only during this frame's display time
+        frame_start = frame_idx / fps
+        frame_end = (frame_idx + 1) / fps
+
+        box_param = ":box=1:boxcolor=black@0.7:boxborderw=5" if background else ""
+
+        if line2:
+            # Two lines
+            filter_str = (
+                f"drawtext=text='{line1}':fontsize={font_size}:fontcolor=white"
+                f":x={x}:y={y}-{font_size+5}{box_param}"
+                f":enable='between(t,{frame_start},{frame_end})',"
+                f"drawtext=text='{line2}':fontsize={font_size}:fontcolor=white"
+                f":x={x}:y={y}{box_param}"
+                f":enable='between(t,{frame_start},{frame_end})'"
+            )
+        else:
+            # Single line
+            filter_str = (
+                f"drawtext=text='{line1}':fontsize={font_size}:fontcolor=white"
+                f":x={x}:y={y}{box_param}"
+                f":enable='between(t,{frame_start},{frame_end})'"
+            )
+
+        drawtext_filters.append(filter_str)
+
+    # Combine all drawtext filters
+    return ",".join(drawtext_filters)
 
 
 def generate_timelapse(
@@ -172,15 +302,35 @@ def generate_timelapse(
                 preset["preset"],
             ]
 
-        # Apply profile-specific video filters if defined in config
+        # Build video filters (debug overlay + profile filters)
         from config import Config
         config = Config()
+
+        all_filters = []
+
+        # Add debug overlay if enabled (only works with session_id for metadata)
+        if session_id:
+            # Get schedule config to check for video_debug settings
+            schedule_config = config.get_schedule(schedule)
+            debug_config = schedule_config.get("video_debug", {})
+
+            debug_filter = _build_debug_overlay(session_id, debug_config, fps)
+            if debug_filter:
+                all_filters.append(debug_filter)
+                logger.info(f"Adding debug overlay for session {session_id}")
+
+        # Add profile-specific video filters if defined
         profile_data = config.get_profile(profile)
         video_filters = profile_data.get("video_filters")
-
         if video_filters:
-            ffmpeg_cmd.extend(["-vf", video_filters])
+            all_filters.append(video_filters)
             logger.info(f"Applying Profile {profile.upper()} video filters: {video_filters}")
+
+        # Combine all filters
+        if all_filters:
+            combined_filters = ",".join(all_filters)
+            ffmpeg_cmd.extend(["-vf", combined_filters])
+            logger.info(f"Combined video filters: {len(all_filters)} filter(s)")
 
         ffmpeg_cmd.append(str(output_path))
 

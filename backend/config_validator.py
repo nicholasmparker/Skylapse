@@ -161,6 +161,14 @@ class ConfigValidator:
                         f"Schedule '{name}' stack_count must be >= 2 when stack_images=true"
                     )
 
+            # Validate smoothing settings
+            if "smoothing" in schedule:
+                self._validate_smoothing(name, schedule["smoothing"])
+
+            # Validate video debug settings
+            if "video_debug" in schedule:
+                self._validate_video_debug(name, schedule["video_debug"])
+
         if enabled_count == 0:
             self.warnings.append("No schedules are enabled")
 
@@ -208,6 +216,80 @@ class ConfigValidator:
             return False
         pattern = r"^([01]\d|2[0-3]):([0-5]\d)$"
         return bool(re.match(pattern, time_str))
+
+    def _validate_smoothing(self, schedule_name: str, smoothing: Dict[str, Any]):
+        """Validate smoothing configuration."""
+        if not isinstance(smoothing, dict):
+            self.errors.append(f"Schedule '{schedule_name}' smoothing must be a dictionary")
+            return
+
+        # Validate enabled
+        if "enabled" in smoothing and not isinstance(smoothing["enabled"], bool):
+            self.errors.append(f"Schedule '{schedule_name}' smoothing.enabled must be boolean")
+
+        # If smoothing is enabled, validate parameters
+        if smoothing.get("enabled", False):
+            # Validate window_frames
+            window_frames = smoothing.get("window_frames")
+            if window_frames is not None:
+                if not isinstance(window_frames, int) or window_frames < 1:
+                    self.errors.append(
+                        f"Schedule '{schedule_name}' smoothing.window_frames must be positive integer"
+                    )
+
+            # Validate max_change_per_frame
+            max_change = smoothing.get("max_change_per_frame")
+            if max_change is not None:
+                if not isinstance(max_change, (int, float)) or not 0 < max_change <= 1:
+                    self.errors.append(
+                        f"Schedule '{schedule_name}' smoothing.max_change_per_frame must be between 0 and 1"
+                    )
+
+            # Validate weights
+            iso_weight = smoothing.get("iso_weight")
+            if iso_weight is not None:
+                if not isinstance(iso_weight, (int, float)) or not 0 <= iso_weight <= 1:
+                    self.errors.append(
+                        f"Schedule '{schedule_name}' smoothing.iso_weight must be between 0 and 1"
+                    )
+
+            shutter_weight = smoothing.get("shutter_weight")
+            if shutter_weight is not None:
+                if not isinstance(shutter_weight, (int, float)) or not 0 <= shutter_weight <= 1:
+                    self.errors.append(
+                        f"Schedule '{schedule_name}' smoothing.shutter_weight must be between 0 and 1"
+                    )
+
+    def _validate_video_debug(self, schedule_name: str, video_debug: Dict[str, Any]):
+        """Validate video debug configuration."""
+        if not isinstance(video_debug, dict):
+            self.errors.append(f"Schedule '{schedule_name}' video_debug must be a dictionary")
+            return
+
+        # Validate enabled
+        if "enabled" in video_debug and not isinstance(video_debug["enabled"], bool):
+            self.errors.append(f"Schedule '{schedule_name}' video_debug.enabled must be boolean")
+
+        # Validate font_size
+        font_size = video_debug.get("font_size")
+        if font_size is not None:
+            if not isinstance(font_size, int) or font_size < 8:
+                self.errors.append(
+                    f"Schedule '{schedule_name}' video_debug.font_size must be integer >= 8"
+                )
+
+        # Validate position
+        position = video_debug.get("position")
+        if position is not None:
+            valid_positions = {"bottom-left", "top-left", "bottom-right", "top-right"}
+            if position not in valid_positions:
+                self.errors.append(
+                    f"Schedule '{schedule_name}' video_debug.position must be one of {valid_positions}"
+                )
+
+        # Validate background
+        if "background" in video_debug and not isinstance(video_debug["background"], bool):
+            self.errors.append(f"Schedule '{schedule_name}' video_debug.background must be boolean")
 
     def _validate_pi(self, pi_config: Dict[str, Any]):
         """Validate Pi section."""

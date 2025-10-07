@@ -266,9 +266,16 @@ async def scheduler_loop(app: FastAPI):
                         else:
                             exposure_schedule_type = ScheduleType.DAYTIME
 
+                        # Get smoothing config from schedule
+                        smoothing_config = schedule_config.get("smoothing", {})
+
                         # Calculate exposure settings for this profile
                         settings = await exposure_calc.calculate_settings(
-                            exposure_schedule_type, current_time, profile=profile
+                            exposure_schedule_type,
+                            current_time,
+                            profile=profile,
+                            session_id=session_id,
+                            smoothing_config=smoothing_config,
                         )
 
                         # DEBUG: Log all settings being sent to Pi
