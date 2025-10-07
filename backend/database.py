@@ -80,6 +80,9 @@ class SessionDatabase:
                     timestamp TEXT NOT NULL,
                     filename TEXT NOT NULL,
 
+                    -- Profile info
+                    profile TEXT,
+
                     -- Exposure settings
                     iso INTEGER,
                     shutter_speed TEXT,
@@ -87,6 +90,23 @@ class SessionDatabase:
                     lux REAL,
                     wb_temp INTEGER,
                     wb_mode INTEGER,
+
+                    -- HDR/Bracketing
+                    hdr_mode INTEGER,
+                    bracket_count INTEGER,
+                    bracket_ev TEXT,  -- JSON array
+
+                    -- Metering
+                    ae_metering_mode INTEGER,
+
+                    -- Focus settings
+                    af_mode INTEGER,
+                    lens_position REAL,
+
+                    -- Enhancement settings
+                    sharpness REAL,
+                    contrast REAL,
+                    saturation REAL,
 
                     -- Camera info
                     analog_gain REAL,
@@ -98,6 +118,33 @@ class SessionDatabase:
                 )
             """
             )
+
+            # Migrations for existing databases (safe for production)
+            # Add new columns if they don't exist
+            cursor = conn.cursor()
+
+            # Check if profile column exists, add if missing
+            columns = [row[1] for row in cursor.execute("PRAGMA table_info(captures)").fetchall()]
+
+            new_columns = {
+                'profile': 'TEXT',
+                'hdr_mode': 'INTEGER',
+                'bracket_count': 'INTEGER',
+                'bracket_ev': 'TEXT',
+                'ae_metering_mode': 'INTEGER',
+                'af_mode': 'INTEGER',
+                'lens_position': 'REAL',
+                'sharpness': 'REAL',
+                'contrast': 'REAL',
+                'saturation': 'REAL'
+            }
+
+            for col_name, col_type in new_columns.items():
+                if col_name not in columns:
+                    logger.info(f"Adding column '{col_name}' to captures table")
+                    conn.execute(f"ALTER TABLE captures ADD COLUMN {col_name} {col_type}")
+
+            conn.commit()
 
             conn.execute("CREATE INDEX IF NOT EXISTS idx_session ON captures(session_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON captures(timestamp)")
@@ -199,33 +246,53 @@ class SessionDatabase:
         settings: Dict,
     ):
         """Record a single capture with its metadata."""
+        import json
         now = datetime.utcnow().isoformat()
 
         with self._get_connection() as conn:
             try:
                 conn.execute("BEGIN IMMEDIATE")
 
-                # Insert capture record
+                # Serialize bracket_ev as JSON if present
+                bracket_ev = settings.get("bracket_ev")
+                bracket_ev_json = json.dumps(bracket_ev) if bracket_ev else None
+
+                # Insert capture record with all camera settings
                 conn.execute(
                     """
                     INSERT INTO captures (
                         session_id, timestamp, filename,
+                        profile,
                         iso, shutter_speed, exposure_compensation,
                         lux, wb_temp, wb_mode,
+                        hdr_mode, bracket_count, bracket_ev,
+                        ae_metering_mode,
+                        af_mode, lens_position,
+                        sharpness, contrast, saturation,
                         analog_gain, digital_gain,
                         created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         session_id,
                         timestamp.isoformat(),
                         filename,
+                        settings.get("profile"),
                         settings.get("iso"),
                         settings.get("shutter_speed"),
                         settings.get("exposure_compensation"),
                         settings.get("lux"),
                         settings.get("wb_temp"),
                         settings.get("awb_mode"),
+                        settings.get("hdr_mode"),
+                        settings.get("bracket_count"),
+                        bracket_ev_json,
+                        settings.get("ae_metering_mode"),
+                        settings.get("af_mode"),
+                        settings.get("lens_position"),
+                        settings.get("sharpness"),
+                        settings.get("contrast"),
+                        settings.get("saturation"),
                         settings.get("analog_gain"),
                         settings.get("digital_gain"),
                         now,
