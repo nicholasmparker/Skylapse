@@ -144,8 +144,8 @@ function ConfigEditor() {
 
   const handleTextChange = (text: string) => {
     setConfig(text)
-    // Clear validation error when user is typing
-    setValidationError(null)
+    // Validate JSON in real-time
+    validateJSON(text)
   }
 
   if (loading) {

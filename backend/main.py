@@ -25,6 +25,7 @@ from config_validator import ConfigValidationError, validate_config
 from database import SessionDatabase
 from exposure import ExposureCalculator
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -118,6 +119,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Skylapse Backend", lifespan=lifespan)
+
+# Add CORS middleware to allow frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Set up templates
 templates = Jinja2Templates(directory="templates")

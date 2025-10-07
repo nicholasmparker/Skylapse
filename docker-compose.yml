@@ -77,7 +77,8 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     volumes:
-      - ./frontend/src:/app/src
+      - ./frontend:/app
+      - /app/node_modules
     environment:
       - VITE_BACKEND_URL=${VITE_BACKEND_URL:-http://localhost:8082}
     depends_on:

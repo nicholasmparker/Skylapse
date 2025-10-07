@@ -304,3 +304,14 @@ docker-compose.local.yml
 # Image and timelapse data
 data/images/
 data/timelapses/
+
+# Database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Playwright test results
+test-results/
+playwright-report/
+.playwright/

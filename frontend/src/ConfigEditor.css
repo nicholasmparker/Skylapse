@@ -71,6 +71,7 @@
   border-radius: 4px;
   resize: vertical;
   background-color: #f9f9f9;
+  color: #333;
 }
 
 .config-textarea:focus {
