@@ -5,14 +5,68 @@ Calculates optimal camera settings based on camera metering + profile adjustment
 """
 
 import logging
+from collections import deque
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 from schedule_types import ScheduleType
 from shared.wb_curves import EV_CURVES, WB_CURVES, interpolate_ev_from_lux, interpolate_wb_from_lux
 
 logger = logging.getLogger(__name__)
+
+
+class ExposureHistory:
+    """Manages per-session exposure history for temporal smoothing."""
+
+    def __init__(self):
+        """Initialize empty exposure history."""
+        # Key: session_id, Value: deque of recent settings
+        self._history: Dict[str, deque] = {}
+
+    def add_frame(self, session_id: str, settings: Dict[str, Any], max_window: int = 8):
+        """
+        Add a frame's settings to the history.
+
+        Args:
+            session_id: Unique session identifier
+            settings: Capture settings (iso, shutter_speed, etc.)
+            max_window: Maximum frames to store
+        """
+        if session_id not in self._history:
+            self._history[session_id] = deque(maxlen=max_window)
+
+        self._history[session_id].append(
+            {"iso": settings.get("iso", 100), "timestamp": datetime.now()}
+        )
+
+    def get_recent_frames(self, session_id: str, count: int = 8) -> List[Dict[str, Any]]:
+        """
+        Get recent frames for a session.
+
+        Args:
+            session_id: Unique session identifier
+            count: Number of recent frames to return
+
+        Returns:
+            List of recent frame settings (most recent last)
+        """
+        if session_id not in self._history:
+            return []
+
+        history = list(self._history[session_id])
+        return history[-count:] if len(history) > count else history
+
+    def get_last_iso(self, session_id: str) -> Optional[int]:
+        """Get the last ISO value for a session."""
+        if session_id not in self._history or not self._history[session_id]:
+            return None
+        return self._history[session_id][-1]["iso"]
+
+    def clear_session(self, session_id: str):
+        """Clear history for a specific session."""
+        if session_id in self._history:
+            del self._history[session_id]
 
 
 class ExposureCalculator:
@@ -31,6 +85,7 @@ class ExposureCalculator:
         self.pi_host = pi_host
         self.pi_port = pi_port
         self.meter_url = f"http://{pi_host}:{pi_port}/meter" if pi_host else None
+        self.exposure_history = ExposureHistory()
 
     async def get_metered_exposure(self) -> Optional[Dict[str, Any]]:
         """
@@ -61,7 +116,12 @@ class ExposureCalculator:
             return None
 
     async def calculate_settings(
-        self, schedule_type: str, current_time: datetime = None, profile: str = "a"
+        self,
+        schedule_type: str,
+        current_time: datetime = None,
+        profile: str = "a",
+        session_id: str = None,
+        smoothing_config: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
         Calculate camera settings using camera metering + profile adjustments (async).
@@ -69,7 +129,9 @@ class ExposureCalculator:
         Args:
             schedule_type: "sunrise", "daytime", or "sunset"
             current_time: Current time (defaults to now in solar calculator's timezone)
-            profile: Profile identifier (a/b/c/d/e/f) - determines WB and exposure strategy
+            profile: Profile identifier (a/b/c/d/e/f/g) - determines WB and exposure strategy
+            session_id: Optional session ID for smoothing history tracking
+            smoothing_config: Optional smoothing configuration (enables temporal smoothing)
 
         Returns:
             Dictionary with ISO, shutter_speed, exposure_compensation, profile, awb_mode, hdr_mode
@@ -106,7 +168,13 @@ class ExposureCalculator:
             base_settings["lux"] = None  # No lux data in fallback mode
 
         # Apply profile-specific modifications (pass current_time and schedule_type for context)
-        return self._apply_profile_settings(base_settings, profile, current_time, schedule_type)
+        settings = self._apply_profile_settings(base_settings, profile, current_time, schedule_type)
+
+        # Apply temporal smoothing if enabled
+        if session_id and smoothing_config:
+            settings = self._apply_smoothing(settings, session_id, smoothing_config)
+
+        return settings
 
     def _calculate_sunrise_settings(self, current_time: datetime) -> Dict[str, Any]:
         """
@@ -347,6 +415,85 @@ class ExposureCalculator:
             logger.info(f"📸 Profile {profile.upper()} ({profile_name}): {', '.join(details)}")
         else:
             logger.debug(f"Profile {profile.upper()}: {profile_name}")
+
+        return settings
+
+    def _apply_smoothing(
+        self,
+        settings: Dict[str, Any],
+        session_id: str,
+        smoothing_config: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Apply temporal smoothing to exposure settings using EMA.
+
+        Args:
+            settings: Current frame settings
+            session_id: Session identifier for history tracking
+            smoothing_config: Smoothing configuration from schedule
+                - enabled: bool
+                - window_frames: int (number of frames for EMA)
+                - max_change_per_frame: float (max fractional change, e.g., 0.12 = 12%)
+                - iso_weight: float (0-1, weight for ISO smoothing)
+                - shutter_weight: float (0-1, weight for shutter smoothing)
+
+        Returns:
+            Smoothed settings dict
+        """
+        if not smoothing_config.get("enabled", False):
+            return settings
+
+        # Get last ISO from history
+        last_iso = self.exposure_history.get_last_iso(session_id)
+        current_iso = settings.get("iso", 100)
+
+        if last_iso is None:
+            # First frame, no smoothing needed
+            logger.debug(f"🎬 First frame for session {session_id}, no smoothing")
+            self.exposure_history.add_frame(
+                session_id, settings, max_window=smoothing_config.get("window_frames", 8)
+            )
+            return settings
+
+        # Calculate ISO change
+        max_change = smoothing_config.get("max_change_per_frame", 0.12)
+        iso_weight = smoothing_config.get("iso_weight", 0.7)
+
+        # Apply EMA smoothing to ISO
+        iso_diff = current_iso - last_iso
+        iso_change_fraction = abs(iso_diff) / last_iso if last_iso > 0 else 0
+
+        if iso_change_fraction > max_change:
+            # Limit the change
+            max_iso_change = int(last_iso * max_change)
+            if iso_diff > 0:
+                smoothed_iso = last_iso + max_iso_change
+            else:
+                smoothed_iso = last_iso - max_iso_change
+
+            # Apply weight
+            smoothed_iso = int(last_iso + (smoothed_iso - last_iso) * iso_weight)
+
+            logger.info(
+                f"🎨 Smoothing ISO: {last_iso} → {current_iso} (raw), "
+                f"limited to {smoothed_iso} (Δ{iso_change_fraction*100:.0f}% → {max_change*100:.0f}%)"
+            )
+
+            settings["iso"] = smoothed_iso
+        else:
+            # Change is within limits, apply gentle smoothing
+            smoothed_iso = int(last_iso + (current_iso - last_iso) * iso_weight)
+            if smoothed_iso != current_iso:
+                logger.debug(
+                    f"🎨 Gentle ISO smoothing: {current_iso} → {smoothed_iso} "
+                    f"(Δ{iso_change_fraction*100:.0f}%)"
+                )
+                settings["iso"] = smoothed_iso
+
+        # Add frame to history
+        self.exposure_history.add_frame(
+            session_id, settings, max_window=smoothing_config.get("window_frames", 8)
+        )
 
         return settings
 

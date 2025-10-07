@@ -163,7 +163,20 @@
       "offset_minutes": -30,
       "duration_minutes": 60,
       "interval_seconds": 5,
-      "profiles": ["a", "b", "d", "g"]
+      "profiles": ["a", "b", "d", "g"],
+      "smoothing": {
+        "enabled": true,
+        "window_frames": 8,
+        "max_change_per_frame": 0.12,
+        "iso_weight": 0.7,
+        "shutter_weight": 0.3
+      },
+      "video_debug": {
+        "enabled": false,
+        "font_size": 16,
+        "position": "bottom-left",
+        "background": true
+      }
     },
     "sunset": {
       "enabled": true,
@@ -172,7 +185,20 @@
       "offset_minutes": -30,
       "duration_minutes": 60,
       "interval_seconds": 5,
-      "profiles": ["a", "b", "d", "g"]
+      "profiles": ["a", "b", "d", "g"],
+      "smoothing": {
+        "enabled": true,
+        "window_frames": 8,
+        "max_change_per_frame": 0.12,
+        "iso_weight": 0.7,
+        "shutter_weight": 0.3
+      },
+      "video_debug": {
+        "enabled": false,
+        "font_size": 16,
+        "position": "bottom-left",
+        "background": true
+      }
     },
     "all_day": {
       "enabled": false,
@@ -180,7 +206,20 @@
       "start_time": "06:30",
       "end_time": "21:30",
       "interval_seconds": 300,
-      "profiles": ["a", "g"]
+      "profiles": ["a", "g"],
+      "smoothing": {
+        "enabled": false,
+        "window_frames": 8,
+        "max_change_per_frame": 0.12,
+        "iso_weight": 0.7,
+        "shutter_weight": 0.3
+      },
+      "video_debug": {
+        "enabled": false,
+        "font_size": 16,
+        "position": "bottom-left",
+        "background": true
+      }
     }
   },
   "location": {
