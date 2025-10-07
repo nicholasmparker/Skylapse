@@ -1,0 +1,196 @@
+{
+  "profiles": {
+    "a": {
+      "name": "Pure Auto + Autofocus",
+      "description": "Fully automatic exposure, white balance, and focus",
+      "enabled": true,
+      "settings": {
+        "base": {
+          "iso": 0,
+          "shutter_speed": "auto",
+          "exposure_compensation": 0.0,
+          "awb_mode": 0,
+          "hdr_mode": 0,
+          "bracket_count": 1,
+          "ae_metering_mode": 0
+        },
+        "adaptive_wb": {
+          "enabled": false
+        },
+        "adaptive_ev": {
+          "enabled": false
+        }
+      }
+    },
+    "b": {
+      "name": "Ultra-Vibrant Warm WB + Maximum Sharpness",
+      "description": "Embraces dramatic warm tones with boosted saturation and sharpness",
+      "enabled": true,
+      "settings": {
+        "base": {
+          "awb_mode": 6,
+          "hdr_mode": 0,
+          "bracket_count": 1,
+          "af_mode": 0,
+          "lens_position": 2.45,
+          "sharpness": 8.0,
+          "contrast": 2.0,
+          "saturation": 2.0
+        },
+        "adaptive_wb": {
+          "enabled": true,
+          "curve": "warm"
+        },
+        "adaptive_ev": {
+          "enabled": false
+        }
+      }
+    },
+    "c": {
+      "name": "Conservative Adaptive",
+      "description": "Cooler baseline, protects highlights, subtle warmth progression",
+      "enabled": false,
+      "settings": {
+        "base": {
+          "awb_mode": 6,
+          "exposure_compensation": -0.3,
+          "hdr_mode": 0,
+          "bracket_count": 1
+        },
+        "adaptive_wb": {
+          "enabled": true,
+          "curve": "conservative"
+        },
+        "adaptive_ev": {
+          "enabled": false
+        }
+      }
+    },
+    "d": {
+      "name": "Warm Dramatic + Landscape Focus",
+      "description": "Embraces golden tones earlier, richer sunset colors with manual focus for mountains",
+      "enabled": true,
+      "settings": {
+        "base": {
+          "awb_mode": 6,
+          "hdr_mode": 0,
+          "bracket_count": 1,
+          "af_mode": 0,
+          "lens_position": 2.45
+        },
+        "adaptive_wb": {
+          "enabled": true,
+          "curve": "warm"
+        },
+        "adaptive_ev": {
+          "enabled": false
+        }
+      }
+    },
+    "e": {
+      "name": "Balanced Adaptive",
+      "description": "Matches daylight when bright, natural warmth progression",
+      "enabled": false,
+      "settings": {
+        "base": {
+          "awb_mode": 6,
+          "hdr_mode": 0,
+          "bracket_count": 1
+        },
+        "adaptive_wb": {
+          "enabled": true,
+          "curve": "balanced"
+        },
+        "adaptive_ev": {
+          "enabled": false
+        }
+      }
+    },
+    "f": {
+      "name": "Auto-Exposure + Spot Metering",
+      "description": "Meters lower-center region for mountains, ignores bright sky",
+      "enabled": false,
+      "settings": {
+        "base": {
+          "iso": 0,
+          "shutter_speed": "auto",
+          "exposure_compensation": 0.7,
+          "awb_mode": 1,
+          "hdr_mode": 0,
+          "bracket_count": 1,
+          "ae_metering_mode": 1
+        },
+        "adaptive_wb": {
+          "enabled": false
+        },
+        "adaptive_ev": {
+          "enabled": false
+        }
+      }
+    },
+    "g": {
+      "name": "Adaptive EV + Balanced WB + Landscape Sharp",
+      "description": "Protects highlights in bright, lifts shadows in low light with enhanced sharpness",
+      "enabled": true,
+      "settings": {
+        "base": {
+          "awb_mode": 6,
+          "hdr_mode": 0,
+          "bracket_count": 1,
+          "af_mode": 0,
+          "lens_position": 2.45,
+          "sharpness": 1.5,
+          "contrast": 1.15,
+          "saturation": 1.05
+        },
+        "adaptive_wb": {
+          "enabled": true,
+          "curve": "balanced"
+        },
+        "adaptive_ev": {
+          "enabled": true,
+          "curve": "adaptive"
+        }
+      },
+      "video_filters": "unsharp=5:5:1.0:5:5:0.0,eq=contrast=1.1:saturation=1.05"
+    }
+  },
+  "schedules": {
+    "sunrise": {
+      "enabled": true,
+      "type": "solar_relative",
+      "anchor": "sunrise",
+      "offset_minutes": -30,
+      "duration_minutes": 60,
+      "interval_seconds": 5,
+      "profiles": ["a", "b", "d", "g"]
+    },
+    "sunset": {
+      "enabled": true,
+      "type": "solar_relative",
+      "anchor": "sunset",
+      "offset_minutes": -30,
+      "duration_minutes": 60,
+      "interval_seconds": 5,
+      "profiles": ["a", "b", "d", "g"]
+    },
+    "all_day": {
+      "enabled": false,
+      "type": "time_of_day",
+      "start_time": "06:30",
+      "end_time": "21:30",
+      "interval_seconds": 300,
+      "profiles": ["a", "g"]
+    }
+  },
+  "location": {
+    "latitude": 39.6333,
+    "longitude": -105.3167,
+    "timezone": "America/Denver"
+  },
+  "pi": {
+    "host": "192.168.0.124",
+    "port": 8080,
+    "timeout_seconds": 10
+  }
+}
