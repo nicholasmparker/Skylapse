@@ -572,11 +572,11 @@ async def capture_photo(settings: CaptureSettings):
                             else f"{settings.lens_position:.1f}"
                         )
                         logger.info(f"🔍 Manual focus: {focus_desc}")
-                    elif settings.af_mode == 2:
+                    elif settings.af_mode == CameraControls.AF_MODE_CONTINUOUS:
                         logger.info("🔍 Continuous autofocus enabled")
                 elif settings.lens_position is not None:
                     # Lens position specified without af_mode - use manual focus
-                    controls["AfMode"] = 0  # Manual
+                    controls["AfMode"] = CameraControls.AF_MODE_MANUAL
                     controls["LensPosition"] = settings.lens_position
                     focus_desc = (
                         "infinity"
@@ -838,7 +838,7 @@ async def capture_focus_test(lens_position: float):
 
     try:
         # Set manual focus
-        camera.set_controls({"AfMode": 0, "LensPosition": lens_position})  # Manual focus
+        camera.set_controls({"AfMode": CameraControls.AF_MODE_MANUAL, "LensPosition": lens_position})
 
         # Wait for focus to settle
         time.sleep(2)
@@ -884,7 +884,7 @@ async def capture_focus_test_auto():
 
     try:
         # Enable continuous autofocus
-        camera.set_controls({"AfMode": 2})  # Continuous autofocus
+        camera.set_controls({"AfMode": CameraControls.AF_MODE_CONTINUOUS})
 
         # Wait for autofocus to settle
         time.sleep(3)
