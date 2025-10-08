@@ -6,7 +6,7 @@ services:
     ports:
       - "${BACKEND_PORT:-8082}:8082"
     volumes:
-      - ./backend/config.json:/app/config.json:ro
+      - ./backend/config.json:/app/config.json
       - ${SKYLAPSE_IMAGES_PATH:-./data/images}:/data/images
       - ${SKYLAPSE_TIMELAPSES_PATH:-./data/timelapses}:/data/timelapses
       - ${SKYLAPSE_DB_PATH:-./data/db}:/data/db
