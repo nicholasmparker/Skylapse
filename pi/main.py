@@ -137,20 +137,9 @@ def initialize_camera():
             still_config = camera.create_still_configuration()
             camera.configure(still_config)
 
-            # Set autofocus and white balance for best quality
-            camera.set_controls(
-                {
-                    "AfMode": CameraControls.AF_MODE_CONTINUOUS,  # Keeps focus sharp
-                    "AwbMode": CameraControls.AWB_MODE_DAYLIGHT,  # Consistent color across timelapse
-                }
-            )
-
-            # Let autofocus settle before starting
-            import time
-
-            time.sleep(2)
-
             # Start camera once - it stays running
+            # Note: We don't set default controls here because per-capture
+            # settings will be applied before each capture
             camera.start()
 
             camera_ready = True
@@ -487,6 +476,11 @@ async def capture_photo(settings: CaptureSettings):
                     }
 
                     camera.set_controls(controls)
+
+                    # Wait for controls to take effect
+                    import time
+                    time.sleep(0.2)
+
                     camera.capture_file(image_path)
                     bracket_paths.append(image_path)
                     logger.info(
@@ -587,6 +581,12 @@ async def capture_photo(settings: CaptureSettings):
 
                 # === STEP 5: Apply controls and capture ===
                 camera.set_controls(controls)
+
+                # Wait for controls to take effect (PiCamera2 applies on next frame)
+                # This ensures focus, WB, and other settings are active before capture
+                import time
+                time.sleep(0.2)  # 200ms should be enough for 1-2 frames at any framerate
+
                 camera.capture_file(image_path)
                 logger.info(f"✓ Capture complete: {image_path}")
 
