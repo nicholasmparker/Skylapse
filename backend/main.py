@@ -726,8 +726,9 @@ async def generate_archive_timelapse(session_id: str, request: Request):
         return {"error": "Session not found"}, 404
 
     # Parse session_id to get profile, date, schedule
-    # Format: a_20251002_sunrise
-    parts = session_id.split("_")
+    # Format: a_20251002_sunrise or a_20251002_all_day
+    # Use rsplit to handle schedule names with underscores
+    parts = session_id.split("_", 2)  # Split into max 3 parts
     if len(parts) != 3:
         return {"error": "Invalid session_id format"}, 400
 
