@@ -635,6 +635,59 @@ async def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 
+@app.get("/captures/{filename}/metadata")
+async def get_capture_metadata(filename: str, request: Request):
+    """Get capture metadata for a specific image filename"""
+    db = request.app.state.db
+
+    with db._get_connection() as conn:
+        result = conn.execute(
+            """
+            SELECT
+                filename, timestamp, profile, session_id,
+                iso, shutter_speed, exposure_compensation, lux,
+                wb_temp, wb_mode, hdr_mode, bracket_count,
+                ae_metering_mode, af_mode, lens_position,
+                sharpness, contrast, saturation,
+                analog_gain, digital_gain
+            FROM captures
+            WHERE filename = ?
+            ORDER BY timestamp DESC
+            LIMIT 1
+            """,
+            (filename,),
+        ).fetchone()
+
+    if not result:
+        return {"error": "Capture not found"}, 404
+
+    # Convert to dict
+    metadata = {
+        "filename": result[0],
+        "timestamp": result[1],
+        "profile": result[2],
+        "session_id": result[3],
+        "iso": result[4],
+        "shutter_speed": result[5],
+        "exposure_compensation": result[6],
+        "lux": result[7],
+        "wb_temp": result[8],
+        "wb_mode": result[9],
+        "hdr_mode": result[10],
+        "bracket_count": result[11],
+        "ae_metering_mode": result[12],
+        "af_mode": result[13],
+        "lens_position": result[14],
+        "sharpness": result[15],
+        "contrast": result[16],
+        "saturation": result[17],
+        "analog_gain": result[18],
+        "digital_gain": result[19],
+    }
+
+    return metadata
+
+
 @app.get("/timelapses")
 async def list_timelapses(
     request: Request,

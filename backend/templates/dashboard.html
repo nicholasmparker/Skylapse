@@ -240,7 +240,7 @@
             justify-content: center;
         }
         .fullscreen-modal img {
-            max-width: 95%;
+            max-width: 70%;
             max-height: 95%;
             object-fit: contain;
         }
@@ -252,6 +252,54 @@
             font-size: 40px;
             font-weight: bold;
             cursor: pointer;
+        }
+        .metadata-panel {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 30px;
+            max-width: 25%;
+            max-height: 95%;
+            overflow-y: auto;
+            border-radius: 8px;
+            margin-left: 20px;
+        }
+        .metadata-panel h3 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .metadata-item {
+            margin: 12px 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .metadata-label {
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        .metadata-value {
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .metadata-section {
+            margin: 20px 0;
+        }
+        .metadata-section-title {
+            color: #667eea;
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 15px 0 10px 0;
+        }
+        .fullscreen-modal-content {
+            display: flex;
+            align-items: flex-start;
+            max-width: 95%;
+            max-height: 95%;
         }
     </style>
 </head>
@@ -320,7 +368,13 @@
     <!-- Fullscreen Modal -->
     <div class="fullscreen-modal" id="fullscreen-modal" onclick="closeFullscreen()">
         <span class="fullscreen-close">&times;</span>
-        <img id="fullscreen-image" src="" alt="Fullscreen view">
+        <div class="fullscreen-modal-content" onclick="event.stopPropagation()">
+            <img id="fullscreen-image" src="" alt="Fullscreen view">
+            <div class="metadata-panel" id="metadata-panel" style="display: none;">
+                <h3>📊 Capture Settings</h3>
+                <div id="metadata-content">Loading...</div>
+            </div>
+        </div>
     </div>
 
     <!-- Video Modal -->
@@ -334,14 +388,78 @@
     </div>
 
     <script>
-        function openFullscreen(imageUrl, event) {
+        async function openFullscreen(imageUrl, event) {
             event.stopPropagation();
             document.getElementById('fullscreen-image').src = imageUrl;
             document.getElementById('fullscreen-modal').classList.add('active');
+
+            // Extract filename from URL (e.g., /images/profile-a/capture_20251008_123456.jpg)
+            const filename = imageUrl.split('/').pop();
+
+            // Fetch metadata
+            const metadataPanel = document.getElementById('metadata-panel');
+            const metadataContent = document.getElementById('metadata-content');
+
+            try {
+                const res = await fetch(`/captures/${filename}/metadata`);
+                const metadata = await res.json();
+
+                if (metadata.error) {
+                    metadataContent.innerHTML = '<p style="color: #999;">No metadata available</p>';
+                } else {
+                    // Format metadata
+                    let html = '';
+
+                    // Exposure section
+                    html += '<div class="metadata-section-title">Exposure</div>';
+                    if (metadata.iso) html += `<div class="metadata-item"><span class="metadata-label">ISO</span><span class="metadata-value">${metadata.iso}</span></div>`;
+                    if (metadata.shutter_speed) html += `<div class="metadata-item"><span class="metadata-label">Shutter</span><span class="metadata-value">${metadata.shutter_speed}</span></div>`;
+                    if (metadata.exposure_compensation !== null) html += `<div class="metadata-item"><span class="metadata-label">EV</span><span class="metadata-value">${metadata.exposure_compensation > 0 ? '+' : ''}${metadata.exposure_compensation.toFixed(1)}</span></div>`;
+                    if (metadata.lux) html += `<div class="metadata-item"><span class="metadata-label">Lux</span><span class="metadata-value">${Math.round(metadata.lux)}</span></div>`;
+
+                    // White Balance
+                    html += '<div class="metadata-section-title">White Balance</div>';
+                    if (metadata.wb_temp) html += `<div class="metadata-item"><span class="metadata-label">Temperature</span><span class="metadata-value">${metadata.wb_temp}K</span></div>`;
+                    if (metadata.wb_mode !== null) {
+                        const wbModes = ['Auto', 'Daylight', 'Cloudy', 'Shade', 'Tungsten', 'Fluorescent', 'Custom'];
+                        html += `<div class="metadata-item"><span class="metadata-label">Mode</span><span class="metadata-value">${wbModes[metadata.wb_mode] || metadata.wb_mode}</span></div>`;
+                    }
+
+                    // Focus
+                    html += '<div class="metadata-section-title">Focus</div>';
+                    if (metadata.af_mode !== null) {
+                        const afModes = ['Manual', 'Auto', 'Continuous'];
+                        html += `<div class="metadata-item"><span class="metadata-label">AF Mode</span><span class="metadata-value">${afModes[metadata.af_mode] || metadata.af_mode}</span></div>`;
+                    }
+                    if (metadata.lens_position !== null) html += `<div class="metadata-item"><span class="metadata-label">Lens Position</span><span class="metadata-value">${metadata.lens_position.toFixed(2)}mm</span></div>`;
+
+                    // Enhancements
+                    if (metadata.sharpness || metadata.contrast || metadata.saturation) {
+                        html += '<div class="metadata-section-title">Enhancements</div>';
+                        if (metadata.sharpness !== null) html += `<div class="metadata-item"><span class="metadata-label">Sharpness</span><span class="metadata-value">${metadata.sharpness.toFixed(1)}</span></div>`;
+                        if (metadata.contrast !== null) html += `<div class="metadata-item"><span class="metadata-label">Contrast</span><span class="metadata-value">${metadata.contrast.toFixed(2)}</span></div>`;
+                        if (metadata.saturation !== null) html += `<div class="metadata-item"><span class="metadata-label">Saturation</span><span class="metadata-value">${metadata.saturation.toFixed(2)}</span></div>`;
+                    }
+
+                    // Other info
+                    html += '<div class="metadata-section-title">Info</div>';
+                    if (metadata.profile) html += `<div class="metadata-item"><span class="metadata-label">Profile</span><span class="metadata-value">${metadata.profile.toUpperCase()}</span></div>`;
+                    if (metadata.timestamp) html += `<div class="metadata-item"><span class="metadata-label">Captured</span><span class="metadata-value">${new Date(metadata.timestamp).toLocaleString()}</span></div>`;
+
+                    metadataContent.innerHTML = html;
+                }
+
+                metadataPanel.style.display = 'block';
+            } catch (err) {
+                console.error('Failed to load metadata:', err);
+                metadataContent.innerHTML = '<p style="color: #999;">Failed to load metadata</p>';
+                metadataPanel.style.display = 'block';
+            }
         }
 
         function closeFullscreen() {
             document.getElementById('fullscreen-modal').classList.remove('active');
+            document.getElementById('metadata-panel').style.display = 'none';
         }
 
         function playVideo(videoUrl) {
