@@ -136,9 +136,15 @@ class ProfileExecutor:
             settings["wb_temp"] = wb_temp
 
         # Apply schedule-specific overrides
-        schedule_overrides = (
-            self.profile["settings"].get("schedule_overrides", {}).get(schedule_type, {})
-        )
+        available_schedules = self.profile["settings"].get("schedule_overrides", {})
+        if schedule_type not in available_schedules and available_schedules:
+            logger.warning(
+                f"⚠️  Schedule '{schedule_type}' not found in profile overrides. "
+                f"Available schedules: {list(available_schedules.keys())}. "
+                f"Using base settings only."
+            )
+
+        schedule_overrides = available_schedules.get(schedule_type, {})
         settings.update(schedule_overrides)
 
         # Apply test overrides if provided

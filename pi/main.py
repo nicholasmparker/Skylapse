@@ -28,6 +28,55 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+# ===== Camera Control Constants =====
+class CameraControls:
+    """Constants for PiCamera2 control values"""
+
+    # Autofocus modes
+    AF_MODE_MANUAL = 0
+    AF_MODE_AUTO = 1
+    AF_MODE_CONTINUOUS = 2
+
+    # White balance modes
+    AWB_MODE_AUTO = 0
+    AWB_MODE_DAYLIGHT = 1
+    AWB_MODE_CLOUDY = 2
+    AWB_MODE_TUNGSTEN = 3
+    AWB_MODE_FLUORESCENT = 4
+    AWB_MODE_INCANDESCENT = 5
+    AWB_MODE_CUSTOM = 6  # Requires ColourTemperature setting
+
+    # Auto-exposure metering modes
+    AE_METERING_CENTRE_WEIGHTED = 0
+    AE_METERING_SPOT = 1
+    AE_METERING_MATRIX = 2
+
+    # Enhancement defaults (neutral values)
+    DEFAULT_SHARPNESS = 1.0
+    DEFAULT_CONTRAST = 1.0
+    DEFAULT_SATURATION = 1.0
+
+
+# ===== Camera Constants =====
+VALID_ISO_VALUES = [100, 200, 400, 800, 1600, 3200]
+
+
+# ===== Path Helper Functions =====
+def _get_profile_dir(profile: str) -> Path:
+    """Get image directory for a profile."""
+    home_dir = Path.home()
+    if profile == "default":
+        return home_dir / "skylapse-images"
+    else:
+        return home_dir / "skylapse-images" / f"profile-{profile}"
+
+
+def _get_focus_test_dir() -> Path:
+    """Get focus test directory."""
+    return Path.home() / "skylapse-images" / "focus-test"
+
+
 app = FastAPI(title="Skylapse Capture")
 
 # Add CORS middleware to allow browser access
@@ -89,12 +138,10 @@ def initialize_camera():
             camera.configure(still_config)
 
             # Set autofocus and white balance for best quality
-            # AfMode: 2 = Continuous autofocus (keeps focus sharp)
-            # AwbMode: 1 = Daylight white balance (consistent color across timelapse)
             camera.set_controls(
                 {
-                    "AfMode": 2,  # Continuous autofocus (0=manual, 1=auto, 2=continuous)
-                    "AwbMode": 1,  # Daylight white balance (1 = daylight, 0 = auto)
+                    "AfMode": CameraControls.AF_MODE_CONTINUOUS,  # Keeps focus sharp
+                    "AwbMode": CameraControls.AWB_MODE_DAYLIGHT,  # Consistent color across timelapse
                 }
             )
 
@@ -165,9 +212,8 @@ class CaptureSettings(BaseModel):
         # ISO=0 means full auto mode
         if v == 0:
             return v
-        valid_isos = [100, 200, 400, 800, 1600, 3200]
-        if v not in valid_isos:
-            raise ValueError(f"ISO must be 0 (auto) or one of {valid_isos}")
+        if v not in VALID_ISO_VALUES:
+            raise ValueError(f"ISO must be 0 (auto) or one of {VALID_ISO_VALUES}")
         return v
 
     @validator("exposure_compensation")
@@ -293,8 +339,7 @@ async def meter_scene():
         raw_iso = int(analogue_gain * 100)
 
         # Round to nearest valid ISO
-        valid_isos = [100, 200, 400, 800, 1600, 3200]
-        suggested_iso = min(valid_isos, key=lambda x: abs(x - raw_iso))
+        suggested_iso = min(VALID_ISO_VALUES, key=lambda x: abs(x - raw_iso))
 
         # Convert exposure time to shutter speed string
         if exposure_time > 0:
@@ -419,11 +464,7 @@ async def capture_photo(settings: CaptureSettings):
         else:
             # Real camera capture
             # Create output directory based on profile
-            home_dir = Path.home()
-            if settings.profile == "default":
-                output_dir = home_dir / "skylapse-images"
-            else:
-                output_dir = home_dir / "skylapse-images" / f"profile-{settings.profile}"
+            output_dir = _get_profile_dir(settings.profile)
             output_dir.mkdir(parents=True, exist_ok=True)
 
             # Generate base timestamp for this capture sequence
@@ -463,9 +504,9 @@ async def capture_photo(settings: CaptureSettings):
 
                 # === STEP 1: Start with clean defaults ===
                 controls = {
-                    "Sharpness": 1.0,
-                    "Contrast": 1.0,
-                    "Saturation": 1.0,
+                    "Sharpness": CameraControls.DEFAULT_SHARPNESS,
+                    "Contrast": CameraControls.DEFAULT_CONTRAST,
+                    "Saturation": CameraControls.DEFAULT_SATURATION,
                 }
 
                 # === STEP 2: Add mode-specific settings ===
@@ -478,7 +519,11 @@ async def capture_photo(settings: CaptureSettings):
                     # Add metering mode if specified
                     if settings.ae_metering_mode is not None:
                         controls["AeMeteringMode"] = settings.ae_metering_mode
-                        metering_names = {0: "CentreWeighted", 1: "Spot", 2: "Matrix"}
+                        metering_names = {
+                            CameraControls.AE_METERING_CENTRE_WEIGHTED: "CentreWeighted",
+                            CameraControls.AE_METERING_SPOT: "Spot",
+                            CameraControls.AE_METERING_MATRIX: "Matrix"
+                        }
                         logger.info(
                             f"📸 Auto-exposure: {metering_names.get(settings.ae_metering_mode, 'Unknown')} metering, EV{settings.exposure_compensation:+.1f}"
                         )
@@ -494,8 +539,8 @@ async def capture_photo(settings: CaptureSettings):
                     controls["AnalogueGain"] = settings.iso / 100.0
                     controls["AwbMode"] = settings.awb_mode
 
-                    # Add custom WB temperature if using custom mode (awb_mode=6)
-                    if settings.awb_mode == 6 and settings.wb_temp:
+                    # Add custom WB temperature if using custom mode
+                    if settings.awb_mode == CameraControls.AWB_MODE_CUSTOM and settings.wb_temp:
                         controls["ColourTemperature"] = settings.wb_temp
                         logger.info(f"🎨 Using custom WB: {settings.wb_temp}K")
 
@@ -518,7 +563,7 @@ async def capture_photo(settings: CaptureSettings):
                 # === STEP 4: Apply focus controls (both modes) ===
                 if settings.af_mode is not None:
                     controls["AfMode"] = settings.af_mode
-                    if settings.af_mode == 0 and settings.lens_position is not None:
+                    if settings.af_mode == CameraControls.AF_MODE_MANUAL and settings.lens_position is not None:
                         # Manual focus mode with specific lens position
                         controls["LensPosition"] = settings.lens_position
                         focus_desc = (
@@ -586,9 +631,6 @@ async def health_check():
 @app.get("/latest-image")
 async def get_latest_image(profile: Optional[str] = None):
     """Get the most recent captured image info, optionally filtered by profile"""
-    import os
-    from pathlib import Path
-
     # Check all profile directories for the latest image
     base_dir = Path(os.path.expanduser("~/skylapse-images"))
 
@@ -601,7 +643,7 @@ async def get_latest_image(profile: Optional[str] = None):
 
     # Filter by profile if specified
     if profile:
-        profile_dirs = [base_dir / f"profile-{profile}"]
+        profile_dirs = [_get_profile_dir(profile)]
     else:
         profile_dirs = list(base_dir.glob("profile-*"))
 
@@ -712,10 +754,9 @@ async def clear_profile():
 
 
 @app.get("/images/profile-{profile}/latest.jpg")
-async def get_latest_image(profile: str):
-    """Get the latest captured image from a profile folder"""
-    home_dir = Path.home()
-    profile_dir = home_dir / "skylapse-images" / f"profile-{profile}"
+async def serve_latest_image(profile: str):
+    """Serve the latest captured image file from a profile folder"""
+    profile_dir = _get_profile_dir(profile)
 
     if not profile_dir.exists():
         raise HTTPException(status_code=404, detail=f"Profile {profile} folder not found")
@@ -747,8 +788,7 @@ async def get_latest_image(profile: str):
 @app.get("/images/profile-{profile}/info")
 async def get_latest_image_info(profile: str):
     """Get metadata about the latest image in a profile folder"""
-    home_dir = Path.home()
-    profile_dir = home_dir / "skylapse-images" / f"profile-{profile}"
+    profile_dir = _get_profile_dir(profile)
 
     if not profile_dir.exists():
         raise HTTPException(status_code=404, detail=f"Profile {profile} folder not found")
@@ -804,7 +844,7 @@ async def capture_focus_test(lens_position: float):
         time.sleep(2)
 
         # Capture test image
-        output_dir = Path.home() / "skylapse-images" / "focus-test"
+        output_dir = _get_focus_test_dir()
         output_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -854,7 +894,7 @@ async def capture_focus_test_auto():
         detected_lens_position = metadata.get("LensPosition", None)
 
         # Capture test image
-        output_dir = Path.home() / "skylapse-images" / "focus-test"
+        output_dir = _get_focus_test_dir()
         output_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -882,7 +922,7 @@ async def capture_focus_test_auto():
 @app.get("/focus-test/images")
 async def list_focus_test_images():
     """List all focus test images with their lens positions"""
-    output_dir = Path.home() / "skylapse-images" / "focus-test"
+    output_dir = _get_focus_test_dir()
 
     if not output_dir.exists():
         return {"images": []}
@@ -915,7 +955,7 @@ async def list_focus_test_images():
 @app.get("/images/focus-test/{filename}")
 async def get_focus_test_image(filename: str):
     """Serve a focus test image"""
-    output_dir = Path.home() / "skylapse-images" / "focus-test"
+    output_dir = _get_focus_test_dir()
     filepath = output_dir / filename
 
     if not filepath.exists():
@@ -927,8 +967,7 @@ async def get_focus_test_image(filename: str):
 @app.get("/images/profile-{profile}/list")
 async def list_profile_images(profile: str):
     """List all images in a profile folder"""
-    home_dir = Path.home()
-    profile_dir = home_dir / "skylapse-images" / f"profile-{profile}"
+    profile_dir = _get_profile_dir(profile)
 
     if not profile_dir.exists():
         raise HTTPException(status_code=404, detail=f"Profile {profile} folder not found")
