@@ -488,6 +488,8 @@ async def capture_photo(settings: CaptureSettings):
 
                     # Wait for controls to take effect
                     import time
+                    # Note: Bracketing typically doesn't change focus between shots,
+                    # so 200ms is sufficient for exposure changes
                     time.sleep(0.2)
 
                     camera.capture_file(image_path)
@@ -591,10 +593,15 @@ async def capture_photo(settings: CaptureSettings):
                 # === STEP 5: Apply controls and capture ===
                 camera.set_controls(controls)
 
-                # Wait for controls to take effect (PiCamera2 applies on next frame)
-                # This ensures focus, WB, and other settings are active before capture
+                # Wait for controls to take effect
                 import time
-                time.sleep(0.2)  # 200ms should be enough for 1-2 frames at any framerate
+                # Focus motor needs longer to physically move the lens (2s)
+                # Other controls (exposure, WB) only need 1-2 frames (200ms)
+                if settings.af_mode == CameraControls.AF_MODE_MANUAL or settings.lens_position is not None:
+                    time.sleep(2.0)  # Focus motor needs time to physically move
+                    logger.debug("⏱️  Waiting 2s for focus motor to settle")
+                else:
+                    time.sleep(0.2)  # 200ms for exposure/WB changes
 
                 camera.capture_file(image_path)
                 logger.info(f"✓ Capture complete: {image_path}")
