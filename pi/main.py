@@ -429,6 +429,15 @@ async def capture_photo(settings: CaptureSettings):
                 "ae_metering_mode", settings.ae_metering_mode
             )
 
+            # Apply focus controls from profile
+            settings.af_mode = profile_settings.get("af_mode", settings.af_mode)
+            settings.lens_position = profile_settings.get("lens_position", settings.lens_position)
+
+            # Apply image enhancement controls from profile
+            settings.sharpness = profile_settings.get("sharpness", settings.sharpness)
+            settings.contrast = profile_settings.get("contrast", settings.contrast)
+            settings.saturation = profile_settings.get("saturation", settings.saturation)
+
             logger.info(
                 f"📸 Profile-calculated settings: ISO {settings.iso}, "
                 f"shutter {settings.shutter_speed}, EV {settings.exposure_compensation:+.1f}, "
