@@ -659,7 +659,7 @@ async def get_capture_metadata(filename: str, request: Request):
         ).fetchone()
 
     if not result:
-        return {"error": "Capture not found"}, 404
+        raise HTTPException(status_code=404, detail="Capture not found")
 
     # Convert to dict
     metadata = {
@@ -744,7 +744,7 @@ async def download_timelapse(filename: str):
     video_path = Path("/data/timelapses") / filename
 
     if not video_path.exists() or not video_path.is_file():
-        return {"error": "File not found"}, 404
+        raise HTTPException(status_code=404, detail="File not found")
 
     # Serve the file with appropriate MIME type for video streaming
     return FileResponse(path=video_path, media_type="video/mp4", filename=filename)
@@ -757,7 +757,7 @@ async def get_thumbnail(filename: str):
     thumb_path = Path("/data/timelapses") / filename
 
     if not thumb_path.exists() or not thumb_path.is_file():
-        return {"error": "Thumbnail not found"}, 404
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
 
     return FileResponse(path=thumb_path, media_type="image/jpeg")
 
@@ -776,14 +776,14 @@ async def generate_archive_timelapse(session_id: str, request: Request):
     # Verify session exists
     session = db.get_session_stats(session_id)
     if not session:
-        return {"error": "Session not found"}, 404
+        raise HTTPException(status_code=404, detail="Session not found")
 
     # Parse session_id to get profile, date, schedule
     # Format: a_20251002_sunrise or a_20251002_all_day
     # Use rsplit to handle schedule names with underscores
     parts = session_id.split("_", 2)  # Split into max 3 parts
     if len(parts) != 3:
-        return {"error": "Invalid session_id format"}, 400
+        raise HTTPException(status_code=400, detail="Invalid session_id format")
 
     profile = parts[0]
     date_compact = parts[1]
