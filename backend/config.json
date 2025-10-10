@@ -67,8 +67,8 @@
       }
     },
     "d": {
-      "name": "Warm Dramatic + Landscape Focus",
-      "description": "Embraces golden tones earlier, richer sunset colors with manual focus for mountains",
+      "name": "Warm Dramatic + Landscape Focus + HDR",
+      "description": "Embraces golden tones earlier, richer sunset colors with manual focus for mountains and HDR exposure stacking",
       "enabled": true,
       "settings": {
         "base": {
@@ -76,7 +76,9 @@
           "hdr_mode": 0,
           "bracket_count": 1,
           "af_mode": 0,
-          "lens_position": 2.45
+          "lens_position": 2.45,
+          "hdr_enabled": true,
+          "bracket_exposures": [-2.0, 0.0, 2.0]
         },
         "adaptive_wb": {
           "enabled": true,

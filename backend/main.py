@@ -295,18 +295,35 @@ async def scheduler_loop(app: FastAPI):
                         # DEBUG: Log all settings being sent to Pi
                         logger.info(f"🔧 Profile {profile.upper()} settings: {settings}")
 
-                        # Send capture command to Pi and download image
-                        success, filename = await trigger_capture(schedule_name, settings, config)
+                        # Check if HDR is enabled for this profile
+                        is_hdr = settings.get("hdr_enabled", False)
 
-                        if success and filename:
-                            # Record capture metadata in database with actual filename
-                            db.record_capture(session_id, filename, current_time, settings)
-
-                            logger.info(
-                                f"✓ Profile {profile.upper()}: ISO {settings['iso']}, {settings['shutter_speed']}, EV{settings['exposure_compensation']:+.1f}"
+                        if is_hdr:
+                            # HDR mode: capture brackets and download all
+                            logger.info(f"🌅 HDR mode enabled for profile {profile.upper()}")
+                            success, bracket_filenames = await trigger_bracket_capture(
+                                schedule_name, settings, config, db, session_id, current_time
                             )
+
+                            if success and bracket_filenames:
+                                logger.info(
+                                    f"✓ Profile {profile.upper()} HDR: {len(bracket_filenames)} brackets captured"
+                                )
+                            else:
+                                logger.error(f"✗ Profile {profile.upper()} HDR failed")
                         else:
-                            logger.error(f"✗ Profile {profile.upper()} failed")
+                            # Regular single capture mode
+                            success, filename = await trigger_capture(schedule_name, settings, config)
+
+                            if success and filename:
+                                # Record capture metadata in database with actual filename
+                                db.record_capture(session_id, filename, current_time, settings)
+
+                                logger.info(
+                                    f"✓ Profile {profile.upper()}: ISO {settings['iso']}, {settings['shutter_speed']}, EV{settings['exposure_compensation']:+.1f}"
+                                )
+                            else:
+                                logger.error(f"✗ Profile {profile.upper()} failed")
 
                         # Small delay between profiles to let camera settle
                         await asyncio.sleep(0.5)
@@ -552,6 +569,128 @@ async def trigger_capture(schedule_name: str, settings: dict, config: Config) ->
     except Exception as e:
         logger.error(f"Pi capture error for {schedule_name}: {e}")
         return (False, "")
+
+
+async def trigger_bracket_capture(
+    schedule_name: str,
+    settings: dict,
+    config: Config,
+    db: SessionDatabase,
+    session_id: str,
+    current_time: datetime
+) -> tuple[bool, list]:
+    """
+    Send bracket capture command to Raspberry Pi and download all bracket images.
+
+    This is used for HDR exposure stacking - captures multiple images at different
+    EV offsets and downloads them all for later merging.
+
+    Args:
+        schedule_name: Name of the schedule (for logging)
+        settings: Camera settings including bracket_exposures
+        config: Configuration object
+        db: Database for recording bracket captures
+        session_id: Session ID for this capture sequence
+        current_time: Capture timestamp
+
+    Returns:
+        Tuple of (success: bool, bracket_filenames: list)
+    """
+    pi_config = config.get_pi_config()
+    pi_url = f"http://{pi_config['host']}:{pi_config['port']}/capture-bracket"
+
+    # Build bracket capture request
+    bracket_request = {
+        "bracket_exposures": settings.get("bracket_exposures", [-2.0, 0.0, 2.0]),
+        "iso": settings.get("iso", 100),
+        "shutter_speed": settings.get("shutter_speed", "1/500"),
+        "profile": settings.get("profile", "d"),
+        "awb_mode": settings.get("awb_mode", 1),
+        "wb_temp": settings.get("wb_temp"),
+        "af_mode": settings.get("af_mode"),
+        "lens_position": settings.get("lens_position"),
+        "sharpness": settings.get("sharpness"),
+        "contrast": settings.get("contrast"),
+        "saturation": settings.get("saturation"),
+    }
+
+    # Add backend_name if configured
+    if app.state.backend_name:
+        bracket_request["backend_name"] = app.state.backend_name
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:  # Longer timeout for brackets
+            # Call Pi bracket endpoint
+            response = await client.post(pi_url, json=bracket_request)
+            response.raise_for_status()
+
+            result = response.json()
+            logger.debug(f"Pi bracket response: {result}")
+
+            if result.get("status") != "success":
+                logger.error(f"Pi bracket capture failed: {result.get('message', 'Unknown error')}")
+                return (False, [])
+
+            filenames = result.get("filenames", [])
+            bracket_count = result.get("bracket_count", 0)
+
+            if not filenames or bracket_count == 0:
+                logger.error("Pi did not return bracket filenames")
+                return (False, [])
+
+            logger.info(f"📸 Captured {bracket_count} brackets: {filenames}")
+
+            # Download each bracket image
+            profile = settings.get("profile", "default")
+            local_dir = Path("/data/images") / f"profile-{profile}"
+            local_dir.mkdir(parents=True, exist_ok=True)
+
+            downloaded_brackets = []
+            bracket_exposures = bracket_request["bracket_exposures"]
+
+            for i, filename in enumerate(filenames):
+                # Download image from Pi
+                profile_path = f"profile-{profile}"
+                image_url = (
+                    f"http://{pi_config['host']}:{pi_config['port']}/images/{profile_path}/{filename}"
+                )
+
+                logger.debug(f"Downloading bracket {i}: {image_url}")
+
+                image_response = await client.get(image_url)
+                image_response.raise_for_status()
+
+                # Write image to local filesystem
+                local_path = local_dir / filename
+                with open(local_path, "wb") as f:
+                    f.write(image_response.content)
+
+                logger.info(
+                    f"  ✓ Bracket {i} (EV{bracket_exposures[i]:+.1f}): {filename} "
+                    f"({len(image_response.content) / 1024:.1f} KB)"
+                )
+
+                # Record bracket in database
+                bracket_settings = settings.copy()
+                bracket_settings["is_bracket"] = True
+                bracket_settings["bracket_index"] = i
+                bracket_settings["bracket_ev_offset"] = bracket_exposures[i]
+
+                db.record_capture(session_id, filename, current_time, bracket_settings)
+                downloaded_brackets.append(filename)
+
+            logger.info(f"✅ HDR bracket capture complete: {bracket_count} images downloaded")
+            return (True, downloaded_brackets)
+
+    except httpx.TimeoutException:
+        logger.error(f"Pi bracket capture timeout for {schedule_name}")
+        return (False, [])
+    except httpx.HTTPError as e:
+        logger.error(f"Pi bracket capture HTTP error for {schedule_name}: {e}")
+        return (False, [])
+    except Exception as e:
+        logger.error(f"Pi bracket capture error for {schedule_name}: {e}", exc_info=True)
+        return (False, [])
 
 
 # API Endpoints
