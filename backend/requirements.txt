@@ -4,7 +4,8 @@ pydantic==2.5.0
 jinja2==3.1.2  # For dashboard templates
 astral==3.2  # For sunrise/sunset calculations
 httpx==0.25.2  # For async HTTP calls to Pi
-opencv-python==4.8.1.78  # For image stacking (future)
+numpy<2.0  # Pin to 1.x for OpenCV compatibility
+opencv-python==4.8.1.78  # For HDR image stacking
 pillow==10.1.0  # For image processing (future)
 redis==5.0.1  # Redis client for job queue
 rq==1.15.1  # Redis Queue for background jobs

@@ -221,7 +221,7 @@ class TestProcessBracketSet:
         assert metadata["bracket_count"] == 3
         assert "output_resolution" in metadata
         assert "processing_time_seconds" in metadata
-        assert metadata["processing_time_seconds"] > 0
+        assert metadata["processing_time_seconds"] >= 0  # Can be 0.0 if very fast
 
     def test_workflow_invalid_algorithm(self):
         """Test error handling for invalid algorithm"""
