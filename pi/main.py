@@ -591,6 +591,7 @@ async def capture_photo(settings: CaptureSettings):
                     logger.info(f"🔍 Manual focus: {focus_desc}")
 
                 # === STEP 5: Apply controls and capture ===
+                logger.info(f"🎛️  Setting controls: {controls}")
                 camera.set_controls(controls)
 
                 # Wait for controls to take effect
