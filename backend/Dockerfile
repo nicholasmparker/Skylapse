@@ -19,8 +19,11 @@ COPY shared /app/shared
 # Copy backend source
 COPY backend .
 
+# Make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
+
 # Expose port
 EXPOSE 8082
 
-# Run backend
-CMD ["python", "main.py"]
+# Run backend with migration entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
