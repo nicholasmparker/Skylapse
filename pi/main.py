@@ -619,6 +619,150 @@ async def capture_photo(settings: CaptureSettings):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class BracketCaptureSettings(BaseModel):
+    """Settings for HDR bracket capture"""
+
+    bracket_exposures: list  # List of EV offsets (e.g., [-2.0, 0.0, +2.0])
+    iso: int = 100  # ISO setting
+    shutter_speed: str = "1/500"  # Base shutter speed
+    profile: str = "d"  # Profile for folder organization
+    awb_mode: int = 1  # White balance mode
+    wb_temp: Optional[int] = None  # Color temperature if awb_mode=6
+
+    # Focus controls
+    af_mode: Optional[int] = 0  # Default to manual focus for brackets
+    lens_position: Optional[float] = 3.0  # Focus position
+
+    # Image enhancement
+    sharpness: Optional[float] = None
+    contrast: Optional[float] = None
+    saturation: Optional[float] = None
+
+    @validator("bracket_exposures")
+    def validate_bracket_exposures(cls, v):
+        if not v or len(v) < 2:
+            raise ValueError("Must provide at least 2 EV offsets for bracketing")
+        for ev in v:
+            if not isinstance(ev, (int, float)):
+                raise ValueError(f"EV offsets must be numbers, got {type(ev)}")
+            if not -2.0 <= ev <= 2.0:
+                raise ValueError(f"EV offsets must be in range -2.0 to +2.0, got {ev}")
+        return v
+
+
+class BracketCaptureResponse(BaseModel):
+    """Response from bracket capture"""
+
+    status: str
+    filenames: list  # All bracket filenames
+    bracket_count: int
+    message: str
+
+
+@app.post("/capture-bracket", response_model=BracketCaptureResponse)
+async def capture_bracket(settings: BracketCaptureSettings):
+    """
+    Capture exposure bracket for HDR merging.
+
+    Captures N images at different EV offsets for exposure stacking.
+    Used by backend to create HDR timelapses during sunrise/sunset.
+
+    Returns all bracket filenames for backend to download and merge.
+    """
+    if not camera_ready:
+        raise HTTPException(status_code=503, detail="Camera not ready")
+
+    if USE_MOCK_CAMERA:
+        # Mock mode: return fake filenames
+        mock_filenames = []
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        for i in range(len(settings.bracket_exposures)):
+            mock_filenames.append(f"mock_bracket_{timestamp}_{i}.jpg")
+
+        return BracketCaptureResponse(
+            status="success",
+            filenames=mock_filenames,
+            bracket_count=len(mock_filenames),
+            message="Bracket capture successful (mock mode)"
+        )
+
+    try:
+        # Create output directory
+        output_dir = _get_profile_dir(settings.profile)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate timestamp for this bracket set
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Parse shutter speed
+        shutter_us = parse_shutter_speed(settings.shutter_speed)
+
+        # Build base controls (common to all brackets)
+        base_controls = {
+            "ExposureTime": shutter_us,
+            "AnalogueGain": settings.iso / 100.0,
+            "AwbMode": settings.awb_mode,
+            "Sharpness": settings.sharpness or CameraControls.DEFAULT_SHARPNESS,
+            "Contrast": settings.contrast or CameraControls.DEFAULT_CONTRAST,
+            "Saturation": settings.saturation or CameraControls.DEFAULT_SATURATION,
+        }
+
+        # Add custom WB if specified
+        if settings.awb_mode == CameraControls.AWB_MODE_CUSTOM and settings.wb_temp:
+            base_controls["ColourTemperature"] = settings.wb_temp
+
+        # Add focus controls if specified
+        if settings.af_mode is not None:
+            base_controls["AfMode"] = settings.af_mode
+            if settings.af_mode == CameraControls.AF_MODE_MANUAL and settings.lens_position is not None:
+                base_controls["LensPosition"] = settings.lens_position
+
+        logger.info(f"📸 Starting bracket capture: {len(settings.bracket_exposures)} exposures")
+
+        # Capture each bracket
+        bracket_filenames = []
+        import time
+
+        for i, ev_offset in enumerate(settings.bracket_exposures):
+            # Create controls for this bracket
+            controls = base_controls.copy()
+            controls["ExposureValue"] = ev_offset
+
+            # Generate filename
+            filename = f"capture_{timestamp}_bracket{i}.jpg"
+            filepath = output_dir / filename
+
+            # Apply controls
+            logger.info(f"🎛️  Bracket {i}: EV {ev_offset:+.1f}")
+            camera.set_controls(controls)
+
+            # Wait for exposure to stabilize
+            # First bracket needs longer for focus, subsequent brackets only need exposure time
+            if i == 0 and settings.lens_position is not None:
+                time.sleep(2.0)  # Focus motor + exposure
+            else:
+                time.sleep(0.2)  # Just exposure
+
+            # Capture
+            camera.capture_file(str(filepath))
+            bracket_filenames.append(filename)
+
+            logger.info(f"  ✓ {filename}")
+
+        logger.info(f"✅ Bracket capture complete: {len(bracket_filenames)} images")
+
+        return BracketCaptureResponse(
+            status="success",
+            filenames=bracket_filenames,
+            bracket_count=len(bracket_filenames),
+            message=f"Captured {len(bracket_filenames)} bracket exposures"
+        )
+
+    except Exception as e:
+        logger.error(f"Bracket capture failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/status")
 async def get_status():
     """Report camera status to backend"""
