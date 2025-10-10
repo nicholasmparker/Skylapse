@@ -309,6 +309,17 @@ async def scheduler_loop(app: FastAPI):
                                 logger.info(
                                     f"✓ Profile {profile.upper()} HDR: {len(bracket_filenames)} brackets captured"
                                 )
+
+                                # Enqueue HDR processing job (async-friendly)
+                                job = await asyncio.to_thread(
+                                    timelapse_queue.enqueue,
+                                    "tasks.process_hdr_brackets",
+                                    session_id=session_id,
+                                    bracket_timestamp=current_time.isoformat(),
+                                    cleanup_brackets=False,  # Keep brackets for debugging
+                                    job_timeout="5m",  # HDR merge is fast (<1s per set)
+                                )
+                                logger.info(f"  🌅 HDR merge job enqueued: {job.id}")
                             else:
                                 logger.error(f"✗ Profile {profile.upper()} HDR failed")
                         else:
@@ -962,6 +973,76 @@ async def generate_archive_timelapse(session_id: str, request: Request):
         "profile": profile,
         "schedule": schedule,
         "date": date,
+    }
+
+
+@app.post("/sessions/{session_id}/process-hdr")
+async def process_hdr_for_session(session_id: str, request: Request, cleanup_brackets: bool = False):
+    """
+    Manually trigger HDR processing for a session.
+
+    Finds all unprocessed bracket sets in the session and enqueues HDR merge jobs.
+    Useful for:
+    - Reprocessing failed HDR merges
+    - Processing brackets that were captured before HDR automation was enabled
+    - Manual control over HDR processing
+
+    Args:
+        session_id: Session ID (format: profile_YYYYMMDD_schedule)
+        cleanup_brackets: If True, delete source brackets after successful merge
+
+    Returns:
+        Job information for the enqueued HDR processing task
+    """
+    db = request.app.state.db
+    timelapse_queue = request.app.state.timelapse_queue
+
+    # Verify session exists
+    session = db.get_session_stats(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Check if session has any unprocessed brackets
+    with db._get_connection() as conn:
+        bracket_count = conn.execute(
+            """
+            SELECT COUNT(*) as count
+            FROM captures
+            WHERE session_id = ?
+              AND is_bracket = 1
+              AND NOT EXISTS (
+                  SELECT 1 FROM captures hdr
+                  WHERE hdr.is_hdr_result = 1
+                  AND hdr.source_bracket_ids LIKE '%' || captures.id || '%'
+              )
+            """,
+            (session_id,),
+        ).fetchone()
+
+        if not bracket_count or bracket_count["count"] == 0:
+            return {
+                "status": "no_brackets",
+                "message": "No unprocessed brackets found for this session",
+                "bracket_count": 0,
+            }
+
+    # Enqueue HDR processing job
+    job = timelapse_queue.enqueue(
+        "tasks.process_hdr_brackets",
+        session_id=session_id,
+        bracket_timestamp=None,  # Process all brackets in session
+        cleanup_brackets=cleanup_brackets,
+        job_timeout="10m",
+    )
+
+    logger.info(f"🌅 Manual HDR processing enqueued for {session_id}, job {job.id}")
+
+    return {
+        "status": "enqueued",
+        "job_id": job.id,
+        "session_id": session_id,
+        "bracket_count": bracket_count["count"],
+        "cleanup_brackets": cleanup_brackets,
     }
 
 

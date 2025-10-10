@@ -1,5 +1,5 @@
 """
-Background Tasks for Timelapse Generation
+Background Tasks for Timelapse Generation and HDR Processing
 
 These tasks run in RQ worker containers, processing images into videos.
 """
@@ -9,11 +9,236 @@ import logging
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from database import SessionDatabase
 
 logger = logging.getLogger(__name__)
+
+
+def process_hdr_brackets(
+    session_id: str,
+    bracket_timestamp: str = None,
+    cleanup_brackets: bool = False,
+) -> dict:
+    """
+    Process HDR bracket sets for a session.
+
+    Finds unprocessed bracket sets, merges them using HDR processing,
+    and records the results in the database.
+
+    Args:
+        session_id: Session ID to process brackets for
+        bracket_timestamp: Optional specific timestamp to process (for single bracket set)
+        cleanup_brackets: If True, delete source bracket images after successful merge
+
+    Returns:
+        Dictionary with processing results and statistics
+    """
+    logger.info(f"🌅 Starting HDR bracket processing for session {session_id}")
+
+    db = SessionDatabase()
+
+    # Query for bracket sets that haven't been merged yet
+    with db._get_connection() as conn:
+        if bracket_timestamp:
+            # Process specific bracket set
+            query = """
+                SELECT id, filename, timestamp, bracket_index, bracket_ev_offset, session_id
+                FROM captures
+                WHERE session_id = ?
+                  AND is_bracket = 1
+                  AND timestamp = ?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM captures hdr
+                      WHERE hdr.is_hdr_result = 1
+                      AND hdr.source_bracket_ids LIKE '%' || captures.id || '%'
+                  )
+                ORDER BY bracket_index ASC
+            """
+            params = (session_id, bracket_timestamp)
+        else:
+            # Process all unprocessed brackets in session
+            query = """
+                SELECT id, filename, timestamp, bracket_index, bracket_ev_offset, session_id
+                FROM captures
+                WHERE session_id = ?
+                  AND is_bracket = 1
+                  AND NOT EXISTS (
+                      SELECT 1 FROM captures hdr
+                      WHERE hdr.is_hdr_result = 1
+                      AND hdr.source_bracket_ids LIKE '%' || captures.id || '%'
+                  )
+                ORDER BY timestamp ASC, bracket_index ASC
+            """
+            params = (session_id,)
+
+        bracket_rows = conn.execute(query, params).fetchall()
+
+    if not bracket_rows:
+        logger.info(f"No unprocessed brackets found for session {session_id}")
+        return {
+            "status": "success",
+            "message": "No unprocessed brackets found",
+            "bracket_sets_processed": 0,
+            "hdr_images_created": 0,
+        }
+
+    # Group brackets by timestamp (each timestamp = one bracket set)
+    from collections import defaultdict
+    bracket_sets = defaultdict(list)
+    for row in bracket_rows:
+        bracket_sets[row["timestamp"]].append(dict(row))
+
+    logger.info(f"Found {len(bracket_sets)} bracket set(s) to process")
+
+    # Process each bracket set
+    processed_count = 0
+    hdr_created_count = 0
+    errors = []
+
+    for timestamp, brackets in bracket_sets.items():
+        try:
+            # Sort by bracket_index to ensure correct order
+            brackets = sorted(brackets, key=lambda b: b["bracket_index"])
+
+            logger.info(
+                f"Processing bracket set: {timestamp} ({len(brackets)} brackets)"
+            )
+
+            # Get profile from first bracket
+            profile = brackets[0].get("session_id", "").split("_")[0] if brackets else "d"
+
+            # Build paths to bracket images
+            images_dir = Path("/data/images") / f"profile-{profile}"
+            bracket_paths = [images_dir / b["filename"] for b in brackets]
+
+            # Verify all bracket images exist
+            missing = [p for p in bracket_paths if not p.exists()]
+            if missing:
+                error_msg = f"Missing bracket images: {missing}"
+                logger.error(error_msg)
+                errors.append({"timestamp": timestamp, "error": error_msg})
+                continue
+
+            # Generate HDR result filename
+            # Format: capture_20251010_142734_hdr.jpg
+            base_filename = brackets[0]["filename"]
+            hdr_filename = base_filename.replace("_bracket0", "_hdr")
+            hdr_output_path = images_dir / hdr_filename
+
+            # Call HDR processing module
+            from hdr_processing import process_bracket_set
+
+            logger.info(f"Merging {len(bracket_paths)} brackets with Mertens fusion")
+            result_path, metadata = process_bracket_set(
+                bracket_paths=bracket_paths,
+                output_path=hdr_output_path,
+                algorithm="mertens",
+                contrast_weight=1.0,
+                saturation_weight=1.0,
+                exposure_weight=0.0,
+            )
+
+            logger.info(
+                f"✓ HDR merge complete: {hdr_filename} "
+                f"({metadata['processing_time_seconds']:.2f}s)"
+            )
+
+            # Record HDR result in database
+            bracket_ids = [str(b["id"]) for b in brackets]
+            source_bracket_ids_json = json.dumps(bracket_ids)
+
+            # Get settings from first bracket for metadata
+            with db._get_connection() as conn:
+                first_bracket_settings = conn.execute(
+                    """
+                    SELECT iso, shutter_speed, lux, wb_temp, wb_mode,
+                           af_mode, lens_position, sharpness, contrast, saturation
+                    FROM captures WHERE id = ?
+                    """,
+                    (brackets[0]["id"],)
+                ).fetchone()
+
+            # Record HDR result capture
+            hdr_settings = {
+                "profile": profile,
+                "is_hdr_result": True,
+                "source_bracket_ids": source_bracket_ids_json,
+                "hdr_result_id": None,  # This IS the result
+                # Copy settings from first bracket
+                "iso": first_bracket_settings["iso"] if first_bracket_settings else None,
+                "shutter_speed": first_bracket_settings["shutter_speed"] if first_bracket_settings else None,
+                "lux": first_bracket_settings["lux"] if first_bracket_settings else None,
+                "wb_temp": first_bracket_settings["wb_temp"] if first_bracket_settings else None,
+                "awb_mode": first_bracket_settings["wb_mode"] if first_bracket_settings else None,
+                "af_mode": first_bracket_settings["af_mode"] if first_bracket_settings else None,
+                "lens_position": first_bracket_settings["lens_position"] if first_bracket_settings else None,
+                "sharpness": first_bracket_settings["sharpness"] if first_bracket_settings else None,
+                "contrast": first_bracket_settings["contrast"] if first_bracket_settings else None,
+                "saturation": first_bracket_settings["saturation"] if first_bracket_settings else None,
+            }
+
+            db.record_capture(
+                session_id=session_id,
+                filename=hdr_filename,
+                timestamp=datetime.fromisoformat(timestamp),
+                settings=hdr_settings,
+            )
+
+            # Get the HDR result ID and update bracket records
+            with db._get_connection() as conn:
+                hdr_result = conn.execute(
+                    "SELECT id FROM captures WHERE filename = ? AND session_id = ?",
+                    (hdr_filename, session_id),
+                ).fetchone()
+
+                if hdr_result:
+                    hdr_result_id = hdr_result["id"]
+
+                    # Update all source brackets to point to HDR result
+                    for bracket_id in bracket_ids:
+                        conn.execute(
+                            "UPDATE captures SET hdr_result_id = ? WHERE id = ?",
+                            (hdr_result_id, bracket_id),
+                        )
+
+                    conn.commit()
+                    logger.info(
+                        f"✓ Linked {len(bracket_ids)} brackets to HDR result (id={hdr_result_id})"
+                    )
+
+            hdr_created_count += 1
+            processed_count += 1
+
+            # Cleanup bracket images if requested
+            if cleanup_brackets:
+                for bracket_path in bracket_paths:
+                    try:
+                        bracket_path.unlink()
+                        logger.debug(f"Deleted bracket: {bracket_path.name}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete bracket {bracket_path}: {e}")
+
+        except Exception as e:
+            error_msg = f"Failed to process bracket set {timestamp}: {e}"
+            logger.error(error_msg, exc_info=True)
+            errors.append({"timestamp": timestamp, "error": str(e)})
+
+    result = {
+        "status": "success" if processed_count > 0 else "error",
+        "message": f"Processed {processed_count} bracket set(s)",
+        "bracket_sets_processed": processed_count,
+        "hdr_images_created": hdr_created_count,
+        "errors": errors if errors else None,
+    }
+
+    logger.info(
+        f"🌅 HDR processing complete: {hdr_created_count} HDR image(s) created "
+        f"from {processed_count} bracket set(s)"
+    )
+
+    return result
 
 
 def _build_debug_overlay(
